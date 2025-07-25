@@ -512,12 +512,24 @@ def run_dbt():
         # Change to the project directory
         os.chdir(project_root)
         
+        # Check if we're in Render environment
+        is_render = os.getenv('RENDER') == 'true'
+        
+        if is_render:
+            logger.info("🔄 Running dbt in Render environment")
+            # In Render, use the current directory for profiles
+            dbt_command = ['dbt', 'run', '--profiles-dir', '.']
+        else:
+            logger.info("🔄 Running dbt in local environment")
+            dbt_command = ['dbt', 'run']
+        
         # Run dbt with subprocess
         result = subprocess.run(
-            ['dbt', 'run'],
+            dbt_command,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            env=os.environ.copy()  # Pass through all environment variables
         )
         
         logger.info("✅ dbt run completed successfully")
@@ -532,9 +544,19 @@ def run_dbt():
         logger.error(f"❌ dbt run failed with exit code {e.returncode}")
         logger.error(f"dbt stdout: {e.stdout}")
         logger.error(f"dbt stderr: {e.stderr}")
+        
+        # Provide specific guidance for Render environment
+        if is_render and "profiles-dir" in str(e.stderr):
+            logger.error("💡 Render dbt profiles issue detected. Make sure:")
+            logger.error("   1. Your profiles.yml file is in the project root")
+            logger.error("   2. The profiles.yml contains the correct database connection")
+            logger.error("   3. All required environment variables are set in Render")
+        
         return False
     except FileNotFoundError:
         logger.error("❌ dbt command not found. Please ensure dbt is installed and available in PATH")
+        if is_render:
+            logger.error("💡 In Render, make sure dbt is listed in your requirements.txt or build script")
         return False
     except Exception as e:
         logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
