@@ -1,0 +1,74 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw data from Commerce7 API"
+    schema: "{{ var('raw_schema', 'public') }}"
+    tables:
+      - name: raw_customer
+        description: "Raw customer data from Commerce7 API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: created_at
+            description: "Record creation timestamp"
+          - name: updated_at
+            description: "Record update timestamp"
+            
+      - name: raw_order
+        description: "Raw order data from Commerce7 API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: created_at
+            description: "Record creation timestamp"
+          - name: updated_at
+            description: "Record update timestamp"
+            
+      - name: raw_product
+        description: "Raw product data from Commerce7 API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: created_at
+            description: "Record creation timestamp"
+          - name: updated_at
+            description: "Record update timestamp"
+            
+      - name: raw_club_membership
+        description: "Raw club membership data from Commerce7 API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: created_at
+            description: "Record creation timestamp"
+          - name: updated_at
+            description: "Record update timestamp" 

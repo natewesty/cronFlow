@@ -1,0 +1,30 @@
+name: 'cronDon'
+version: '1.0.0'
+config-version: 2
+
+profile: 'cronDon'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  cronDon:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+    intermediate:
+      +materialized: ephemeral
+
+vars:
+  # Add any project-level variables here
+  raw_schema: "public"  # Schema where raw data is stored 

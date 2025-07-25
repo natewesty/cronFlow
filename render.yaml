@@ -4,12 +4,32 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python ingest.py
-    schedule: "0 */6 * * *"  # Run every 6 hours
+    schedule: "0 */1 * * *"  # Run every hour
     envVars:
       - key: C7_AUTH_TOKEN
         sync: false
       - key: C7_TENANT
         sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+  - type: cron
+    name: cronDon-dbt
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_dbt.py
+    schedule: "30 */1 * * *"  # Run 30 minutes after ingestion
+    envVars:
       - key: DATABASE_URL
         sync: false
       - key: DB_HOST
