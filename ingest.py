@@ -60,7 +60,12 @@ def retry_on_db_error(max_retries: int = 3, base_delay: float = 1.0):
 
 def get_project_root() -> Path:
     """Get the project root directory."""
-    return Path(__file__).parent.parent
+    # In Render, the project root is the current working directory
+    # In local development, it's the parent of the parent of this file
+    if os.getenv('RENDER') == 'true':
+        return Path.cwd()
+    else:
+        return Path(__file__).parent.parent
 
 def get_database_path() -> str:
     """Get the correct database connection string for PostgreSQL or SQLite."""
@@ -509,19 +514,41 @@ def run_dbt():
         project_root = get_project_root()
         logger.info(f"Running dbt from: {project_root}")
         
-        # Change to the project directory
-        os.chdir(project_root)
-        
         # Check if we're in Render environment
         is_render = os.getenv('RENDER') == 'true'
         
+        # Verify dbt project files exist
+        dbt_project_path = project_root / 'dbt_project.yml'
+        profiles_path = project_root / 'profiles.yml'
+        
+        logger.info(f"Checking dbt project file: {dbt_project_path}")
+        if not dbt_project_path.exists():
+            logger.error(f"❌ dbt_project.yml not found at {dbt_project_path}")
+            return False
+            
+        logger.info(f"Checking profiles file: {profiles_path}")
+        if not profiles_path.exists():
+            logger.error(f"❌ profiles.yml not found at {profiles_path}")
+            return False
+        
+        # List directory contents for debugging
+        logger.info("📁 Project directory contents:")
+        for item in project_root.iterdir():
+            logger.info(f"   - {item.name}")
+        
+        # Change to the project directory
+        os.chdir(project_root)
+        logger.info(f"✅ Changed working directory to: {os.getcwd()}")
+        
         if is_render:
             logger.info("🔄 Running dbt in Render environment")
-            # In Render, use the current directory for profiles
-            dbt_command = ['dbt', 'run', '--profiles-dir', '.']
+            # In Render, use the current directory for profiles and be explicit about project
+            dbt_command = ['dbt', 'run', '--profiles-dir', '.', '--project-dir', '.']
         else:
             logger.info("🔄 Running dbt in local environment")
             dbt_command = ['dbt', 'run']
+        
+        logger.info(f"🔄 Executing command: {' '.join(dbt_command)}")
         
         # Run dbt with subprocess
         result = subprocess.run(
@@ -551,6 +578,11 @@ def run_dbt():
             logger.error("   1. Your profiles.yml file is in the project root")
             logger.error("   2. The profiles.yml contains the correct database connection")
             logger.error("   3. All required environment variables are set in Render")
+        elif "dbt_project.yml" in str(e.stdout) or "dbt_project.yml" in str(e.stderr):
+            logger.error("💡 dbt_project.yml not found. Make sure:")
+            logger.error("   1. The dbt_project.yml file is in the project root")
+            logger.error("   2. The working directory is correct")
+            logger.error("   3. All dbt files are properly deployed to Render")
         
         return False
     except FileNotFoundError:
