@@ -4,6 +4,7 @@ cronDon:
     # Primary configuration using DATABASE_URL (recommended for Render)
     prod_url:
       type: postgres
+      database: "{{ env_var('DB_NAME') }}"
       url: "{{ env_var('DATABASE_URL') }}"
       schema: analytics
       threads: 4
