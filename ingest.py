@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Commerce7 Data Ingestion Script - Production Version
+Commerce7 Data Ingestion Script
 
-This script is optimized for running as a CRON job on Render.
-It includes proper error handling, logging, and exit codes for monitoring.
+This script pulls data from Commerce7 API and loads it into the data warehouse.
+It uses incremental loading based on the updatedAt watermark.
 """
 
 import os
 import sys
 import logging
+import base64
 import json
 import time
 import subprocess
@@ -16,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from pathlib import Path
 
+import pandas as pd
 import requests
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -23,15 +25,13 @@ from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.pool import QueuePool
 import numpy as np
 
-# Load environment variables
-load_dotenv()
-
-# Configure logging for production
+# Configure logging with more detailed format
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG for more verbose output
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('ingest.log')  # Add file logging
     ]
 )
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def retry_on_db_error(max_retries: int = 3, base_delay: float = 1.0):
                 except (OperationalError, SQLAlchemyError) as e:
                     last_exception = e
                     if attempt < max_retries - 1:
-                        delay = base_delay * (2 ** attempt)
+                        delay = base_delay * (2 ** attempt)  # Exponential backoff
                         logger.warning(f"Database operation failed (attempt {attempt + 1}/{max_retries}): {str(e)}")
                         logger.info(f"Retrying in {delay} seconds...")
                         time.sleep(delay)
@@ -58,8 +58,12 @@ def retry_on_db_error(max_retries: int = 3, base_delay: float = 1.0):
         return wrapper
     return decorator
 
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    return Path(__file__).parent.parent
+
 def get_database_path() -> str:
-    """Get the correct database connection string for PostgreSQL."""
+    """Get the correct database connection string for PostgreSQL or SQLite."""
     # Check for PostgreSQL connection string first
     database_url = os.getenv('DATABASE_URL')
     if database_url:
@@ -79,10 +83,15 @@ def get_database_path() -> str:
     
     if all([db_host, db_name, db_user, db_password]):
         logger.info("Using PostgreSQL connection from individual environment variables")
+        # Add SSL and timeout parameters for Render PostgreSQL
         ssl_params = "?sslmode=require&connect_timeout=30&application_name=dashdon_ingest" if 'render.com' in db_host else ""
         return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}{ssl_params}"
     
-    raise ValueError("No PostgreSQL configuration found. Please set DATABASE_URL or individual DB_* variables.")
+    # Fallback to SQLite for backward compatibility
+    logger.warning("No PostgreSQL configuration found, falling back to SQLite")
+    project_root = get_project_root()
+    db_path = project_root / 'commerce7_dw.db'
+    return f"sqlite:///{db_path}"
 
 def create_database_engine():
     """Create a database engine with proper connection pooling and timeout settings."""
@@ -93,10 +102,10 @@ def create_database_engine():
         engine = create_engine(
             database_url,
             poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            pool_recycle=3600,
+            pool_size=5,  # Number of connections to maintain
+            max_overflow=10,  # Additional connections that can be created
+            pool_pre_ping=True,  # Validate connections before use
+            pool_recycle=3600,  # Recycle connections after 1 hour
             connect_args={
                 'connect_timeout': 30,
                 'application_name': 'dashdon_ingest'
@@ -104,269 +113,509 @@ def create_database_engine():
         )
         logger.debug("Created PostgreSQL engine with connection pooling")
     else:
-        raise ValueError("Only PostgreSQL is supported in production")
+        # SQLite engine (simpler configuration)
+        engine = create_engine(database_url)
+        logger.debug("Created SQLite engine")
     
     return engine
 
+def load_environment():
+    """Load and validate environment variables."""
+    # Load environment variables from project root
+    project_root = get_project_root()
+    env_path = project_root / '.env'
+    logger.info(f"Project root: {project_root}")
+    logger.info(f"Attempting to load .env file from: {env_path}")
+    
+    if not env_path.exists():
+        logger.error(f".env file not found at {env_path}")
+        raise FileNotFoundError(f".env file not found at {env_path}")
+    
+    load_dotenv(env_path)
+    
+    # Log all relevant environment variables (masking sensitive data)
+    env_vars = {
+        'C7_AUTH_TOKEN': os.getenv('C7_AUTH_TOKEN'),
+        'C7_TENANT': os.getenv('C7_TENANT'),
+        'DATABASE_URL': os.getenv('DATABASE_URL'),
+        'DB_HOST': os.getenv('DB_HOST'),
+        'DB_NAME': os.getenv('DB_NAME'),
+        'DB_USER': os.getenv('DB_USER'),
+        'DB_PASSWORD': os.getenv('DB_PASSWORD')
+    }
+    
+    logger.info("Environment variables loaded:")
+    for key, value in env_vars.items():
+        if value:
+            masked_value = '*' * len(value) if 'PASSWORD' in key or 'TOKEN' in key else value
+            logger.info(f"{key}: {masked_value}")
+        else:
+            logger.warning(f"{key}: Not set")
+    
+    # Validate required environment variables
+    # Check for either DATABASE_URL or individual PostgreSQL variables
+    has_postgres_config = (
+        env_vars['DATABASE_URL'] or 
+        all([env_vars['DB_HOST'], env_vars['DB_NAME'], env_vars['DB_USER'], env_vars['DB_PASSWORD']])
+    )
+    
+    missing_vars = [key for key, value in env_vars.items() if not value and key in ['C7_AUTH_TOKEN', 'C7_TENANT']]
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+    
+    if not has_postgres_config:
+        logger.warning("No PostgreSQL configuration found - will use SQLite fallback")
+
 class Commerce7Client:
-    """Client for interacting with Commerce7 API."""
+    """Commerce7 API client for data ingestion."""
     
     def __init__(self):
         self.auth_token = os.getenv('C7_AUTH_TOKEN')
         self.tenant = os.getenv('C7_TENANT')
+        self.base_url = 'https://api.commerce7.com/v1'
         
-        if not self.auth_token or not self.tenant:
-            raise ValueError("C7_AUTH_TOKEN and C7_TENANT environment variables are required")
+        if not all([self.auth_token, self.tenant]):
+            raise ValueError("Missing required Commerce7 API credentials")
         
-        self.base_url = f"https://api.commerce7.com/v1"
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             'Content-Type': 'application/json',
             'tenant': self.tenant,
             'Authorization': f"Basic {self.auth_token}"
-        }
-        self.engine = create_database_engine()
+        })
+        logger.debug("Commerce7Client initialized successfully")
     
     @retry_on_db_error(max_retries=3, base_delay=2.0)
     def get_watermark(self, table: str) -> Optional[datetime]:
-        """Get the watermark for a table."""
-        with self.engine.connect() as conn:
-            # Create watermark table if it doesn't exist
-            create_table_sql = f"""
-            CREATE TABLE IF NOT EXISTS watermark (
-                id VARCHAR(255) PRIMARY KEY,
-                last_processed_at TIMESTAMP WITH TIME ZONE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-            conn.execute(text(create_table_sql))
-            conn.commit()
+        """Get the last processed timestamp for a table."""
+        try:
+            logger.debug("Attempting to create database engine...")
+            engine = create_database_engine()
+            logger.debug("Engine created successfully")
             
-            # Get the watermark
-            result = conn.execute(
-                text("SELECT last_processed_at FROM watermark WHERE id = :table"),
-                {"table": table}
-            ).fetchone()
-            
-            if result and result[0]:
-                return result[0]
-            return None
+            logger.debug("Attempting to establish connection...")
+            with engine.connect() as conn:
+                logger.debug("Connection established successfully")
+                
+                # Convert table name to database compatible format
+                db_table = table.replace('-', '_')
+                
+                # Create table if it doesn't exist with PostgreSQL-compatible schema
+                logger.debug(f"Creating table raw_{db_table} if it doesn't exist")
+                
+                # Use PostgreSQL-specific syntax
+                create_table_sql = f"""
+                    CREATE TABLE IF NOT EXISTS raw_{db_table} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        last_processed_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_ab_id VARCHAR(255),
+                        _airbyte_emitted_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_normalized_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_{db_table}_hashid VARCHAR(255),
+                        data JSONB
+                    )
+                """
+                conn.execute(text(create_table_sql))
+                conn.commit()
+                
+                logger.debug(f"Executing query for watermark on table: raw_{db_table}")
+                result = conn.execute(text(
+                    f"SELECT MAX(last_processed_at) FROM raw_{db_table}"
+                )).scalar()
+                logger.debug(f"Watermark for {table}: {result}")
+                
+                # Convert timestamp to datetime object if it exists
+                if result:
+                    try:
+                        # PostgreSQL returns datetime objects directly
+                        if isinstance(result, datetime):
+                            return result
+                        elif isinstance(result, str):
+                            # Handle string timestamps if they occur
+                            if 'T' in result:
+                                # ISO format: 2025-06-30T21:44:04.349447
+                                return datetime.fromisoformat(result.replace('Z', '+00:00'))
+                            else:
+                                # PostgreSQL format: 2025-06-30 21:44:04.349447
+                                return datetime.strptime(result, '%Y-%m-%d %H:%M:%S.%f')
+                        else:
+                            logger.warning(f"Unexpected watermark type: {type(result)}, value: {result}")
+                            return None
+                    except ValueError as e:
+                        logger.error(f"Failed to parse watermark timestamp '{result}': {e}")
+                        return None
+                
+                return None
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while getting watermark for {table}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            raise
     
     def fetch_data(self, endpoint: str, watermark: Optional[datetime] = None) -> List[Dict]:
-        """Fetch data from Commerce7 API with pagination."""
+        """Fetch data from Commerce7 API with cursor-based pagination and optional watermark filtering."""
+        url = f"{self.base_url}/{endpoint}"
         all_data = []
-        cursor = None
-        total_records = 0
+        cursor = "start"
+        batch_size = 1000  # Process in batches of 1000
         
-        logger.info(f"Starting data fetch for endpoint: {endpoint}")
+        # Map endpoints to their response data keys
+        endpoint_data_keys = {
+            'customer': 'customers',
+            'order': 'orders',
+            'product': 'products',
+            'club-membership': 'clubMemberships'
+        }
         
-        while True:
-            url = f"{self.base_url}/{endpoint}"
-            params = {}
-            
-            if cursor:
-                params['cursor'] = cursor
+        data_key = endpoint_data_keys.get(endpoint)
+        if not data_key:
+            raise ValueError(f"Unknown endpoint: {endpoint}")
+        
+        logger.debug(f"Fetching data from {endpoint} with watermark: {watermark}")
+        
+        while cursor:
+            params = {'cursor': cursor}
+            if watermark:
+                # Commerce7 API expects format: "gte: YYYY-MM-DD"
+                params['updatedAt'] = f"gte: {watermark.strftime('%Y-%m-%d')}"
             
             try:
-                response = requests.get(url, headers=self.headers, params=params, timeout=30)
+                logger.debug(f"Making API request to {endpoint} with cursor: {cursor}")
+                response = self.session.get(url, params=params)
                 response.raise_for_status()
-                
                 data = response.json()
-                records = data.get('data', [])
                 
-                if not records:
-                    logger.info("No more records to fetch")
+                if isinstance(data, dict):
+                    # Get items using the endpoint-specific key
+                    items = data.get(data_key, [])
+                    cursor = data.get('cursor')
+                    logger.debug(f"Response contains {len(items)} items")
+                    
+                    if items:
+                        all_data.extend(items)
+                        logger.debug(f"Fetched {len(items)} records from {endpoint}")
+                        
+                        # Process batch if we've reached the batch size
+                        if len(all_data) >= batch_size:
+                            logger.info(f"Processing batch of {len(all_data)} records")
+                            self.upsert_data(endpoint, all_data)
+                            all_data = []  # Clear the batch
+                    
+                    # If we get no items and no cursor, we're done
+                    if not items and not cursor:
+                        logger.info("No more data to fetch")
+                        break
+                        
+                    # If we get no items but a cursor, we might be in a loop
+                    if not items and cursor:
+                        logger.warning(f"No items returned but cursor exists: {cursor}")
+                        if cursor in all_data:
+                            logger.error("Detected cursor loop, breaking")
+                            break
+                else:
+                    logger.error(f"Unexpected response format: {type(data)}")
                     break
-                
-                # Filter by watermark if provided
-                if watermark:
-                    filtered_records = []
-                    for record in records:
-                        updated_at = record.get('updatedAt')
-                        if updated_at:
-                            record_datetime = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
-                            if record_datetime > watermark:
-                                filtered_records.append(record)
-                    records = filtered_records
-                
-                all_data.extend(records)
-                total_records += len(records)
-                
-                logger.info(f"Fetched {len(records)} records (total: {total_records})")
-                
-                # Get next cursor
-                cursor = data.get('pagination', {}).get('cursor')
-                if not cursor:
-                    logger.info("No more pages to fetch")
-                    break
-                
-                # Small delay to be respectful to the API
-                time.sleep(0.1)
                 
             except requests.exceptions.RequestException as e:
-                logger.error(f"API request failed: {e}")
+                logger.error(f"API request failed: {str(e)}")
+                logger.error(f"Response status code: {e.response.status_code if hasattr(e, 'response') else 'N/A'}")
                 raise
         
-        logger.info(f"Completed data fetch. Total records: {total_records}")
+        # Process any remaining records
+        if all_data:
+            logger.info(f"Processing final batch of {len(all_data)} records")
+            self.upsert_data(endpoint, all_data)
+        
+        logger.info(f"Completed fetching and processing all records from {endpoint}")
         return all_data
     
     @retry_on_db_error(max_retries=3, base_delay=2.0)
     def upsert_data(self, table: str, data: List[Dict]):
         """Upsert data into the database."""
         if not data:
-            logger.info(f"No data to upsert for table: {table}")
+            logger.info(f"No new data to upsert for {table}")
             return
         
-        with self.engine.connect() as conn:
-            # Create table if it doesn't exist
-            create_table_sql = f"""
-            CREATE TABLE IF NOT EXISTS {table} (
-                id VARCHAR(255) PRIMARY KEY,
-                data JSONB NOT NULL,
-                last_processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-            conn.execute(text(create_table_sql))
-            
-            # Upsert data
-            upsert_sql = f"""
-            INSERT INTO {table} (id, data, last_processed_at)
-            VALUES (:id, :data, :last_processed_at)
-            ON CONFLICT (id) DO UPDATE SET
-                data = EXCLUDED.data,
-                last_processed_at = EXCLUDED.last_processed_at,
-                updated_at = CURRENT_TIMESTAMP
-            """
-            
-            for record in data:
-                record_id = record.get('id')
-                if record_id:
-                    conn.execute(text(upsert_sql), {
-                        "id": record_id,
-                        "data": json.dumps(record),
-                        "last_processed_at": datetime.now(timezone.utc)
-                    })
-            
-            conn.commit()
-            logger.info(f"Upserted {len(data)} records into {table}")
-    
-    def process_endpoint(self, endpoint: str) -> bool:
-        """Process a single endpoint with error handling."""
         try:
-            logger.info(f"Processing endpoint: {endpoint}")
+            current_time = datetime.now(timezone.utc)
             
-            # Get watermark
-            watermark = self.get_watermark(endpoint)
-            if watermark:
-                logger.info(f"Using watermark: {watermark}")
+            # Convert table name to database compatible format
+            db_table = table.replace('-', '_')
             
-            # Fetch data
-            data = self.fetch_data(endpoint, watermark)
+            # Create DataFrame with only the essential columns
+            df = pd.DataFrame([{
+                'id': record.get('id'),
+                'last_processed_at': current_time,
+                'data': json.dumps(record)  # Store the entire record as JSON
+            } for record in data])
             
-            if data:
-                # Upsert data
-                self.upsert_data(f"raw_{endpoint}", data)
-                
-                # Update watermark
-                with self.engine.connect() as conn:
-                    conn.execute(
-                        text("""
-                            INSERT INTO watermark (id, last_processed_at)
-                            VALUES (:table, :timestamp)
-                            ON CONFLICT (id) DO UPDATE SET
-                                last_processed_at = EXCLUDED.last_processed_at,
-                                updated_at = CURRENT_TIMESTAMP
-                        """),
-                        {
-                            "table": endpoint,
-                            "timestamp": datetime.now(timezone.utc)
-                        }
+            logger.debug("Attempting to create database engine...")
+            engine = create_database_engine()
+            logger.debug("Engine created successfully")
+            
+            # Add metadata columns
+            df['_airbyte_ab_id'] = pd.util.hash_pandas_object(df).astype(str)
+            df['_airbyte_emitted_at'] = current_time
+            df['_airbyte_normalized_at'] = current_time
+            df['_airbyte_' + db_table + '_hashid'] = pd.util.hash_pandas_object(df).astype(str)
+            
+            # Create a temporary table for the new data
+            temp_table = f'temp_{db_table}'
+            df.to_sql(
+                temp_table,
+                engine,
+                if_exists='replace',
+                index=False
+            )
+            
+            # Perform the upsert using PostgreSQL's ON CONFLICT
+            with engine.connect() as conn:
+                # Use PostgreSQL's INSERT ... ON CONFLICT ... DO UPDATE
+                upsert_sql = f"""
+                    INSERT INTO raw_{db_table} (
+                        id, last_processed_at, _airbyte_ab_id, 
+                        _airbyte_emitted_at, _airbyte_normalized_at, 
+                        _airbyte_{db_table}_hashid, data
                     )
-                    conn.commit()
+                    SELECT 
+                        id, last_processed_at, _airbyte_ab_id,
+                        _airbyte_emitted_at, _airbyte_normalized_at,
+                        _airbyte_{db_table}_hashid, data::jsonb
+                    FROM {temp_table}
+                    ON CONFLICT (id) DO UPDATE SET
+                        last_processed_at = EXCLUDED.last_processed_at,
+                        _airbyte_ab_id = EXCLUDED._airbyte_ab_id,
+                        _airbyte_emitted_at = EXCLUDED._airbyte_emitted_at,
+                        _airbyte_normalized_at = EXCLUDED._airbyte_normalized_at,
+                        _airbyte_{db_table}_hashid = EXCLUDED._airbyte_{db_table}_hashid,
+                        data = EXCLUDED.data
+                """
+                conn.execute(text(upsert_sql))
+                conn.commit()
                 
-                logger.info(f"Successfully processed {len(data)} records for {endpoint}")
-                return True
-            else:
-                logger.info(f"No new data for {endpoint}")
-                return True
-                
-        except Exception as e:
-            logger.error(f"Error processing {endpoint}: {e}")
-            return False
-
-def main():
-    """Main function for production ingestion."""
-    start_time = datetime.now()
-    logger.info("Starting Commerce7 data ingestion")
-    
-    # Validate environment
-    required_vars = ['C7_AUTH_TOKEN', 'C7_TENANT']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    if missing_vars:
-        logger.error(f"Missing required environment variables: {missing_vars}")
-        sys.exit(1)
-    
-    # Define endpoints to process
-    endpoints = [
-        'customer',
-        'order', 
-        'product',
-        'club-membership'
-    ]
-    
-    client = Commerce7Client()
-    success_count = 0
-    total_endpoints = len(endpoints)
-    
-    for endpoint in endpoints:
-        try:
-            if client.process_endpoint(endpoint):
-                success_count += 1
-            else:
-                logger.error(f"Failed to process {endpoint}")
-        except Exception as e:
-            logger.error(f"Unexpected error processing {endpoint}: {e}")
-    
-    end_time = datetime.now()
-    duration = end_time - start_time
-    
-    logger.info(f"Ingestion completed in {duration}")
-    logger.info(f"Successfully processed {success_count}/{total_endpoints} endpoints")
-    
-    # Exit with appropriate code
-    if success_count == total_endpoints:
-        logger.info("All endpoints processed successfully")
-        
-        # Run dbt transformations if ingestion was successful
-        logger.info("Starting dbt transformations...")
-        try:
-            dbt_result = subprocess.run(
-                ["python", "run_dbt.py"],
-                capture_output=True,
-                text=True,
-                check=False
-            )
+                # Drop the temporary table
+                conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+                conn.commit()
             
-            if dbt_result.returncode == 0:
-                logger.info("✅ dbt transformations completed successfully")
-                sys.exit(0)
-            else:
-                logger.error(f"❌ dbt transformations failed with exit code {dbt_result.returncode}")
-                if dbt_result.stdout:
-                    logger.error(f"dbt stdout: {dbt_result.stdout}")
-                if dbt_result.stderr:
-                    logger.error(f"dbt stderr: {dbt_result.stderr}")
-                sys.exit(1)
-                
+            logger.info(f"Successfully upserted {len(data)} records to raw_{db_table}")
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while upserting data to {table}: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            raise
         except Exception as e:
-            logger.error(f"❌ Failed to run dbt transformations: {e}")
+            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            raise
+
+def test_database_connection():
+    """Test database connection and diagnose issues."""
+    try:
+        logger.info("🔍 Testing database connection...")
+        
+        # Load environment variables
+        load_environment()
+        
+        # Get database URL (masked for security)
+        db_url = get_database_path()
+        masked_url = db_url.split('@')[1] if '@' in db_url else db_url
+        logger.info(f"Testing connection to: {masked_url}")
+        
+        # Test connection with timeout
+        engine = create_database_engine()
+        
+        with engine.connect() as conn:
+            # Test basic connectivity
+            result = conn.execute(text("SELECT 1 as test"))
+            logger.info("✅ Basic connection successful")
+            
+            # Test PostgreSQL-specific features
+            if 'postgresql' in db_url:
+                # Check version
+                version_result = conn.execute(text("SELECT version()"))
+                version = version_result.scalar()
+                logger.info(f"✅ PostgreSQL version: {version.split(',')[0]}")
+                
+                # Check SSL status
+                ssl_result = conn.execute(text("SHOW ssl"))
+                ssl_status = ssl_result.scalar()
+                logger.info(f"✅ SSL status: {ssl_status}")
+                
+                # Check connection info
+                conn_info = conn.execute(text("SELECT current_database(), current_user, inet_server_addr(), inet_server_port()"))
+                db_info = conn_info.fetchone()
+                logger.info(f"✅ Connected to database: {db_info[0]} as {db_info[1]} on {db_info[2]}:{db_info[3]}")
+            
+            logger.info("🎉 Database connection test completed successfully!")
+            return True
+            
+    except OperationalError as e:
+        logger.error(f"❌ Connection failed: {str(e)}")
+        
+        # Provide specific troubleshooting advice
+        if "timeout" in str(e).lower():
+            logger.error("💡 Troubleshooting timeout issues:")
+            logger.error("   1. Check your internet connection")
+            logger.error("   2. Verify the database URL is correct")
+            logger.error("   3. Ensure your firewall allows outbound connections to port 5432")
+            logger.error("   4. Try adding 'sslmode=require' to your connection string")
+        elif "authentication" in str(e).lower():
+            logger.error("💡 Troubleshooting authentication issues:")
+            logger.error("   1. Verify username and password are correct")
+            logger.error("   2. Check if the user has proper permissions")
+        elif "host" in str(e).lower():
+            logger.error("💡 Troubleshooting host issues:")
+            logger.error("   1. Verify the hostname is correct")
+            logger.error("   2. Check if the database is running")
+            logger.error("   3. Ensure the database is accessible from external connections")
+        
+        return False
+    except Exception as e:
+        logger.error(f"❌ Unexpected error: {str(e)}")
+        return False
+
+def main(endpoint: str = None):
+    """Main ingestion function."""
+    try:
+        # Load and validate environment variables
+        load_environment()
+        
+        client = Commerce7Client()
+        endpoints = [endpoint] if endpoint else ['customer', 'club-membership', 'product', 'order']
+        
+        for endpoint in endpoints:
+            table = endpoint.replace('-', '_')
+            watermark = client.get_watermark(table)
+            
+            logger.info(f"Fetching {endpoint} data since {watermark}")
+            data = client.fetch_data(endpoint, watermark)
+            
+            logger.info(f"Upserting {len(data)} records to {table}")
+            client.upsert_data(table, data)
+            
+        logger.info("Data ingestion completed successfully")
+        
+        # Run dbt models after successful data ingestion
+        logger.info("Starting dbt transformation pipeline...")
+        if run_dbt():
+            logger.info("🎉 Complete pipeline (ingestion + dbt) finished successfully!")
+        else:
+            logger.error("❌ dbt run failed, but data ingestion was successful")
             sys.exit(1)
-    else:
-        logger.error(f"Some endpoints failed ({success_count}/{total_endpoints})")
-        logger.info("Skipping dbt transformations due to ingestion failures")
+        
+    except Exception as e:
+        logger.error(f"Error during data ingestion: {str(e)}", exc_info=True)  # Added exc_info for full traceback
         sys.exit(1)
 
-if __name__ == "__main__":
-    main() 
+def run_dbt():
+    """Run dbt models after successful data ingestion."""
+    try:
+        logger.info("🔄 Starting dbt run...")
+        
+        # Get the project root directory
+        project_root = get_project_root()
+        logger.info(f"Running dbt from: {project_root}")
+        
+        # Change to the project directory
+        os.chdir(project_root)
+        
+        # Run dbt with subprocess
+        result = subprocess.run(
+            ['dbt', 'run'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        logger.info("✅ dbt run completed successfully")
+        logger.debug(f"dbt output: {result.stdout}")
+        
+        if result.stderr:
+            logger.warning(f"dbt stderr: {result.stderr}")
+        
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ dbt run failed with exit code {e.returncode}")
+        logger.error(f"dbt stdout: {e.stdout}")
+        logger.error(f"dbt stderr: {e.stderr}")
+        return False
+    except FileNotFoundError:
+        logger.error("❌ dbt command not found. Please ensure dbt is installed and available in PATH")
+        return False
+    except Exception as e:
+        logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
+        return False
+
+def test_upsert():
+    """Test the upsert process with sample data."""
+    try:
+        # Sample data that mimics the structure of club membership records
+        sample_data = [
+            {
+                "id": "test1",
+                "updatedAt": "2024-03-05T12:00:00Z",
+                "customerId": "cust1",
+                "clubId": "club1",
+                "status": "active",
+                "startDate": "2024-01-01T00:00:00Z",
+                "endDate": "2024-12-31T23:59:59Z",
+                "metadata": {
+                    "source": "test",
+                    "tier": "gold"
+                }
+            },
+            {
+                "id": "test2",
+                "updatedAt": "2024-03-05T13:00:00Z",
+                "customerId": "cust2",
+                "clubId": "club2",
+                "status": "pending",
+                "startDate": "2024-02-01T00:00:00Z",
+                "endDate": "2024-12-31T23:59:59Z",
+                "metadata": {
+                    "source": "test",
+                    "tier": "silver"
+                }
+            }
+        ]
+        
+        client = Commerce7Client()
+        logger.info("Testing upsert with sample club membership data...")
+        client.upsert_data('club_membership', sample_data)
+        logger.info("Test upsert completed successfully")
+        
+        # Verify the data was inserted correctly
+        engine = create_database_engine()
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM raw_club_membership")).scalar()
+            logger.info(f"Total records in database: {result}")
+            
+            # Check a specific record
+            test_record = conn.execute(text("SELECT * FROM raw_club_membership WHERE id = 'test1'")).fetchone()
+            if test_record:
+                logger.info("Successfully retrieved test record")
+                logger.debug(f"Test record data: {test_record}")
+            else:
+                logger.error("Failed to retrieve test record")
+        
+    except Exception as e:
+        logger.error(f"Error during test upsert: {str(e)}", exc_info=True)
+        raise
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--test':
+            test_upsert()
+        elif sys.argv[1] == '--test-connection':
+            test_database_connection()
+        else:
+            main(sys.argv[1])  # Run with specific endpoint
+    else:
+        main()  # Run all endpoints 
