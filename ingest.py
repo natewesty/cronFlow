@@ -120,8 +120,9 @@ class Commerce7Client:
         
         self.base_url = f"https://api.commerce7.com/v1"
         self.headers = {
-            'Authorization': f'Bearer {self.auth_token}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'tenant': self.tenant,
+            'Authorization': f"Basic {self.auth_token}"
         }
         self.engine = create_database_engine()
     
