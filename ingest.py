@@ -11,6 +11,7 @@ import sys
 import logging
 import json
 import time
+import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from pathlib import Path
@@ -336,9 +337,34 @@ def main():
     # Exit with appropriate code
     if success_count == total_endpoints:
         logger.info("All endpoints processed successfully")
-        sys.exit(0)
+        
+        # Run dbt transformations if ingestion was successful
+        logger.info("Starting dbt transformations...")
+        try:
+            dbt_result = subprocess.run(
+                ["python", "run_dbt.py"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            
+            if dbt_result.returncode == 0:
+                logger.info("✅ dbt transformations completed successfully")
+                sys.exit(0)
+            else:
+                logger.error(f"❌ dbt transformations failed with exit code {dbt_result.returncode}")
+                if dbt_result.stdout:
+                    logger.error(f"dbt stdout: {dbt_result.stdout}")
+                if dbt_result.stderr:
+                    logger.error(f"dbt stderr: {dbt_result.stderr}")
+                sys.exit(1)
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to run dbt transformations: {e}")
+            sys.exit(1)
     else:
         logger.error(f"Some endpoints failed ({success_count}/{total_endpoints})")
+        logger.info("Skipping dbt transformations due to ingestion failures")
         sys.exit(1)
 
 if __name__ == "__main__":
