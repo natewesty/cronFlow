@@ -120,19 +120,6 @@ def create_database_engine():
     return engine
 
 def load_environment():
-    """Load and validate environment variables."""
-    # Load environment variables from project root
-    project_root = get_project_root()
-    env_path = project_root / '.env'
-    logger.info(f"Project root: {project_root}")
-    logger.info(f"Attempting to load .env file from: {env_path}")
-    
-    if not env_path.exists():
-        logger.error(f".env file not found at {env_path}")
-        raise FileNotFoundError(f".env file not found at {env_path}")
-    
-    load_dotenv(env_path)
-    
     # Log all relevant environment variables (masking sensitive data)
     env_vars = {
         'C7_AUTH_TOKEN': os.getenv('C7_AUTH_TOKEN'),
