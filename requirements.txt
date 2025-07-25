@@ -1,0 +1,10 @@
+# API and Data Processing
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Database
+psycopg2-binary>=2.9.0
+SQLAlchemy>=2.0.0
+
+# Scientific Computing (for numpy used in ingest.py)
+numpy>=1.26.0 

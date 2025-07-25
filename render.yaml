@@ -1,0 +1,24 @@
+services:
+  - type: cron
+    name: cronDon-ingestion
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python ingest.py
+    schedule: "0 */6 * * *"  # Run every 6 hours
+    envVars:
+      - key: C7_AUTH_TOKEN
+        sync: false
+      - key: C7_TENANT
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false 
