@@ -34,7 +34,7 @@ with src as (
     r.source_file,
     o                                         as _order_json
   from {{ source('raw','raw_order') }} r
-  cross join lateral jsonb_array_elements(r.payload->'orders') as o
+  cross join lateral jsonb_array_elements(r.data->'orders') as o
 ),
 dedup as (
   select *

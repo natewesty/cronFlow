@@ -44,8 +44,16 @@ with src as (
         r.load_ts,
         m                                        as _membership_json
     from {{ source('raw','raw_club_membership') }} r
-    cross join lateral jsonb_array_elements(r.payload->'clubMemberships') m
+    cross join lateral jsonb_array_elements(r.data->'clubMemberships') m
 ),
 
 dedup as (
-    select *, row_number() over (partition by_*
+    select
+        *
+      , row_number() over (
+            partition by membership_id
+            order by updated_at desc, load_ts desc
+        ) as rn
+    from src
+)
+

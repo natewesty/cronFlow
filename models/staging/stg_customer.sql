@@ -34,7 +34,7 @@ with src as (
         r.load_ts,
         c                                     as _customer_json
     from {{ source('raw','raw_customer') }} r
-    cross join lateral jsonb_array_elements(r.payload->'customers') as c
+    cross join lateral jsonb_array_elements(r.data->'customers') as c
 ),
 
 dedup as (
