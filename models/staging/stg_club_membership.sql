@@ -40,7 +40,7 @@ with src as (
         /* bookkeeping */
         (m->>'createdAt')::timestamptz          as created_at,
         (m->>'updatedAt')::timestamptz          as updated_at,
-        coalesce(r.last_processed, current_timestamp) as load_ts,
+        coalesce(r.last_processed_at, current_timestamp) as load_ts,
         m                                       as _membership_json
 
     from {{ source('raw', 'raw_club_membership') }} r

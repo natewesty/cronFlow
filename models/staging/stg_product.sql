@@ -28,7 +28,7 @@ with src as (
         (p->'wine'->>'vintage')::int         as vintage,
         (p->'wine'->>'alcoholPercentage')::numeric as abv,
 
-        coalesce(r.last_processed, current_timestamp) as load_ts,
+        coalesce(r.last_processed_at, current_timestamp) as load_ts,
         p                                         as _product_json
 
     from {{ source('raw', 'raw_product') }} r

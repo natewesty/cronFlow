@@ -9,4 +9,4 @@ select
     price_cents/100.0              as price_each,
     purchase_at                    as purchase_ts,
     date(purchase_at)              as purchase_date_key
-from {{ ref('stg_customer_product') }};
+from {{ ref('stg_customer_product') }}

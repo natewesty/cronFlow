@@ -39,4 +39,4 @@ select
     c.updated_at
 from base c
 left join emails e using (customer_id)
-left join tags   t using (customer_id);
+left join tags   t using (customer_id)

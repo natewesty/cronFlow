@@ -32,7 +32,7 @@ with src as (
 
       (o->>'createdAt')::timestamptz          as created_at,
       (o->>'updatedAt')::timestamptz          as updated_at,
-      coalesce(r.last_processed, current_timestamp) as load_ts,
+      coalesce(r.last_processed_at, current_timestamp) as load_ts,
       o                                       as _order_json
 
   from {{ source('raw', 'raw_order') }} r

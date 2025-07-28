@@ -5,5 +5,5 @@ select
   cl->>'clubTitle'                as club_title,
   (cl->>'signupDate')::timestamptz as signup_at,
   (cl->>'cancelDate')::timestamptz as cancel_at
-from base
+from src
 cross join lateral jsonb_array_elements(c->'clubs') cl
