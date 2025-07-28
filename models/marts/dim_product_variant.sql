@@ -22,4 +22,4 @@ select
     p.updated_at
 from {{ ref('stg_product_variant') }} pv
 join {{ ref('stg_product') }} p
-  on p.product_id = pv.product_id;
+  on p.product_id = pv.product_id

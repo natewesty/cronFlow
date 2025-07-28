@@ -1,8 +1,4 @@
-{{ config(
-    materialized = 'incremental',
-    unique_key   = 'md5(customer_id || purchase_at::text || coalesce(product_id::text, sku))',
-    incremental_strategy = 'merge'
-) }}
+{{ config(materialized='view') }}
 
 with base as (
     select customer_id, _customer_json as c, updated_at

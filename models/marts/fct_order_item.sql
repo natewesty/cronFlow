@@ -8,12 +8,12 @@ select
     oi.order_item_id,
     oi.order_id,
     oi.product_id,
-    oi.product_variant_id,
+    oi.product_variant_id,   -- exists after alias in stg_order_item
     oi.purchase_type,
     oi.item_type,
     oi.item_price,
     oi.item_tax,
-    oi.qty                as quantity,      -- ✅ correct column name
+    oi.quantity,
     oi.bottle_deposit,
     oi.updated_at
 from {{ ref('stg_order_item') }} oi

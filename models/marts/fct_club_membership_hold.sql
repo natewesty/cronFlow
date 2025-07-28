@@ -1,7 +1,7 @@
 {{ config(
-    materialized        = 'incremental',
-    unique_key          = 'hold_id',
-    incremental_strategy= 'merge'
+    materialized='incremental',
+    unique_key='hold_id',
+    incremental_strategy='merge'
 ) }}
 
 select
@@ -17,5 +17,6 @@ from {{ ref('stg_club_membership_hold') }}
 
 {% if is_incremental() %}
  where updated_at >= (
-        select coalesce(max(updated_at) - interval '3 days','2000‑01‑01') from {{ this }})
+        select coalesce(max(updated_at) - interval '3 days', date '2000-01-01')
+        from {{ this }})
 {% endif %}

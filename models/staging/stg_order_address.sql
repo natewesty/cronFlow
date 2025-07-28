@@ -1,6 +1,4 @@
-{{ config(materialized='incremental',
-          unique_key='order_id||address_type',
-          incremental_strategy='merge') }}
+{{ config(materialized='view') }}
 
 with base as (
   select order_id, _order_json as o

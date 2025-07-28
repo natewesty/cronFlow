@@ -1,8 +1,4 @@
-{{ config(
-    materialized = 'incremental',
-    unique_key   = 'customer_id||group_id',
-    incremental_strategy = 'merge'
-) }}
+{{ config(materialized='view') }}
 
 with base as (
     select customer_id, _customer_json as c, updated_at
