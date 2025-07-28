@@ -1,6 +1,5 @@
 {{ config(
     materialized = 'incremental',
-    -- build a deterministic surrogate key from customer + purchase + SKU / productId
     unique_key   = 'md5(customer_id || purchase_at::text || coalesce(product_id::text, sku))',
     incremental_strategy = 'merge'
 ) }}
