@@ -1,4 +1,4 @@
 {{ config(materialized='table') }}
 
 select *
-from {{ ref('stg_club_membership') }};
+from {{ ref('stg_club_membership') }}

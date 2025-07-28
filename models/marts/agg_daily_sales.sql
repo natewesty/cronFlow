@@ -7,4 +7,4 @@ select
     sum(subtotal)        as daily_subtotal,
     count(distinct order_id) as order_count
 from {{ ref('fct_order') }}
-group by 1;
+group by 1

@@ -27,8 +27,5 @@ tags as (
 select * from tags
 
 {% if is_incremental() %}
-  where updated_at >= (
-        select coalesce(max(updated_at) - interval '3 days', '2000‑01‑01')
-        from {{ this }}
-  )
+  where updated_at >= (select coalesce(max(updated_at) - interval '3 days', date '2000-01-01') from {{ this }})
 {% endif %}
