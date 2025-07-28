@@ -1,34 +1,51 @@
--- models/staging/stg_club_membership.sql
--- Staging model for Commerce7 club membership data
-
 {{ config(
-    materialized='incremental',
-    unique_key='club_membership_id',
-    incremental_strategy='merge'
+    materialized          = 'incremental',
+    unique_key            = 'membership_id',
+    incremental_strategy  = 'merge',
+    on_schema_change      = 'sync_all_columns'
 ) }}
 
-with base as (
+with src as (
     select
-        data->>'id' as club_membership_id,
-        data->>'customerId' as customer_id,
-        data->>'clubId' as club_id,
-        data->'club'->>'title' as club_title,
-        data->>'status' as status,
-        data->>'orderDeliveryMethod' as order_delivery_method,
-        data->>'signupDate' as signup_date,
-        data->>'cancelDate' as cancel_date,
-        data->>'cancellationReason' as cancellation_reason,
-        data->>'cancellationComments' as cancellation_comments,
-        data->>'lastProcessedDate' as last_processed_date,
-        data->>'currentNumberOfShipments' as current_number_of_shipments,
-        data->>'createdAt' as created_at,
-        data->>'updatedAt' as updated_at,
-        last_processed_at,
-        data
-    from {{ source('raw', 'raw_club_membership') }}
-    {% if is_incremental() %}
-        where date_trunc('day', last_processed_at) > (select max(date_trunc('day', last_processed_at)) from {{ this }})
-    {% endif %}
-)
+        (m->>'id')::uuid                        as membership_id,
+        m->>'status'                            as status,
+        (m->>'customerId')::uuid                as customer_id,
+        (m->>'clubId')::uuid                    as club_id,
+        m->>'clubType'                          as club_type,
 
-select * from base 
+        -- addresses & fulfillment
+        (m->>'billToCustomerAddressId')::uuid   as bill_to_address_id,
+        (m->>'shipToCustomerAddressId')::uuid   as ship_to_address_id,
+        (m->>'pickupInventoryLocationId')::uuid as pickup_inventory_location_id,
+        m->>'orderDeliveryMethod'               as delivery_method,
+        (m->>'customerCreditCardId')::uuid      as customer_credit_card_id,
+
+        -- lifecycle & status dates
+        (m->>'signupDate')::timestamptz         as signup_at,
+        (m->>'cancelDate')::timestamptz         as cancel_at,
+        (m->>'autoRenewalConsentDate')::timestamptz as auto_renewal_consent_at,
+        (m->>'lastProcessedDate')::timestamptz  as last_processed_at,
+
+        -- cancellation detail
+        m->>'cancellationReason'                as cancellation_reason,
+        m->>'cancellationComments'              as cancellation_comments,
+
+        -- operational metrics
+        coalesce((m->>'currentNumberOfShipments')::int,0) as current_shipments,
+        m->>'acquisitionChannel'                as acquisition_channel,
+
+        -- misc text fields
+        m->>'giftMessage'                       as gift_message,
+        m->>'shippingInstructions'              as shipping_instructions,
+
+        -- bookkeeping
+        (m->>'createdAt')::timestamptz          as created_at,
+        (m->>'updatedAt')::timestamptz          as updated_at,
+        r.load_ts,
+        m                                        as _membership_json
+    from {{ source('raw','club_membership_ingest') }} r
+    cross join lateral jsonb_array_elements(r.payload->'clubMemberships') m
+),
+
+dedup as (
+    select *, row_number() over (partition by_*

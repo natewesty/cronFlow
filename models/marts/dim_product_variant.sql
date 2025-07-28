@@ -1,25 +1,25 @@
--- models/marts/dim_product_variant.sql
--- Product variant dimension mart
-
-{{ config(
-    materialized='incremental',
-    unique_key='variant_id',
-    incremental_strategy='merge'
-) }}
+{{ config(materialized='table') }}
 
 select
-    product_id,
-    product_title,
-    variant_id,
-    variant_title,
-    variant_sku,
-    variant_volume_ml,
-    variant_alcohol_pct,
-    variant_price,
-    variant_weight,
-    updated_at,
-    last_processed_at
-from {{ ref('stg_product_variants') }}
-{% if is_incremental() %}
-    where date(last_processed_at) > (select max(date(last_processed_at)) from {{ this }})
-{% endif %} 
+    pv.variant_id                               as product_variant_id,
+    pv.product_id,
+    p.title                                     as product_title,
+    pv.variant_title,
+    coalesce(p.wine_type, p.product_type)       as product_type,
+    p.varietal,
+    p.vintage,
+    pv.sku,
+    pv.price_cents   / 100.0                    as price,
+    pv.cogs_cents    / 100.0                    as cost_of_good,
+    pv.volume_ml,
+    pv.abv,
+    pv.has_inventory,
+    pv.has_shipping,
+    p.department_title,
+    p.web_status,
+    p.admin_status,
+    p.created_at,
+    p.updated_at
+from {{ ref('stg_product_variant') }} pv
+join {{ ref('stg_product') }} p
+  on p.product_id = pv.product_id;
