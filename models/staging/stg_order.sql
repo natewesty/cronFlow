@@ -33,7 +33,7 @@ with src as (
     r.load_ts,
     r.source_file,
     o                                         as _order_json
-  from {{ source('raw','orders_ingest') }} r
+  from {{ source('raw','raw_order') }} r
   cross join lateral jsonb_array_elements(r.payload->'orders') as o
 ),
 dedup as (

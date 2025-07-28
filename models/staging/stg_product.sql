@@ -29,7 +29,7 @@ with src as (
         /* raw record */
         r.load_ts,
         p                                   as _product_json
-    from {{ source('raw','product_ingest') }} r
+    from {{ source('raw','raw_product') }} r
     cross join lateral jsonb_array_elements(r.payload->'products') p
 ),
 

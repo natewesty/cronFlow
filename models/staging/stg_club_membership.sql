@@ -43,7 +43,7 @@ with src as (
         (m->>'updatedAt')::timestamptz          as updated_at,
         r.load_ts,
         m                                        as _membership_json
-    from {{ source('raw','club_membership_ingest') }} r
+    from {{ source('raw','raw_club_membership') }} r
     cross join lateral jsonb_array_elements(r.payload->'clubMemberships') m
 ),
 

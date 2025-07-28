@@ -33,7 +33,7 @@ with src as (
         (c->>'hasAccount')::bool              as has_account,
         r.load_ts,
         c                                     as _customer_json
-    from {{ source('raw','customer_ingest') }} r
+    from {{ source('raw','raw_customer') }} r
     cross join lateral jsonb_array_elements(r.payload->'customers') as c
 ),
 
