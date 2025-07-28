@@ -8,7 +8,7 @@
 
 {{ config(
     materialized='incremental',
-    unique_key='data_type',
+    unique_key=['data_type', 'club_title', 'event_date', 'customer_id'],
     incremental_strategy='merge'
 ) }}
 

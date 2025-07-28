@@ -3,7 +3,7 @@
 
 {{ config(
     materialized='incremental',
-    unique_key='customer_id',
+    unique_key=['customer_id', 'data_type', 'club_id'],
     incremental_strategy='merge'
 ) }}
 
