@@ -8,6 +8,7 @@ select
     oi.order_item_id,
     oi.order_id,
     oi.product_id,
+    oi.external_order_vendor,
     oi.variant_id       as product_variant_id,   -- ✅ column exists in stg_order_item
     oi.purchase_type,
     oi.item_type,

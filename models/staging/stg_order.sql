@@ -18,6 +18,7 @@ with src as (
         /* ───── statuses & refs ───── */
         data->>'channel'                         as channel,
         data->>'orderDeliveryMethod'             as delivery_method,
+        data->>'externalOrderVendor'             as external_order_vendor,
         data->>'paymentStatus'                   as payment_status,
         data->>'fulfillmentStatus'               as fulfillment_status,
         data->>'shippingStatus'                  as shipping_status,
