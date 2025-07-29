@@ -7,8 +7,8 @@ with base as (
 
 addrs as (
     /* ---------- Bill‑to ---------- */
-    select order_id,                        as order_type,
-           'bill_to'
+    select order_id,
+           'bill_to'                        as address_type,
            o->'billTo'                      as a
     from base
 
@@ -30,7 +30,7 @@ addrs as (
 norm as (
     select
         order_id,
-        order_type,
+        address_type,
         (a->>'id')::uuid                     as address_id,
         a->>'firstName'                      as first_name,
         a->>'lastName'                       as last_name,
