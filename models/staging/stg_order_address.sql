@@ -43,7 +43,6 @@ norm as (
         a->>'zipCode'                        as postal_code,
         a->>'countryCode'                    as country_code
     from addrs
-    where a is not null                     -- ignore missing blocks
 )
 
 select * from norm
