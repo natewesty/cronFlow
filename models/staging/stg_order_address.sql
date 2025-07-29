@@ -11,6 +11,9 @@ addrs as (
            'bill_to'                        as address_type,
            o->'billTo'                      as a
     from base
+    where o->'billTo' is not null 
+      and o->'billTo' != 'null'::jsonb
+      and o->'billTo' != '{}'::jsonb
 
     union all
     /* ---------- Ship‑to ---------- */
@@ -18,6 +21,9 @@ addrs as (
            'ship_to',
            o->'shipTo'
     from base
+    where o->'shipTo' is not null
+      and o->'shipTo' != 'null'::jsonb
+      and o->'shipTo' != '{}'::jsonb
 ),
 
 norm as (
@@ -36,6 +42,7 @@ norm as (
         a->>'zipCode'                        as postal_code,
         a->>'countryCode'                    as country_code
     from addrs
+    where a is not null
 )
 
 select * from norm
