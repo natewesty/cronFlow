@@ -1,59 +1,62 @@
 {{ config(
-    materialized='incremental',
-    unique_key='order_id',
-    incremental_strategy='merge',
-    on_schema_change='sync_all_columns'
+    materialized        = 'incremental',
+    unique_key          = 'order_id',
+    incremental_strategy= 'merge',
+    on_schema_change    = 'sync_all_columns'
 ) }}
 
 with src as (
 
-  select
-      (o->>'id')::uuid                        as order_id,
-      (o->>'orderNumber')::bigint             as order_number,
-      (o->>'orderSubmittedDate')::timestamptz as submitted_at,
-      (o->>'orderPaidDate')::timestamptz      as paid_at,
-      (o->>'orderFulfilledDate')::timestamptz as fulfilled_at,
-      o->>'channel'                           as channel,
-      o->>'orderDeliveryMethod'               as delivery_method,
-      o->>'paymentStatus'                     as payment_status,
-      o->>'fulfillmentStatus'                 as fulfillment_status,
-      o->>'shippingStatus'                    as shipping_status,
-      o->>'salesAttributeCode'                as sales_attribute_code,
-      (o->>'customerId')::uuid                as customer_id,
-      (o->>'posProfileId')::uuid              as pos_profile_id,
-      o->>'taxSaleType'                       as tax_sale_type,
+    select
+        /* ───── identifiers & dates ───── */
+        (data->>'id')::uuid                      as order_id,
+        (data->>'orderNumber')::bigint           as order_number,
+        (data->>'orderSubmittedDate')::timestamptz   as submitted_at,
+        (data->>'orderPaidDate')::timestamptz        as paid_at,
+        (data->>'orderFulfilledDate')::timestamptz   as fulfilled_at,
 
-      coalesce((o->>'subTotal')::bigint,0)      as sub_total_cents,
-      coalesce((o->>'shipTotal')::bigint,0)     as ship_total_cents,
-      coalesce((o->>'taxTotal')::bigint,0)      as tax_total_cents,
-      coalesce((o->>'tipTotal')::bigint,0)      as tip_total_cents,
-      coalesce((o->>'total')::bigint,0)         as total_cents,
-      coalesce((o->>'totalAfterTip')::bigint,0) as total_after_tip_cents,
+        /* ───── statuses & refs ───── */
+        data->>'channel'                         as channel,
+        data->>'orderDeliveryMethod'             as delivery_method,
+        data->>'paymentStatus'                   as payment_status,
+        data->>'fulfillmentStatus'               as fulfillment_status,
+        data->>'shippingStatus'                  as shipping_status,
+        data->>'salesAttributionCode'            as sales_attribution_code,
+        (data->>'customerId')::uuid              as customer_id,
+        (data->>'posProfileId')::uuid            as pos_profile_id,
+        data->>'taxSaleType'                     as tax_sale_type,
 
-      (o->>'createdAt')::timestamptz          as created_at,
-      (o->>'updatedAt')::timestamptz          as updated_at,
-      coalesce(r.last_processed_at, current_timestamp) as load_ts,
-      o                                       as _order_json
+        /* ───── money (still in cents) ───── */
+        coalesce((data->>'subTotal')::bigint,0)       as sub_total_cents,
+        coalesce((data->>'shipTotal')::bigint,0)      as ship_total_cents,
+        coalesce((data->>'taxTotal')::bigint,0)       as tax_total_cents,
+        coalesce((data->>'tipTotal')::bigint,0)       as tip_total_cents,
+        coalesce((data->>'total')::bigint,0)          as total_cents,
+        coalesce((data->>'totalAfterTip')::bigint,0)  as total_after_tip_cents,
 
-  from {{ source('raw', 'raw_order') }} r
-  cross join lateral jsonb_array_elements(r.data->'orders') o
+        /* ───── bookkeeping ───── */
+        (data->>'createdAt')::timestamptz         as created_at,
+        (data->>'updatedAt')::timestamptz         as updated_at,
+        coalesce(last_processed_at, current_timestamp) as load_ts,
+        data                                      as _order_json
+
+    from {{ source('raw', 'raw_order') }}
+
+    {% if is_incremental() %}
+      -- only pull rows ingested since the most‑recent load_ts we processed
+      where last_processed_at >
+            (select coalesce(max(load_ts), date '2000-01-01') from {{ this }})
+    {% endif %}
 ),
 
 dedup as (
-  select *
-       , row_number() over (
-           partition by order_id
-           order by updated_at desc, load_ts desc
-         ) as rn
-  from src
+    select *
+         , row_number() over (
+               partition by order_id
+               order by updated_at desc, load_ts desc
+           ) as rn
+    from src
 )
 
 select * from dedup
 where rn = 1
-
-{% if is_incremental() %}
-  and updated_at >= (
-        select coalesce(max(updated_at) - interval '3 days', date '2000-01-01')
-        from {{ this }}
-  )
-{% endif %}

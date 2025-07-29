@@ -1,46 +1,50 @@
 {{ config(
-    materialized='incremental',
-    unique_key='customer_id',
-    incremental_strategy='merge',
-    on_schema_change='sync_all_columns'
+    materialized        = 'incremental',
+    unique_key          = 'customer_id',
+    incremental_strategy= 'merge',
+    on_schema_change    = 'sync_all_columns'
 ) }}
 
 with src as (
 
     select
-        (c->>'id')::uuid                        as customer_id,
-        c->>'honorific'                         as honorific,
-        c->>'firstName'                         as first_name,
-        c->>'lastName'                          as last_name,
-        (c->>'birthDate')::date                 as birth_date,
-        c->>'city'                              as city,
-        c->>'stateCode'                         as state_code,
-        c->>'zipCode'                           as postal_code,
-        c->>'countryCode'                       as country_code,
-        c->>'emailMarketingStatus'              as email_mkt_status,
-        (c->>'lastActivityDate')::timestamptz   as last_activity_at,
-        (c->>'createdAt')::timestamptz          as created_at,
-        (c->>'updatedAt')::timestamptz          as updated_at,
+        (data->>'id')::uuid                     as customer_id,
+        data->>'honorific'                      as honorific,
+        data->>'firstName'                      as first_name,
+        data->>'lastName'                       as last_name,
+        (data->>'birthDate')::date              as birth_date,
+        data->>'city'                           as city,
+        data->>'stateCode'                      as state_code,
+        data->>'zipCode'                        as postal_code,
+        data->>'countryCode'                    as country_code,
+        data->>'emailMarketingStatus'           as email_mkt_status,
+        (data->>'lastActivityDate')::timestamptz  as last_activity_at,
+        (data->>'createdAt')::timestamptz       as created_at,
+        (data->>'updatedAt')::timestamptz       as updated_at,
 
-        /* ── orderInformation sub‑object ── */
-        (c->'orderInformation'->>'orderCount')::int          as order_count,
-        (c->'orderInformation'->>'lifetimeValue')::bigint    as lifetime_value_cents,
-        (c->'orderInformation'->>'grossProfit')::bigint      as gross_profit_cents,
-        (c->'orderInformation'->>'acquisitionChannel')       as acquisition_channel,
-        (c->'orderInformation'->>'currentClubTitle')         as current_club_title,
-        (c->'orderInformation'->>'isActiveClubMember')::bool as is_active_club_member,
-        (c->'orderInformation'->>'lastOrderId')::uuid        as last_order_id,
-        (c->'orderInformation'->>'lastOrderDate')::timestamptz as last_order_at,
+        /* orderInformation sub‑object */
+        (data->'orderInformation'->>'orderCount')::int          as order_count,
+        (data->'orderInformation'->>'lifetimeValue')::bigint    as lifetime_value_cents,
+        (data->'orderInformation'->>'grossProfit')::bigint      as gross_profit_cents,
+        (data->'orderInformation'->>'acquisitionChannel')       as acquisition_channel,
+        (data->'orderInformation'->>'currentClubTitle')         as current_club_title,
+        (data->'orderInformation'->>'isActiveClubMember')::bool as is_active_club_member,
+        (data->'orderInformation'->>'lastOrderId')::uuid        as last_order_id,
+        (data->'orderInformation'->>'lastOrderDate')::timestamptz as last_order_at,
 
         /* flags */
-        (c->>'hasAccount')::bool               as has_account,
+        (data->>'hasAccount')::bool              as has_account,
 
         /* bookkeeping */
-        coalesce(r.last_processed_at, current_timestamp) as load_ts,
-        c                                    as _customer_json
+        coalesce(last_processed_at, current_timestamp) as load_ts,
+        data                                    as _customer_json
 
-    from {{ source('raw', 'raw_customer') }} r
-    cross join lateral jsonb_array_elements(r.data->'customers') c
+    from {{ source('raw','raw_customer') }}
+
+    {% if is_incremental() %}
+      where last_processed_at >
+            (select coalesce(max(load_ts), date '2000-01-01') from {{ this }})
+    {% endif %}
 ),
 
 dedup as (
@@ -54,10 +58,3 @@ dedup as (
 
 select * from dedup
 where rn = 1
-
-{% if is_incremental() %}
-  and updated_at >= (
-        select coalesce(max(updated_at) - interval '3 days', date '2000-01-01')
-        from {{ this }}
-  )
-{% endif %}

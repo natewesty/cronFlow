@@ -1,50 +1,54 @@
 {{ config(
-    materialized='incremental',
-    unique_key='membership_id',
-    incremental_strategy='merge',
-    on_schema_change='sync_all_columns'
+    materialized        = 'incremental',
+    unique_key          = 'membership_id',
+    incremental_strategy= 'merge',
+    on_schema_change    = 'sync_all_columns'
 ) }}
 
 with src as (
 
     select
-        (m->>'id')::uuid                       as membership_id,
-        m->>'status'                           as status,
-        (m->>'customerId')::uuid               as customer_id,
-        (m->>'clubId')::uuid                   as club_id,
-        m->>'clubType'                         as club_type,
+        (data->>'id')::uuid                     as membership_id,
+        data->>'status'                         as status,
+        (data->>'customerId')::uuid             as customer_id,
+        (data->>'clubId')::uuid                 as club_id,
+        data->>'clubType'                       as club_type,
 
         /* addresses & fulfillment */
-        (m->>'billToCustomerAddressId')::uuid   as bill_to_address_id,
-        (m->>'shipToCustomerAddressId')::uuid   as ship_to_address_id,
-        (m->>'pickupInventoryLocationId')::uuid as pickup_inventory_location_id,
-        m->>'orderDeliveryMethod'               as delivery_method,
-        (m->>'customerCreditCardId')::uuid      as customer_credit_card_id,
+        (data->>'billToCustomerAddressId')::uuid   as bill_to_address_id,
+        (data->>'shipToCustomerAddressId')::uuid   as ship_to_address_id,
+        (data->>'pickupInventoryLocationId')::uuid as pickup_inventory_location_id,
+        data->>'orderDeliveryMethod'               as delivery_method,
+        (data->>'customerCreditCardId')::uuid      as customer_credit_card_id,
 
         /* lifecycle */
-        (m->>'signupDate')::timestamptz            as signup_at,
-        (m->>'cancelDate')::timestamptz            as cancel_at,
-        (m->>'autoRenewalConsentDate')::timestamptz as auto_renewal_consent_at,
-        (m->>'lastProcessedDate')::timestamptz     as last_processed_at,
+        (data->>'signupDate')::timestamptz            as signup_at,
+        (data->>'cancelDate')::timestamptz            as cancel_at,
+        (data->>'autoRenewalConsentDate')::timestamptz as auto_renewal_consent_at,
+        (data->>'lastProcessedDate')::timestamptz     as last_processed_at,
 
         /* cancellation */
-        m->>'cancellationReason'                as cancellation_reason,
-        m->>'cancellationComments'              as cancellation_comments,
+        data->>'cancellationReason'                as cancellation_reason,
+        data->>'cancellationComments'              as cancellation_comments,
 
         /* metrics & misc */
-        coalesce((m->>'currentNumberOfShipments')::int, 0) as current_shipments,
-        m->>'acquisitionChannel'                as acquisition_channel,
-        m->>'giftMessage'                       as gift_message,
-        m->>'shippingInstructions'              as shipping_instructions,
+        coalesce((data->>'currentNumberOfShipments')::int, 0) as current_shipments,
+        data->>'acquisitionChannel'                as acquisition_channel,
+        data->>'giftMessage'                       as gift_message,
+        data->>'shippingInstructions'              as shipping_instructions,
 
         /* bookkeeping */
-        (m->>'createdAt')::timestamptz          as created_at,
-        (m->>'updatedAt')::timestamptz          as updated_at,
-        coalesce(r.last_processed_at, current_timestamp) as load_ts,
-        m                                       as _membership_json
+        (data->>'createdAt')::timestamptz          as created_at,
+        (data->>'updatedAt')::timestamptz          as updated_at,
+        coalesce(last_processed_at, current_timestamp)        as load_ts,
+        data                                       as _membership_json
 
-    from {{ source('raw', 'raw_club_membership') }} r
-    cross join lateral jsonb_array_elements(r.data->'clubMemberships') m
+    from {{ source('raw','raw_club_membership') }}
+
+    {% if is_incremental() %}
+      where last_processed_at >
+            (select coalesce(max(load_ts), date '2000-01-01') from {{ this }})
+    {% endif %}
 ),
 
 dedup as (
@@ -58,10 +62,3 @@ dedup as (
 
 select * from dedup
 where rn = 1
-
-{% if is_incremental() %}
-  and updated_at >= (
-        select coalesce(max(updated_at) - interval '3 days', date '2000-01-01')
-        from {{ this }}
-  )
-{% endif %}
