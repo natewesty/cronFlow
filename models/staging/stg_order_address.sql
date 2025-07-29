@@ -46,4 +46,4 @@ norm as (
     where a is not null                     -- ignore missing blocks
 )
 
-select * from norm;
+select * from norm
