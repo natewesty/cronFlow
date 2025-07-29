@@ -18,13 +18,6 @@ addrs as (
            'ship_to',
            o->'shipTo'
     from base
-
-    union all
-    /* ---------- Carry‑out / Pickup ---------- */
-    select order_id,
-           'carry_out',
-           o->'carryOut'
-    from base
 ),
 
 norm as (
