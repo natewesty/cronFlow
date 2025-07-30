@@ -13,9 +13,8 @@ with daily_revenue as (
         count(*) as order_count
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
-    where fo.payment_status = 'paid'  -- Only include paid orders
-    and fo.order_date_key is not null  -- Ensure we have a valid date
-    and fo.order_total > 0  -- Only include orders with revenue
+    where fo.order_date_key is not null  -- Ensure we have a valid date
+    and fo.channel <> 'club'  -- Exclude club channel orders
     group by fo.order_date_key, dd.fiscal_year, dd.fiscal_year_name
 ),
 
@@ -98,14 +97,15 @@ revenue_metrics as (
             where order_date_key = current_date - interval '1 day'
         ), 0) as revenue_prev_day,
         
-        -- Debug: Total orders in fct_order
-        (select count(*) from {{ ref('fct_order') }} where payment_status = 'paid') as total_paid_orders,
+        -- Debug: Total orders in fct_order (excluding club)
+        (select count(*) from {{ ref('fct_order') }} where payment_status = 'paid' and channel <> 'club') as total_paid_orders,
         
-        -- Debug: Orders with revenue today
+        -- Debug: Orders with revenue today (excluding club)
         (select count(*) from {{ ref('fct_order') }} 
          where payment_status = 'paid' 
          and order_date_key = current_date 
-         and order_total > 0) as paid_orders_today
+         and subtotal > 0
+         and channel <> 'club') as paid_orders_today
 )
 
 select
