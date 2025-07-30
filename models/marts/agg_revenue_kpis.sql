@@ -14,7 +14,6 @@ with daily_revenue as (
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     where fo.order_date_key is not null  -- Ensure we have a valid date
-    and fo.channel <> 'club'  -- Exclude club channel orders
     group by fo.order_date_key, dd.fiscal_year, dd.fiscal_year_name
 ),
 

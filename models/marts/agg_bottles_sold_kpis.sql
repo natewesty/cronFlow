@@ -14,7 +14,6 @@ with daily_bottles_sold as (
     left join {{ ref('fct_order') }} fo on foi.order_id = fo.order_id
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     where foi.item_type = 'Wine'  -- Only include wine items
-    and fo.channel <> 'club'  -- Exclude club channel orders
     group by fo.order_date_key, dd.fiscal_year, dd.fiscal_year_name
 ),
 
