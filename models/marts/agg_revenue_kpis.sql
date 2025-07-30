@@ -18,13 +18,11 @@ with daily_revenue as (
 
 revenue_metrics as (
     select
-        current_date() as report_date,
-        
         -- Today's Revenue
         coalesce((
             select daily_revenue 
             from daily_revenue 
-            where order_date_key = current_date()
+            where order_date_key = current_date
         ), 0) as revenue_today,
         
         -- Week-to-Date Revenue (Monday start)
@@ -32,8 +30,8 @@ revenue_metrics as (
             select sum(daily_revenue)
             from daily_revenue dr
             left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
-            where dr.order_date_key >= date_trunc('week', current_date())::date
-            and dr.order_date_key <= current_date()
+            where dr.order_date_key >= date_trunc('week', current_date)::date
+            and dr.order_date_key <= current_date
         ), 0) as revenue_week_to_date,
         
         -- Month-to-Date Revenue
@@ -41,8 +39,8 @@ revenue_metrics as (
             select sum(daily_revenue)
             from daily_revenue dr
             left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
-            where dr.order_date_key >= date_trunc('month', current_date())::date
-            and dr.order_date_key <= current_date()
+            where dr.order_date_key >= date_trunc('month', current_date)::date
+            and dr.order_date_key <= current_date
         ), 0) as revenue_month_to_date,
         
         -- Fiscal Year-to-Date Revenue
@@ -52,9 +50,9 @@ revenue_metrics as (
             where dr.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             )
-            and dr.order_date_key <= current_date()
+            and dr.order_date_key <= current_date
         ), 0) as revenue_fiscal_year_to_date,
         
         -- Previous Fiscal Year Revenue for same period
@@ -65,16 +63,16 @@ revenue_metrics as (
             where dr.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             ) - 1
             and dr.order_date_key <= (
                 select date_day 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
                 and fiscal_year = (
                     select fiscal_year 
                     from {{ ref('dim_date') }} 
-                    where date_day = current_date()
+                    where date_day = current_date
                 ) - 1
             )
         ), 0) as revenue_prev_fiscal_year_to_date,
@@ -84,8 +82,8 @@ revenue_metrics as (
             select sum(daily_revenue)
             from daily_revenue dr
             left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
-            where dr.order_date_key >= date_trunc('week', current_date())::date - interval '1 year'
-            and dr.order_date_key <= current_date() - interval '1 year'
+            where dr.order_date_key >= date_trunc('week', current_date)::date - interval '1 year'
+            and dr.order_date_key <= current_date - interval '1 year'
         ), 0) as revenue_prev_week,
         
         -- Previous Month Revenue (same month last year)
@@ -93,20 +91,20 @@ revenue_metrics as (
             select sum(daily_revenue)
             from daily_revenue dr
             left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
-            where dr.order_date_key >= date_trunc('month', current_date())::date - interval '1 year'
-            and dr.order_date_key <= current_date() - interval '1 year'
+            where dr.order_date_key >= date_trunc('month', current_date)::date - interval '1 year'
+            and dr.order_date_key <= current_date - interval '1 year'
         ), 0) as revenue_prev_month,
         
         -- Previous Day Revenue
         coalesce((
             select daily_revenue 
             from daily_revenue 
-            where order_date_key = current_date() - interval '1 day'
+            where order_date_key = current_date - interval '1 day'
         ), 0) as revenue_prev_day
 )
 
 select
-    report_date,
+    current_date as report_date,
     revenue_today,
     revenue_prev_day,
     revenue_today - revenue_prev_day as revenue_today_vs_prev_day,
@@ -144,7 +142,7 @@ select
     end as revenue_fiscal_year_vs_prev_fiscal_year_pct,
     
     -- Current fiscal year info
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date()) as current_fiscal_year,
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date() - interval '1 year') as previous_fiscal_year
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date - interval '1 year') as previous_fiscal_year
 
 from revenue_metrics 

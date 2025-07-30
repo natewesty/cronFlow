@@ -42,75 +42,73 @@ daily_net_signups as (
 
 signup_metrics as (
     select
-        current_date() as report_date,
-        
         -- Today's Net Signups
         coalesce((
             select daily_net_signups
             from daily_net_signups
-            where date_key = current_date()
+            where date_key = current_date
         ), 0) as net_signups_today,
         
         -- Today's Signups
         coalesce((
             select daily_signups
             from daily_net_signups
-            where date_key = current_date()
+            where date_key = current_date
         ), 0) as signups_today,
         
         -- Today's Cancellations
         coalesce((
             select daily_cancellations
             from daily_net_signups
-            where date_key = current_date()
+            where date_key = current_date
         ), 0) as cancellations_today,
         
         -- Week-to-Date Net Signups (Monday start)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('week', current_date)::date
+            and date_key <= current_date
         ), 0) as net_signups_week_to_date,
         
         -- Week-to-Date Signups
         coalesce((
             select sum(daily_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('week', current_date)::date
+            and date_key <= current_date
         ), 0) as signups_week_to_date,
         
         -- Week-to-Date Cancellations
         coalesce((
             select sum(daily_cancellations)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('week', current_date)::date
+            and date_key <= current_date
         ), 0) as cancellations_week_to_date,
         
         -- Month-to-Date Net Signups
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('month', current_date)::date
+            and date_key <= current_date
         ), 0) as net_signups_month_to_date,
         
         -- Month-to-Date Signups
         coalesce((
             select sum(daily_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('month', current_date)::date
+            and date_key <= current_date
         ), 0) as signups_month_to_date,
         
         -- Month-to-Date Cancellations
         coalesce((
             select sum(daily_cancellations)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date())::date
-            and date_key <= current_date()
+            where date_key >= date_trunc('month', current_date)::date
+            and date_key <= current_date
         ), 0) as cancellations_month_to_date,
         
         -- Fiscal Year-to-Date Net Signups
@@ -120,9 +118,9 @@ signup_metrics as (
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             )
-            and date_key <= current_date()
+            and date_key <= current_date
         ), 0) as net_signups_fiscal_year_to_date,
         
         -- Fiscal Year-to-Date Signups
@@ -132,9 +130,9 @@ signup_metrics as (
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             )
-            and date_key <= current_date()
+            and date_key <= current_date
         ), 0) as signups_fiscal_year_to_date,
         
         -- Fiscal Year-to-Date Cancellations
@@ -144,32 +142,32 @@ signup_metrics as (
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             )
-            and date_key <= current_date()
+            and date_key <= current_date
         ), 0) as cancellations_fiscal_year_to_date,
         
         -- Previous Day Net Signups
         coalesce((
             select daily_net_signups
             from daily_net_signups
-            where date_key = current_date() - interval '1 day'
+            where date_key = current_date - interval '1 day'
         ), 0) as net_signups_prev_day,
         
         -- Previous Week Net Signups (same week last year)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date())::date - interval '1 year'
-            and date_key <= current_date() - interval '1 year'
+            where date_key >= date_trunc('week', current_date)::date - interval '1 year'
+            and date_key <= current_date - interval '1 year'
         ), 0) as net_signups_prev_week,
         
         -- Previous Month Net Signups (same month last year)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date())::date - interval '1 year'
-            and date_key <= current_date() - interval '1 year'
+            where date_key >= date_trunc('month', current_date)::date - interval '1 year'
+            and date_key <= current_date - interval '1 year'
         ), 0) as net_signups_prev_month,
         
         -- Previous Fiscal Year Net Signups for same period
@@ -179,14 +177,14 @@ signup_metrics as (
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date()
+                where date_day = current_date
             ) - 1
-            and date_key <= current_date()
+            and date_key <= current_date
         ), 0) as net_signups_prev_fiscal_year_to_date
 )
 
 select
-    report_date,
+    current_date as report_date,
     
     -- Today's metrics
     net_signups_today,
@@ -237,7 +235,7 @@ select
     end as net_signups_fiscal_year_vs_prev_fiscal_year_pct,
     
     -- Current fiscal year info
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date()) as current_fiscal_year,
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date() - interval '1 year') as previous_fiscal_year
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date - interval '1 year') as previous_fiscal_year
 
 from signup_metrics 
