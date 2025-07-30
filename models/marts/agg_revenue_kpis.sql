@@ -9,7 +9,7 @@ with daily_revenue as (
         fo.order_date_key,
         dd.fiscal_year,
         dd.fiscal_year_name,
-        sum(fo.order_total) as daily_revenue
+        sum(fo.subtotal) as daily_revenue
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     where fo.payment_status = 'paid'  -- Only include paid orders
