@@ -9,10 +9,13 @@ with daily_revenue as (
         fo.order_date_key,
         dd.fiscal_year,
         dd.fiscal_year_name,
-        sum(fo.subtotal) as daily_revenue
+        sum(fo.subtotal) as daily_revenue,
+        count(*) as order_count
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     where fo.payment_status = 'paid'  -- Only include paid orders
+    and fo.order_date_key is not null  -- Ensure we have a valid date
+    and fo.order_total > 0  -- Only include orders with revenue
     group by fo.order_date_key, dd.fiscal_year, dd.fiscal_year_name
 ),
 
@@ -25,11 +28,17 @@ revenue_metrics as (
             where order_date_key = current_date
         ), 0) as revenue_today,
         
+        -- Today's Order Count
+        coalesce((
+            select order_count 
+            from daily_revenue 
+            where order_date_key = current_date
+        ), 0) as orders_today,
+        
         -- Week-to-Date Revenue (Monday start)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
             where dr.order_date_key >= date_trunc('week', current_date)::date
             and dr.order_date_key <= current_date
         ), 0) as revenue_week_to_date,
@@ -38,7 +47,6 @@ revenue_metrics as (
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
             where dr.order_date_key >= date_trunc('month', current_date)::date
             and dr.order_date_key <= current_date
         ), 0) as revenue_month_to_date,
@@ -59,29 +67,18 @@ revenue_metrics as (
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
             where dr.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
                 where date_day = current_date
             ) - 1
-            and dr.order_date_key <= (
-                select date_day 
-                from {{ ref('dim_date') }} 
-                where date_day = current_date
-                and fiscal_year = (
-                    select fiscal_year 
-                    from {{ ref('dim_date') }} 
-                    where date_day = current_date
-                ) - 1
-            )
+            and dr.order_date_key <= current_date
         ), 0) as revenue_prev_fiscal_year_to_date,
         
         -- Previous Week Revenue (same week last year)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
             where dr.order_date_key >= date_trunc('week', current_date)::date - interval '1 year'
             and dr.order_date_key <= current_date - interval '1 year'
         ), 0) as revenue_prev_week,
@@ -90,7 +87,6 @@ revenue_metrics as (
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            left join {{ ref('dim_date') }} dd on dr.order_date_key = dd.date_day
             where dr.order_date_key >= date_trunc('month', current_date)::date - interval '1 year'
             and dr.order_date_key <= current_date - interval '1 year'
         ), 0) as revenue_prev_month,
@@ -100,12 +96,22 @@ revenue_metrics as (
             select daily_revenue 
             from daily_revenue 
             where order_date_key = current_date - interval '1 day'
-        ), 0) as revenue_prev_day
+        ), 0) as revenue_prev_day,
+        
+        -- Debug: Total orders in fct_order
+        (select count(*) from {{ ref('fct_order') }} where payment_status = 'paid') as total_paid_orders,
+        
+        -- Debug: Orders with revenue today
+        (select count(*) from {{ ref('fct_order') }} 
+         where payment_status = 'paid' 
+         and order_date_key = current_date 
+         and order_total > 0) as paid_orders_today
 )
 
 select
     current_date as report_date,
     revenue_today,
+    orders_today,
     revenue_prev_day,
     revenue_today - revenue_prev_day as revenue_today_vs_prev_day,
     case 
@@ -140,6 +146,10 @@ select
         then ((revenue_fiscal_year_to_date - revenue_prev_fiscal_year_to_date) / revenue_prev_fiscal_year_to_date) * 100 
         else null 
     end as revenue_fiscal_year_vs_prev_fiscal_year_pct,
+    
+    -- Debug fields
+    total_paid_orders,
+    paid_orders_today,
     
     -- Current fiscal year info
     (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
