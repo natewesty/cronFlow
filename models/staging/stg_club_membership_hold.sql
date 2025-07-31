@@ -13,9 +13,8 @@ holds as (
     select
         membership_id,
         (h->>'id')::uuid                 as hold_id,
-        -- Convert UTC timestamps to Pacific Time
-        (h->>'startDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as hold_start_at,
-        (h->>'endDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as hold_end_at,
+        (h->>'startDate')::timestamptz   as hold_start_at,
+        (h->>'endDate')::timestamptz     as hold_end_at,
         h->>'holdReason'                 as hold_reason,
         h->>'holdComments'               as hold_comments,
         updated_at

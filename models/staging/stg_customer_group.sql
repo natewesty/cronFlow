@@ -13,9 +13,8 @@ groups as (
         g->>'objectType'                as object_type,
         g->>'type'                      as group_type,
         g->>'appliesToCondition'        as applies_to_condition,
-        -- Convert UTC timestamps to Pacific Time
-        (g->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
-        (g->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
+        (g->>'createdAt')::timestamptz  as created_at,
+        (g->>'updatedAt')::timestamptz  as updated_at,
         g                               as _group_json
     from base
     cross join lateral jsonb_array_elements(c->'groups') g

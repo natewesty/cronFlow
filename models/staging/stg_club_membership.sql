@@ -23,10 +23,10 @@ with src as (
 
         /* lifecycle */
         -- Convert UTC timestamps to Pacific Time
-        (data->>'signupDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as signup_at,
-        (data->>'cancelDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as cancel_at,
-        (data->>'autoRenewalConsentDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as auto_renewal_consent_at,
-        (data->>'lastProcessedDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as last_processed_at,
+        ((data->>'signupDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as signup_at,
+        ((data->>'cancelDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as cancel_at,
+        ((data->>'autoRenewalConsentDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as auto_renewal_consent_at,
+        ((data->>'lastProcessedDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as last_processed_at,
 
         /* cancellation */
         data->>'cancellationReason'                as cancellation_reason,
@@ -40,8 +40,8 @@ with src as (
 
         /* bookkeeping */
         -- Convert UTC timestamps to Pacific Time
-        (data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
-        (data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
+        ((data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles') as created_at,
+        ((data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles') as updated_at,
         coalesce(last_processed_at, current_timestamp)        as load_ts,
         data                                       as _membership_json
 

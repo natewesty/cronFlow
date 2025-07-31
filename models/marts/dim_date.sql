@@ -51,7 +51,7 @@ select
     -- Add Pacific Time specific fields for clarity
     'America/Los_Angeles' as timezone,
     -- Current date in Pacific Time for comparison operations
-    -- Ensure we get the correct Pacific Time date regardless of database timezone
+    -- Ensure we get the correct Pacific Time date for comparisons
     (now() AT TIME ZONE 'America/Los_Angeles')::date as current_date_pacific,
     -- Debug: Show the raw timestamp conversion for verification
     now() AT TIME ZONE 'America/Los_Angeles' as current_timestamp_pacific

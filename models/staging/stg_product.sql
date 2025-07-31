@@ -20,8 +20,8 @@ with src as (
         data->'department'->>'title'       as department_title,
 
         -- Convert UTC timestamps to Pacific Time
-        (data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
-        (data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
+        ((data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles') as created_at,
+        ((data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles') as updated_at,
 
         /* wine sub‑object */
         data->'wine'->>'type'              as wine_type,

@@ -13,9 +13,8 @@ tags as (
         t->>'objectType'                as object_type,
         t->>'type'                      as tag_type,
         t->>'appliesToCondition'        as applies_to_condition,
-        -- Convert UTC timestamps to Pacific Time
-        (t->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
-        (t->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
+        (t->>'createdAt')::timestamptz  as created_at,
+        (t->>'updatedAt')::timestamptz  as updated_at,
         t                               as _tag_json
     from base
     cross join lateral jsonb_array_elements(c->'tags') t
