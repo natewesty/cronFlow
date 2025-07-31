@@ -51,6 +51,8 @@ select
     -- Add Pacific Time specific fields for clarity
     'America/Los_Angeles' as timezone,
     -- Current date in Pacific Time for comparison operations
-    -- This is the only place we need timezone conversion since Commerce7 data is already in PST
-    (current_timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date as current_date_pacific
+    -- Ensure we get the correct Pacific Time date regardless of database timezone
+    (now() AT TIME ZONE 'America/Los_Angeles')::date as current_date_pacific,
+    -- Debug: Show the raw timestamp conversion for verification
+    now() AT TIME ZONE 'America/Los_Angeles' as current_timestamp_pacific
 from dates
