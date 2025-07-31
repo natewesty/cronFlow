@@ -19,79 +19,79 @@ with daily_bottles_sold as (
 
 bottles_metrics as (
     select
-        -- Today's Bottles Sold
+        -- Today's Bottles Sold (Pacific Time)
         coalesce((
             select daily_bottles_sold 
             from daily_bottles_sold 
-            where order_date_key = current_date
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_today,
         
-        -- Week-to-Date Bottles Sold (Monday start)
+        -- Week-to-Date Bottles Sold (Monday start, Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
-            where order_date_key >= date_trunc('week', current_date)::date
-            and order_date_key <= current_date
+            where order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_week_to_date,
         
-        -- Month-to-Date Bottles Sold
+        -- Month-to-Date Bottles Sold (Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
-            where order_date_key >= date_trunc('month', current_date)::date
-            and order_date_key <= current_date
+            where order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_month_to_date,
         
-        -- Fiscal Year-to-Date Bottles Sold
+        -- Fiscal Year-to-Date Bottles Sold (Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and order_date_key <= current_date
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_fiscal_year_to_date,
         
-        -- Previous Day Bottles Sold
+        -- Previous Day Bottles Sold (Pacific Time)
         coalesce((
             select daily_bottles_sold 
             from daily_bottles_sold 
-            where order_date_key = current_date - interval '1 day'
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
         ), 0) as bottles_sold_prev_day,
         
-        -- Previous Week Bottles Sold (same week last year)
+        -- Previous Week Bottles Sold (same week last year, Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
-            where order_date_key >= date_trunc('week', current_date)::date - interval '1 year'
-            and order_date_key <= current_date - interval '1 year'
+            where order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as bottles_sold_prev_week,
         
-        -- Previous Month Bottles Sold (same month last year)
+        -- Previous Month Bottles Sold (same month last year, Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
-            where order_date_key >= date_trunc('month', current_date)::date - interval '1 year'
-            and order_date_key <= current_date - interval '1 year'
+            where order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as bottles_sold_prev_month,
         
-        -- Previous Fiscal Year Bottles Sold for same period
+        -- Previous Fiscal Year Bottles Sold for same period (Pacific Time)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and order_date_key <= current_date
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_prev_fiscal_year_to_date
 )
 
 select
-    current_date as report_date,
+    (select current_date_pacific from {{ ref('dim_date') }} limit 1) as report_date,
     
     -- Today's metrics
     bottles_sold_today,
@@ -133,8 +133,8 @@ select
         else null 
     end as bottles_sold_fiscal_year_vs_prev_fiscal_year_pct,
     
-    -- Current fiscal year info
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date - interval '1 year') as previous_fiscal_year
+    -- Current fiscal year info (Pacific Time)
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)) as current_fiscal_year,
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year') as previous_fiscal_year
 
 from bottles_metrics 

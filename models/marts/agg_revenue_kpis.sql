@@ -19,96 +19,96 @@ with daily_revenue as (
 
 revenue_metrics as (
     select
-        -- Today's Revenue
+        -- Today's Revenue (Pacific Time)
         coalesce((
             select daily_revenue 
             from daily_revenue 
-            where order_date_key = current_date
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as revenue_today,
         
-        -- Today's Order Count
+        -- Today's Order Count (Pacific Time)
         coalesce((
             select order_count 
             from daily_revenue 
-            where order_date_key = current_date
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as orders_today,
         
-        -- Week-to-Date Revenue (Monday start)
+        -- Week-to-Date Revenue (Monday start, Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            where dr.order_date_key >= date_trunc('week', current_date)::date
-            and dr.order_date_key <= current_date
+            where dr.order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as revenue_week_to_date,
         
-        -- Month-to-Date Revenue
+        -- Month-to-Date Revenue (Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            where dr.order_date_key >= date_trunc('month', current_date)::date
-            and dr.order_date_key <= current_date
+            where dr.order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as revenue_month_to_date,
         
-        -- Fiscal Year-to-Date Revenue
+        -- Fiscal Year-to-Date Revenue (Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
             where dr.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and dr.order_date_key <= current_date
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as revenue_fiscal_year_to_date,
         
-        -- Previous Fiscal Year Revenue for same period
+        -- Previous Fiscal Year Revenue for same period (Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
             where dr.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and dr.order_date_key <= current_date
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as revenue_prev_fiscal_year_to_date,
         
-        -- Previous Week Revenue (same week last year)
+        -- Previous Week Revenue (same week last year, Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            where dr.order_date_key >= date_trunc('week', current_date)::date - interval '1 year'
-            and dr.order_date_key <= current_date - interval '1 year'
+            where dr.order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as revenue_prev_week,
         
-        -- Previous Month Revenue (same month last year)
+        -- Previous Month Revenue (same month last year, Pacific Time)
         coalesce((
             select sum(daily_revenue)
             from daily_revenue dr
-            where dr.order_date_key >= date_trunc('month', current_date)::date - interval '1 year'
-            and dr.order_date_key <= current_date - interval '1 year'
+            where dr.order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as revenue_prev_month,
         
-        -- Previous Day Revenue
+        -- Previous Day Revenue (Pacific Time)
         coalesce((
             select daily_revenue 
             from daily_revenue 
-            where order_date_key = current_date - interval '1 day'
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
         ), 0) as revenue_prev_day,
         
         -- Debug: Total orders in fct_order (excluding club)
         (select count(*) from {{ ref('fct_order') }} where payment_status = 'paid' and channel <> 'club') as total_paid_orders,
         
-        -- Debug: Orders with revenue today (excluding club)
+        -- Debug: Orders with revenue today (excluding club, Pacific Time)
         (select count(*) from {{ ref('fct_order') }} 
          where payment_status = 'paid' 
-         and order_date_key = current_date 
+         and order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
          and subtotal > 0
          and channel <> 'club') as paid_orders_today
 )
 
 select
-    current_date as report_date,
+    (select current_date_pacific from {{ ref('dim_date') }} limit 1) as report_date,
     revenue_today,
     orders_today,
     revenue_prev_day,
@@ -150,8 +150,8 @@ select
     total_paid_orders,
     paid_orders_today,
     
-    -- Current fiscal year info
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date - interval '1 year') as previous_fiscal_year
+    -- Current fiscal year info (Pacific Time)
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)) as current_fiscal_year,
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year') as previous_fiscal_year
 
 from revenue_metrics 

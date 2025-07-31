@@ -42,149 +42,149 @@ daily_net_signups as (
 
 signup_metrics as (
     select
-        -- Today's Net Signups
+        -- Today's Net Signups (Pacific Time)
         coalesce((
             select daily_net_signups
             from daily_net_signups
-            where date_key = current_date
+            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as net_signups_today,
         
-        -- Today's Signups
+        -- Today's Signups (Pacific Time)
         coalesce((
             select daily_signups
             from daily_net_signups
-            where date_key = current_date
+            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as signups_today,
         
-        -- Today's Cancellations
+        -- Today's Cancellations (Pacific Time)
         coalesce((
             select daily_cancellations
             from daily_net_signups
-            where date_key = current_date
+            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as cancellations_today,
         
-        -- Week-to-Date Net Signups (Monday start)
+        -- Week-to-Date Net Signups (Monday start, Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as net_signups_week_to_date,
         
-        -- Week-to-Date Signups
+        -- Week-to-Date Signups (Pacific Time)
         coalesce((
             select sum(daily_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as signups_week_to_date,
         
-        -- Week-to-Date Cancellations
+        -- Week-to-Date Cancellations (Pacific Time)
         coalesce((
             select sum(daily_cancellations)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as cancellations_week_to_date,
         
-        -- Month-to-Date Net Signups
+        -- Month-to-Date Net Signups (Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as net_signups_month_to_date,
         
-        -- Month-to-Date Signups
+        -- Month-to-Date Signups (Pacific Time)
         coalesce((
             select sum(daily_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as signups_month_to_date,
         
-        -- Month-to-Date Cancellations
+        -- Month-to-Date Cancellations (Pacific Time)
         coalesce((
             select sum(daily_cancellations)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date)::date
-            and date_key <= current_date
+            where date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as cancellations_month_to_date,
         
-        -- Fiscal Year-to-Date Net Signups
+        -- Fiscal Year-to-Date Net Signups (Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and date_key <= current_date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as net_signups_fiscal_year_to_date,
         
-        -- Fiscal Year-to-Date Signups
+        -- Fiscal Year-to-Date Signups (Pacific Time)
         coalesce((
             select sum(daily_signups)
             from daily_net_signups
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and date_key <= current_date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as signups_fiscal_year_to_date,
         
-        -- Fiscal Year-to-Date Cancellations
+        -- Fiscal Year-to-Date Cancellations (Pacific Time)
         coalesce((
             select sum(daily_cancellations)
             from daily_net_signups
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and date_key <= current_date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as cancellations_fiscal_year_to_date,
         
-        -- Previous Day Net Signups
+        -- Previous Day Net Signups (Pacific Time)
         coalesce((
             select daily_net_signups
             from daily_net_signups
-            where date_key = current_date - interval '1 day'
+            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
         ), 0) as net_signups_prev_day,
         
-        -- Previous Week Net Signups (same week last year)
+        -- Previous Week Net Signups (same week last year, Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('week', current_date)::date - interval '1 year'
-            and date_key <= current_date - interval '1 year'
+            where date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_week,
         
-        -- Previous Month Net Signups (same month last year)
+        -- Previous Month Net Signups (same month last year, Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
-            where date_key >= date_trunc('month', current_date)::date - interval '1 year'
-            and date_key <= current_date - interval '1 year'
+            where date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_month,
         
-        -- Previous Fiscal Year Net Signups for same period
+        -- Previous Fiscal Year Net Signups for same period (Pacific Time)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
             where fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
-                where date_day = current_date
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and date_key <= current_date
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as net_signups_prev_fiscal_year_to_date
 )
 
 select
-    current_date as report_date,
+    (select current_date_pacific from {{ ref('dim_date') }} limit 1) as report_date,
     
     -- Today's metrics
     net_signups_today,
@@ -234,8 +234,8 @@ select
         else null 
     end as net_signups_fiscal_year_vs_prev_fiscal_year_pct,
     
-    -- Current fiscal year info
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date) as current_fiscal_year,
-    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = current_date - interval '1 year') as previous_fiscal_year
+    -- Current fiscal year info (Pacific Time)
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)) as current_fiscal_year,
+    (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year') as previous_fiscal_year
 
 from signup_metrics 
