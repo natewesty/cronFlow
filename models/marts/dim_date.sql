@@ -2,8 +2,8 @@
 -- All dates are calculated in Pacific Time to align with US West Coast business hours
 with dates as (
     select 
-        -- Convert UTC dates to Pacific Time for consistent business day boundaries
-        (d AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date as date_day
+        -- Simple date spine - no timezone conversion needed for calendar dates
+        d::date as date_day
     from generate_series(           -- use ASCII "-" in the literals
              date '2015-01-01',
              date '2035-12-31',
@@ -51,5 +51,6 @@ select
     -- Add Pacific Time specific fields for clarity
     'America/Los_Angeles' as timezone,
     -- Current date in Pacific Time for comparison operations
+    -- This is the only place we need timezone conversion since Commerce7 data is already in PST
     (current_timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles')::date as current_date_pacific
 from dates
