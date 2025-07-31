@@ -10,8 +10,9 @@ select
     (cl->>'clubMembershipId')::uuid  as club_membership_id,
     (cl->>'clubId')::uuid            as club_id,
     cl->>'clubTitle'                 as club_title,
-    (cl->>'signupDate')::timestamptz as signup_at,
-    (cl->>'cancelDate')::timestamptz as cancel_at,
+    -- Convert UTC timestamps to Pacific Time
+    (cl->>'signupDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as signup_at,
+    (cl->>'cancelDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as cancel_at,
     updated_at
 from base
 cross join lateral jsonb_array_elements(c->'clubs') cl

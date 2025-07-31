@@ -11,9 +11,10 @@ with src as (
         /* ───── identifiers & dates ───── */
         (data->>'id')::uuid                      as order_id,
         (data->>'orderNumber')::bigint           as order_number,
-        (data->>'orderSubmittedDate')::timestamptz   as submitted_at,
-        (data->>'orderPaidDate')::timestamptz        as paid_at,
-        (data->>'orderFulfilledDate')::timestamptz   as fulfilled_at,
+        -- Convert UTC timestamps to Pacific Time
+        (data->>'orderSubmittedDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as submitted_at,
+        (data->>'orderPaidDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as paid_at,
+        (data->>'orderFulfilledDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as fulfilled_at,
 
         /* ───── statuses & refs ───── */
         data->>'channel'                         as channel,
@@ -36,8 +37,9 @@ with src as (
         coalesce((data->>'totalAfterTip')::bigint,0)  as total_after_tip_cents,
 
         /* ───── bookkeeping ───── */
-        (data->>'createdAt')::timestamptz         as created_at,
-        (data->>'updatedAt')::timestamptz         as updated_at,
+        -- Convert UTC timestamps to Pacific Time
+        (data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
+        (data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
         coalesce(last_processed_at, current_timestamp) as load_ts,
         data                                      as _order_json
 

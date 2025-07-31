@@ -17,7 +17,8 @@ products as (
         (p->'product'->>'quantity')::int         as quantity,
         p->'product'->>'image'                   as image_url,
 
-        (p->>'purchaseDate')::timestamptz        as purchase_at,
+        -- Convert UTC timestamps to Pacific Time
+        (p->>'purchaseDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as purchase_at,
         p                                         as _product_json,
         updated_at
     from base

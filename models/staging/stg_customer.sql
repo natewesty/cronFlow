@@ -18,9 +18,10 @@ with src as (
         data->>'zipCode'                        as postal_code,
         data->>'countryCode'                    as country_code,
         data->>'emailMarketingStatus'           as email_mkt_status,
-        (data->>'lastActivityDate')::timestamptz  as last_activity_at,
-        (data->>'createdAt')::timestamptz       as created_at,
-        (data->>'updatedAt')::timestamptz       as updated_at,
+        -- Convert UTC timestamps to Pacific Time
+        (data->>'lastActivityDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as last_activity_at,
+        (data->>'createdAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as created_at,
+        (data->>'updatedAt')::timestamptz AT TIME ZONE 'America/Los_Angeles' as updated_at,
 
         /* orderInformation sub‑object */
         (data->'orderInformation'->>'orderCount')::int          as order_count,
@@ -30,7 +31,8 @@ with src as (
         (data->'orderInformation'->>'currentClubTitle')         as current_club_title,
         (data->'orderInformation'->>'isActiveClubMember')::bool as is_active_club_member,
         (data->'orderInformation'->>'lastOrderId')::uuid        as last_order_id,
-        (data->'orderInformation'->>'lastOrderDate')::timestamptz as last_order_at,
+        -- Convert UTC timestamps to Pacific Time
+        (data->'orderInformation'->>'lastOrderDate')::timestamptz AT TIME ZONE 'America/Los_Angeles' as last_order_at,
 
         /* flags */
         (data->>'hasAccount')::bool              as has_account,
