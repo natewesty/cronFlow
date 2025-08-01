@@ -62,7 +62,7 @@ wine_revenue_metrics as (
             and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as wine_revenue_fiscal_year_to_date,
         
-        -- Previous Fiscal Year Wine Revenue for same period (Pacific Time)
+        -- Previous Fiscal Year Wine Revenue (from July 1st of previous fiscal year to today's date minus one year)
         coalesce((
             select sum(daily_wine_revenue)
             from daily_wine_revenue dr
@@ -71,7 +71,12 @@ wine_revenue_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            and dr.order_date_key >= (
+                select fiscal_year || '-07-01'::date
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - interval '1 year'
+            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as wine_revenue_prev_fiscal_year_to_date,
         
         -- Previous Week Wine Revenue (same week last year, Pacific Time)
@@ -90,11 +95,11 @@ wine_revenue_metrics as (
             and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as wine_revenue_prev_month,
         
-        -- Previous Day Wine Revenue (Pacific Time)
+        -- Previous Day Wine Revenue (same date one year prior, Pacific Time)
         coalesce((
-            select daily_wine_revenue 
+            select sum(daily_wine_revenue) 
             from daily_wine_revenue 
-            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as wine_revenue_prev_day,
         
         -- Debug: Total wine orders in fct_order

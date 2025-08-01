@@ -147,11 +147,11 @@ signup_metrics as (
             and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as cancellations_fiscal_year_to_date,
         
-        -- Previous Day Net Signups (Pacific Time)
+        -- Previous Day Net Signups (same date one year prior, Pacific Time)
         coalesce((
-            select daily_net_signups
+            select sum(daily_net_signups)
             from daily_net_signups
-            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
+            where date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_day,
         
         -- Previous Week Net Signups (same week last year, Pacific Time)
@@ -170,7 +170,7 @@ signup_metrics as (
             and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_month,
         
-        -- Previous Fiscal Year Net Signups for same period (Pacific Time)
+        -- Previous Fiscal Year Net Signups (from July 1st of previous fiscal year to today's date minus one year)
         coalesce((
             select sum(daily_net_signups)
             from daily_net_signups
@@ -179,7 +179,12 @@ signup_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            and date_key >= (
+                select fiscal_year || '-07-01'::date
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - interval '1 year'
+            and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_fiscal_year_to_date
 )
 

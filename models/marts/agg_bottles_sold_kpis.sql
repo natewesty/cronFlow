@@ -54,11 +54,11 @@ bottles_metrics as (
             and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
         ), 0) as bottles_sold_fiscal_year_to_date,
         
-        -- Previous Day Bottles Sold (Pacific Time)
+        -- Previous Day Bottles Sold (same date one year prior, Pacific Time)
         coalesce((
-            select daily_bottles_sold 
+            select sum(daily_bottles_sold) 
             from daily_bottles_sold 
-            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
+            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as bottles_sold_prev_day,
         
         -- Previous Week Bottles Sold (same week last year, Pacific Time)
@@ -77,7 +77,7 @@ bottles_metrics as (
             and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as bottles_sold_prev_month,
         
-        -- Previous Fiscal Year Bottles Sold for same period (Pacific Time)
+        -- Previous Fiscal Year Bottles Sold (from July 1st of previous fiscal year to today's date minus one year)
         coalesce((
             select sum(daily_bottles_sold)
             from daily_bottles_sold
@@ -86,7 +86,12 @@ bottles_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            and order_date_key >= (
+                select fiscal_year || '-07-01'::date
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - interval '1 year'
+            and order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as bottles_sold_prev_fiscal_year_to_date
 )
 
