@@ -72,10 +72,10 @@ tasting_fee_revenue_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and dr.order_date_key >= (
-                select fiscal_year || '-07-01'::date
+                select (fiscal_year - 1) || '-07-01'::date
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-            ) - interval '1 year'
+            )
             and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as tasting_fee_revenue_prev_fiscal_year_to_date,
         
