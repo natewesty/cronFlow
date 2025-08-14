@@ -3,7 +3,7 @@
           incremental_strategy='merge') }}
 
 with base as (
-  select order_id, _order_json as o, updated_at
+  select order_id, _order_json as o, updated_at, channel, paid_at
   from {{ ref('stg_order') }}
 ),
 items as (
@@ -27,6 +27,8 @@ items as (
     coalesce((i->>'quantity')::int,0)        as qty,
     coalesce((i->>'tax')::bigint,0)          as tax_cents,
     i->>'taxType'                   as tax_type,
+    b.channel,
+    b.paid_at,
     b.updated_at
   from base b
   cross join lateral jsonb_array_elements(b.o->'items') as i
