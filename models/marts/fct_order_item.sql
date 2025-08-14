@@ -16,6 +16,8 @@ select
     oi.tax_cents        / 100.0    as item_tax,
     oi.qty              as quantity,             -- ✅ matches stg_order_item
     oi.bottle_deposit_cents / 100.0    as bottle_deposit,
+    oi.channel,
+    oi.paid_at,
     oi.updated_at
 from {{ ref('stg_order_item') }} oi
 
