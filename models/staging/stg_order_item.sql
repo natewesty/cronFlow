@@ -3,12 +3,19 @@
           incremental_strategy='merge') }}
 
 with base as (
-  select order_id, _order_json as o, updated_at, channel, paid_at
+  select 
+    order_id, 
+    channel,
+    paid_at,
+    _order_json as o, 
+    updated_at
   from {{ ref('stg_order') }}
 ),
 items as (
   select
     b.order_id,
+    b.channel,
+    b.paid_at,
     (i->>'id')::uuid                as order_item_id,
     i->>'externalOrderVendor'       as external_order_vendor,
     i->>'purchaseType'              as purchase_type,
@@ -27,8 +34,6 @@ items as (
     coalesce((i->>'quantity')::int,0)        as qty,
     coalesce((i->>'tax')::bigint,0)          as tax_cents,
     i->>'taxType'                   as tax_type,
-    b.channel,
-    b.paid_at,
     b.updated_at
   from base b
   cross join lateral jsonb_array_elements(b.o->'items') as i
