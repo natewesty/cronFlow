@@ -12,6 +12,7 @@ select
     oi.variant_id       as product_variant_id,   -- ✅ column exists in stg_order_item
     oi.purchase_type,
     oi.item_type,
+    oi.sku,                                     -- ✅ Added from stg_order_item
     oi.channel,                                    -- ✅ Added from stg_order_item
     oi.paid_at,                                   -- ✅ Added from stg_order_item
     oi.price_cents      / 100.0    as item_price,
