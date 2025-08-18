@@ -55,16 +55,16 @@ sales_metrics as (
         foi.sku,
         
         -- All-time sales (excluding Club) - using EXACT column names from fct_order_item
-        sum(case when foi.channel != 'Club' then foi.qty else 0 end) as cumulative_bottles_sold,
+        sum(case when foi.channel != 'Club' then foi.quantity else 0 end) as cumulative_bottles_sold,
         
         -- Club sales (all-time)
-        sum(case when foi.channel = 'Club' then foi.qty else 0 end) as club_bottles_sold,
+        sum(case when foi.channel = 'Club' then foi.quantity else 0 end) as club_bottles_sold,
         
         -- Recent sales (last 30 days, excluding Club)
         sum(case 
             when foi.channel != 'Club' 
             and foi.paid_at >= current_date - interval '30 days' 
-            then foi.qty 
+            then foi.quantity 
             else 0 
         end) as recent_bottles_sold_30d,
         
