@@ -36,7 +36,7 @@ with wine_vintages as (
         
         -- Determine if this is an active wine vintage
         case 
-            when dp.web_status = 'Available' and dp.admin_status = 'Available' 
+            when dp.web_status = 'Available' or dp.admin_status = 'Available' 
             then 'active'
             when dp.web_status = 'Draft' or dp.admin_status = 'Draft'
             then 'planning'
