@@ -68,7 +68,7 @@ sales_metrics as (
             else 0 
         end) as recent_bottles_sold_30d,
         
-        -- Days with sales (last 30 days)
+        -- Days with sales (last 30 days) - kept for informational purposes
         count(distinct case 
             when foi.channel != 'Club' 
             and foi.paid_at >= current_date - interval '30 days' 
@@ -110,19 +110,19 @@ depletion_calculations as (
         -- Days since release
         extract(day from (current_date - coalesce(sm.first_sale_date, wv.vintage_created_at))) as days_since_release,
         
-        -- Daily depletion rate (based on sales days only)
-        case 
-            when sm.days_with_sales_30d > 0 
-            then round(sm.recent_bottles_sold_30d::numeric / sm.days_with_sales_30d, 2)
-            else 0 
-        end as daily_depletion_rate,
-        
-        -- Daily depletion rate over 30-day period
+        -- CORRECTED: Daily depletion rate over 30-day period (bottles per calendar day)
         case 
             when sm.recent_bottles_sold_30d > 0 
             then round(sm.recent_bottles_sold_30d::numeric / 30, 2)
             else 0 
-        end as daily_depletion_rate_over_period
+        end as daily_depletion_rate_30d,
+        
+        -- CORRECTED: Daily depletion rate since release (bottles per calendar day since first sale)
+        case 
+            when sm.cumulative_bottles_sold > 0 and extract(day from (current_date - coalesce(sm.first_sale_date, wv.vintage_created_at))) > 0
+            then round(sm.cumulative_bottles_sold::numeric / extract(day from (current_date - coalesce(sm.first_sale_date, wv.vintage_created_at))), 2)
+            else 0 
+        end as daily_depletion_rate_since_release
         
     from wine_vintages wv
     left join sales_metrics sm on wv.sku = sm.sku
@@ -163,9 +163,9 @@ select
     vintage_created_at,
     vintage_updated_at,
     
-    -- Calculated metrics
-    daily_depletion_rate,
-    daily_depletion_rate_over_period,
+    -- CORRECTED: Calculated depletion metrics
+    daily_depletion_rate_30d,
+    daily_depletion_rate_since_release,
     
     -- Metadata
     current_date as calculation_date,
