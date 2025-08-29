@@ -9,4 +9,4 @@ SELECT
   - sum(coalesce(fo.tip_total_cents,0))/100.0 as net_revenue
 FROM fact_order fo
 JOIN dim_fiscal_date d ON date(fo.submitted_at) = d.calendar_date
-GROUP BY 1,2,3;
+GROUP BY 1,2,3

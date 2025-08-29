@@ -5,4 +5,4 @@ SELECT
   min(calendar_date) as week_start,
   max(calendar_date) as week_end
 FROM dim_fiscal_date
-GROUP BY 1,2;
+GROUP BY 1,2
