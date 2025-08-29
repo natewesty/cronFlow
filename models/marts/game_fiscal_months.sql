@@ -5,4 +5,4 @@ SELECT
   min(date_day) as month_start,
   max(date_day) as month_end
 FROM {{ ref('dim_date') }}
-GROUP BY 1,2;
+GROUP BY 1,2

@@ -4,4 +4,4 @@ SELECT DISTINCT
   d.fiscal_year,
   d.fiscal_month as fiscal_month  -- Using fiscal_month since fiscal_week doesn't exist
 FROM {{ ref('fct_order') }} fo
-JOIN {{ ref('dim_date') }} d ON fo.order_date_key = d.date_day;
+JOIN {{ ref('dim_date') }} d ON fo.order_date_key = d.date_day

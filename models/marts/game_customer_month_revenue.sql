@@ -9,4 +9,4 @@ SELECT
   - sum(coalesce(fo.tip,0)) as net_revenue
 FROM {{ ref('fct_order') }} fo
 JOIN {{ ref('dim_date') }} d ON fo.order_date_key = d.date_day
-GROUP BY 1,2,3;
+GROUP BY 1,2,3
