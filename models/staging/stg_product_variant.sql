@@ -5,7 +5,7 @@
 ) }}
 
 with base as (
-    select product_id, _product_json as p, updated_at
+    select product_id, _product_json as p, updated_at, sub_title
     from {{ ref('stg_product') }}
 ),
 
@@ -14,7 +14,7 @@ variant as (
         product_id,
         (v->>'id')::uuid                      as variant_id,
         v->>'title'                           as variant_title,
-        v->>'sub_title'                       as sub_title,
+        base.sub_title                        as sub_title,
         v->>'sku'                             as sku,
         v->>'inventoryPolicy'                 as inventory_policy,
         v->>'taxType'                         as tax_type,
