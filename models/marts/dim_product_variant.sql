@@ -4,6 +4,7 @@ select
     pv.variant_id                               as product_variant_id,
     pv.product_id,
     p.title                                     as product_title,
+    pv.sub_title,
     pv.variant_title,
     coalesce(p.wine_type, p.product_type)       as product_type,
     p.varietal,

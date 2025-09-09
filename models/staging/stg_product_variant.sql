@@ -14,6 +14,7 @@ variant as (
         product_id,
         (v->>'id')::uuid                      as variant_id,
         v->>'title'                           as variant_title,
+        v->>'sub_title'                       as sub_title,
         v->>'sku'                             as sku,
         v->>'inventoryPolicy'                 as inventory_policy,
         v->>'taxType'                         as tax_type,
