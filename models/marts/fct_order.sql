@@ -22,6 +22,10 @@ select
     o.tip_total_cents  /100.0  as tip,
     o.total_cents      /100.0  as order_total,
     o.total_after_tip_cents /100.0 as total_after_tip,
+    o.tasting_lounge,
+    o.event_fee_or_wine,
+    o.event_specific_sale,
+    o.event_revenue_realization_date,
     o.created_at,
     o.updated_at
 from {{ ref('stg_order') }} o
