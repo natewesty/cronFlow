@@ -23,7 +23,7 @@ with tasting_room_metrics as (
             )
         ), 0) as tasting_room_wine_actual,
         
-        -- Tasting Room Wine Prior: Previous fiscal year
+        -- Tasting Room Wine Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -38,6 +38,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as tasting_room_wine_prior,
         
         -- Tasting Room Fees Actual: Current fiscal year
@@ -57,7 +63,7 @@ with tasting_room_metrics as (
             )
         ), 0) as tasting_room_fees_actual,
         
-        -- Tasting Room Fees Prior: Previous fiscal year
+        -- Tasting Room Fees Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -72,6 +78,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as tasting_room_fees_prior,
         
         -- Wine Club Actual: Current fiscal year
@@ -87,7 +99,7 @@ with tasting_room_metrics as (
             )
         ), 0) as wine_club_actual,
         
-        -- Wine Club Prior: Previous fiscal year
+        -- Wine Club Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -98,6 +110,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as wine_club_prior,
         
         -- eComm Actual: Current fiscal year
@@ -113,7 +131,7 @@ with tasting_room_metrics as (
             )
         ), 0) as ecomm_actual,
         
-        -- eComm Prior: Previous fiscal year
+        -- eComm Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -124,6 +142,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as ecomm_prior,
         
         -- Phone Actual: Current fiscal year
@@ -139,7 +163,7 @@ with tasting_room_metrics as (
             )
         ), 0) as phone_actual,
         
-        -- Phone Prior: Previous fiscal year
+        -- Phone Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -150,6 +174,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as phone_prior,
         
         -- Event Fees Actual: Current fiscal year
@@ -166,7 +196,7 @@ with tasting_room_metrics as (
             )
         ), 0) as event_fees_actual,
         
-        -- Event Fees Prior: Previous fiscal year
+        -- Event Fees Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -178,6 +208,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as event_fees_prior,
         
         -- Event Wine Actual: Current fiscal year
@@ -194,7 +230,7 @@ with tasting_room_metrics as (
             )
         ), 0) as event_wine_actual,
         
-        -- Event Wine Prior: Previous fiscal year
+        -- Event Wine Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -206,6 +242,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as event_wine_prior,
         
         -- Shipping Actual: Current fiscal year
@@ -220,7 +262,7 @@ with tasting_room_metrics as (
             )
         ), 0) as shipping_actual,
         
-        -- Shipping Prior: Previous fiscal year
+        -- Shipping Prior: Previous fiscal year (same date range)
         coalesce((
             select sum(fo.shipping)
             from {{ ref('fct_order') }} fo
@@ -230,6 +272,12 @@ with tasting_room_metrics as (
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
+            and fo.order_date_key >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as shipping_prior
 )
 
