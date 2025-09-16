@@ -4,154 +4,311 @@
   )
 }}
 
-with daily_revenue as (
+with tasting_room_metrics as (
     select
-        fo.order_date_key,
-        dd.fiscal_year,
-        dd.fiscal_year_name,
-        sum(fo.subtotal) as daily_revenue,
-        count(*) as order_count
-    from {{ ref('fct_order') }} fo
-    left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
-    where fo.order_date_key is not null  -- Ensure we have a valid date
-    group by fo.order_date_key, dd.fiscal_year, dd.fiscal_year_name
-),
-
-revenue_metrics as (
-    select
-        -- Today's Revenue (Pacific Time)
+        -- Tasting Room Wine Actual: Current fiscal year
         coalesce((
-            select daily_revenue 
-            from daily_revenue 
-            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as revenue_today,
-        
-        -- Today's Order Count (Pacific Time)
-        coalesce((
-            select order_count 
-            from daily_revenue 
-            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as orders_today,
-        
-        -- Week-to-Date Revenue (Monday start, Pacific Time)
-        coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as revenue_week_to_date,
-        
-        -- Month-to-Date Revenue (Pacific Time)
-        coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as revenue_month_to_date,
-        
-        -- Fiscal Year-to-Date Revenue (Pacific Time)
-        coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.fiscal_year = (
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = false)
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             )
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as revenue_fiscal_year_to_date,
+        ), 0) as tasting_room_wine_actual,
         
-        -- Previous Fiscal Year Revenue for same period (Pacific Time)
+        -- Tasting Room Wine Prior: Previous fiscal year
         coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.fiscal_year = (
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = false)
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-        ), 0) as revenue_prev_fiscal_year_to_date,
+        ), 0) as tasting_room_wine_prior,
         
-        -- Previous Week Revenue (same week last year, Pacific Time)
+        -- Tasting Room Fees Actual: Current fiscal year
         coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.order_date_key >= date_trunc('week', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
-        ), 0) as revenue_prev_week,
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'POS'
+            and fo.external_order_vendor = 'Tock'
+            and (fo.tasting_lounge is null or fo.tasting_lounge = false)
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as tasting_room_fees_actual,
         
-        -- Previous Month Revenue (same month last year, Pacific Time)
+        -- Tasting Room Fees Prior: Previous fiscal year
         coalesce((
-            select sum(daily_revenue)
-            from daily_revenue dr
-            where dr.order_date_key >= date_trunc('month', (select current_date_pacific from {{ ref('dim_date') }} limit 1))::date - interval '1 year'
-            and dr.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
-        ), 0) as revenue_prev_month,
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'POS'
+            and fo.external_order_vendor = 'Tock'
+            and (fo.tasting_lounge is null or fo.tasting_lounge = false)
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as tasting_room_fees_prior,
         
-        -- Previous Day Revenue (Pacific Time)
+        -- Wine Club Actual: Current fiscal year
         coalesce((
-            select daily_revenue 
-            from daily_revenue 
-            where order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 day'
-        ), 0) as revenue_prev_day,
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Club'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as wine_club_actual,
         
-        -- Debug: Total orders in fct_order (excluding club)
-        (select count(*) from {{ ref('fct_order') }} where payment_status = 'paid' and channel <> 'club') as total_paid_orders,
+        -- Wine Club Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Club'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as wine_club_prior,
         
-        -- Debug: Orders with revenue today (excluding club, Pacific Time)
-        (select count(*) from {{ ref('fct_order') }} 
-         where payment_status = 'paid' 
-         and order_date_key = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
-         and subtotal > 0
-         and channel <> 'club') as paid_orders_today
+        -- eComm Actual: Current fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Web'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as ecomm_actual,
+        
+        -- eComm Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Web'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as ecomm_prior,
+        
+        -- Phone Actual: Current fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Inbound'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as phone_actual,
+        
+        -- Phone Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.channel = 'Inbound'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as phone_prior,
+        
+        -- Event Fees Actual: Current fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.event_fee_or_wine = 'Event Fee'
+            and fo.event_specific_sale = 1
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as event_fees_actual,
+        
+        -- Event Fees Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.event_fee_or_wine = 'Event Fee'
+            and fo.event_specific_sale = 1
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as event_fees_prior,
+        
+        -- Event Wine Actual: Current fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.event_fee_or_wine = 'Event Wine'
+            and fo.event_specific_sale = 1
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as event_wine_actual,
+        
+        -- Event Wine Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where fo.event_fee_or_wine = 'Event Wine'
+            and fo.event_specific_sale = 1
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as event_wine_prior,
+        
+        -- Shipping Actual: Current fiscal year
+        coalesce((
+            select sum(fo.shipping)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) as shipping_actual,
+        
+        -- Shipping Prior: Previous fiscal year
+        coalesce((
+            select sum(fo.shipping)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            where dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+        ), 0) as shipping_prior
 )
 
 select
     (select current_date_pacific from {{ ref('dim_date') }} limit 1) as report_date,
-    revenue_today,
-    orders_today,
-    revenue_prev_day,
-    revenue_today - revenue_prev_day as revenue_today_vs_prev_day,
+    tasting_room_wine_actual,
+    tasting_room_wine_prior,
+    tasting_room_wine_actual - tasting_room_wine_prior as tasting_room_wine_variance,
     case 
-        when revenue_prev_day > 0 
-        then ((revenue_today - revenue_prev_day) / revenue_prev_day) * 100 
+        when tasting_room_wine_prior > 0 
+        then ((tasting_room_wine_actual - tasting_room_wine_prior) / tasting_room_wine_prior) * 100 
         else null 
-    end as revenue_today_vs_prev_day_pct,
+    end as tasting_room_wine_variance_pct,
     
-    revenue_week_to_date,
-    revenue_prev_week,
-    revenue_week_to_date - revenue_prev_week as revenue_week_vs_prev_week,
+    tasting_room_fees_actual,
+    tasting_room_fees_prior,
+    tasting_room_fees_actual - tasting_room_fees_prior as tasting_room_fees_variance,
     case 
-        when revenue_prev_week > 0 
-        then ((revenue_week_to_date - revenue_prev_week) / revenue_prev_week) * 100 
+        when tasting_room_fees_prior > 0 
+        then ((tasting_room_fees_actual - tasting_room_fees_prior) / tasting_room_fees_prior) * 100 
         else null 
-    end as revenue_week_vs_prev_week_pct,
+    end as tasting_room_fees_variance_pct,
     
-    revenue_month_to_date,
-    revenue_prev_month,
-    revenue_month_to_date - revenue_prev_month as revenue_month_vs_prev_month,
+    wine_club_actual,
+    wine_club_prior,
+    wine_club_actual - wine_club_prior as wine_club_variance,
     case 
-        when revenue_prev_month > 0 
-        then ((revenue_month_to_date - revenue_prev_month) / revenue_prev_month) * 100 
+        when wine_club_prior > 0 
+        then ((wine_club_actual - wine_club_prior) / wine_club_prior) * 100 
         else null 
-    end as revenue_month_vs_prev_month_pct,
+    end as wine_club_variance_pct,
     
-    revenue_fiscal_year_to_date,
-    revenue_prev_fiscal_year_to_date,
-    revenue_fiscal_year_to_date - revenue_prev_fiscal_year_to_date as revenue_fiscal_year_vs_prev_fiscal_year,
+    ecomm_actual,
+    ecomm_prior,
+    ecomm_actual - ecomm_prior as ecomm_variance,
     case 
-        when revenue_prev_fiscal_year_to_date > 0 
-        then ((revenue_fiscal_year_to_date - revenue_prev_fiscal_year_to_date) / revenue_prev_fiscal_year_to_date) * 100 
+        when ecomm_prior > 0 
+        then ((ecomm_actual - ecomm_prior) / ecomm_prior) * 100 
         else null 
-    end as revenue_fiscal_year_vs_prev_fiscal_year_pct,
+    end as ecomm_variance_pct,
     
-    -- Debug fields
-    total_paid_orders,
-    paid_orders_today,
+    phone_actual,
+    phone_prior,
+    phone_actual - phone_prior as phone_variance,
+    case 
+        when phone_prior > 0 
+        then ((phone_actual - phone_prior) / phone_prior) * 100 
+        else null 
+    end as phone_variance_pct,
+    
+    event_fees_actual,
+    event_fees_prior,
+    event_fees_actual - event_fees_prior as event_fees_variance,
+    case 
+        when event_fees_prior > 0 
+        then ((event_fees_actual - event_fees_prior) / event_fees_prior) * 100 
+        else null 
+    end as event_fees_variance_pct,
+    
+    event_wine_actual,
+    event_wine_prior,
+    event_wine_actual - event_wine_prior as event_wine_variance,
+    case 
+        when event_wine_prior > 0 
+        then ((event_wine_actual - event_wine_prior) / event_wine_prior) * 100 
+        else null 
+    end as event_wine_variance_pct,
+    
+    shipping_actual,
+    shipping_prior,
+    shipping_actual - shipping_prior as shipping_variance,
+    case 
+        when shipping_prior > 0 
+        then ((shipping_actual - shipping_prior) / shipping_prior) * 100 
+        else null 
+    end as shipping_variance_pct,
     
     -- Current fiscal year info (Pacific Time)
     (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)) as current_fiscal_year,
     (select fiscal_year_name from {{ ref('dim_date') }} where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year') as previous_fiscal_year
 
-from revenue_metrics 
+from tasting_room_metrics 
