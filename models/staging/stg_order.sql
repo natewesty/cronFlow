@@ -46,7 +46,11 @@ with src as (
         data->'metaData'->>'event-fee-or-wine'                 as event_fee_or_wine,
         case 
             when data->'metaData'->>'event-specific-sale' is null then null
-            else (data->'metaData'->>'event-specific-sale')::int
+            when data->'metaData'->>'event-specific-sale' = 'true' then 1
+            when data->'metaData'->>'event-specific-sale' = 'false' then 0
+            when data->'metaData'->>'event-specific-sale' = '1' then 1
+            when data->'metaData'->>'event-specific-sale' = '0' then 0
+            else null
         end as event_specific_sale,
         data->'metaData'->>'event-revenue-realization date'    as event_revenue_realization_date,
 
