@@ -38,10 +38,10 @@ with src as (
 
         /* ───── metadata fields ───── */
         case 
-            when data->'metaData'->>'tasting-lounge' is null then null
+            when data->'metaData'->>'tasting-lounge' is null then null::boolean
             when data->'metaData'->>'tasting-lounge' = 'true' then true
             when data->'metaData'->>'tasting-lounge' = 'false' then false
-            else null
+            else null::boolean
         end as tasting_lounge,
         data->'metaData'->>'event-fee-or-wine'                 as event_fee_or_wine,
         case 
