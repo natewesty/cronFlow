@@ -37,9 +37,17 @@ with src as (
         coalesce((data->>'totalAfterTip')::bigint,0)  as total_after_tip_cents,
 
         /* ───── metadata fields ───── */
-        data->'metaData'->>'tasting-lounge'                    as tasting_lounge,
+        case 
+            when data->'metaData'->>'tasting-lounge' is null then null
+            when data->'metaData'->>'tasting-lounge' = 'true' then true
+            when data->'metaData'->>'tasting-lounge' = 'false' then false
+            else null
+        end as tasting_lounge,
         data->'metaData'->>'event-fee-or-wine'                 as event_fee_or_wine,
-        data->'metaData'->>'event-specific-sale'               as event_specific_sale,
+        case 
+            when data->'metaData'->>'event-specific-sale' is null then null
+            else (data->'metaData'->>'event-specific-sale')::int
+        end as event_specific_sale,
         data->'metaData'->>'event-revenue-realization date'    as event_revenue_realization_date,
 
         /* ───── bookkeeping ───── */
