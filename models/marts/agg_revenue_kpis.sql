@@ -188,7 +188,7 @@ with tasting_room_metrics as (
             from {{ ref('fct_order') }} fo
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Fee'
-            and fo.event_specific_sale = '1'
+            and fo.event_specific_sale = 'true'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -202,7 +202,7 @@ with tasting_room_metrics as (
             from {{ ref('fct_order') }} fo
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Fee'
-            and fo.event_specific_sale = '1'
+            and fo.event_specific_sale = 'true'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -222,7 +222,7 @@ with tasting_room_metrics as (
             from {{ ref('fct_order') }} fo
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Wine'
-            and fo.event_specific_sale = '1'
+            and fo.event_specific_sale = 'true'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -236,7 +236,7 @@ with tasting_room_metrics as (
             from {{ ref('fct_order') }} fo
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Wine'
-            and fo.event_specific_sale = '1'
+            and fo.event_specific_sale = 'true'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
