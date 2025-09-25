@@ -71,4 +71,46 @@ sources:
           - name: created_at
             description: "Record creation timestamp"
           - name: updated_at
-            description: "Record update timestamp" 
+            description: "Record update timestamp"
+            
+      - name: raw_tock_guest
+        description: "Raw guest data from Tock API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: _airbyte_ab_id
+            description: "Airbyte record ID"
+          - name: _airbyte_emitted_at
+            description: "Airbyte emission timestamp"
+          - name: _airbyte_normalized_at
+            description: "Airbyte normalization timestamp"
+          - name: _airbyte_tock_guest_hashid
+            description: "Airbyte hash ID"
+            
+      - name: raw_tock_reservation
+        description: "Raw reservation data from Tock API"
+        columns:
+          - name: id
+            description: "Primary key"
+            tests:
+              - unique
+              - not_null
+          - name: data
+            description: "JSONB data from API"
+          - name: last_processed_at
+            description: "Timestamp of last processing"
+          - name: _airbyte_ab_id
+            description: "Airbyte record ID"
+          - name: _airbyte_emitted_at
+            description: "Airbyte emission timestamp"
+          - name: _airbyte_normalized_at
+            description: "Airbyte normalization timestamp"
+          - name: _airbyte_tock_reservation_hashid
+            description: "Airbyte hash ID" 

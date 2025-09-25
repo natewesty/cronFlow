@@ -129,6 +129,8 @@ def load_environment():
     env_vars = {
         'C7_AUTH_TOKEN': os.getenv('C7_AUTH_TOKEN'),
         'C7_TENANT': os.getenv('C7_TENANT'),
+        'X_TOCK_AUTH': os.getenv('X_TOCK_AUTH'),
+        'X_TOCK_SCOPE': os.getenv('X_TOCK_SCOPE'),
         'DATABASE_URL': os.getenv('DATABASE_URL'),
         'DB_HOST': os.getenv('DB_HOST'),
         'DB_NAME': os.getenv('DB_NAME'),
@@ -139,7 +141,7 @@ def load_environment():
     logger.info("Environment variables loaded:")
     for key, value in env_vars.items():
         if value:
-            masked_value = '*' * len(value) if 'PASSWORD' in key or 'TOKEN' in key else value
+            masked_value = '*' * len(value) if 'PASSWORD' in key or 'TOKEN' in key or 'AUTH' in key else value
             logger.info(f"{key}: {masked_value}")
         else:
             logger.warning(f"{key}: Not set")
@@ -151,13 +153,323 @@ def load_environment():
         all([env_vars['DB_HOST'], env_vars['DB_NAME'], env_vars['DB_USER'], env_vars['DB_PASSWORD']])
     )
     
-    missing_vars = [key for key, value in env_vars.items() if not value and key in ['C7_AUTH_TOKEN', 'C7_TENANT']]
-    if missing_vars:
-        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+    # Check for at least one API configuration (Commerce7 or Tock)
+    has_commerce7_config = all([env_vars['C7_AUTH_TOKEN'], env_vars['C7_TENANT']])
+    has_tock_config = all([env_vars['X_TOCK_AUTH'], env_vars['X_TOCK_SCOPE']])
+    
+    if not has_commerce7_config and not has_tock_config:
+        logger.error("Missing required API credentials. Need either Commerce7 (C7_AUTH_TOKEN, C7_TENANT) or Tock (X_TOCK_AUTH, X_TOCK_SCOPE) credentials")
+        raise ValueError("Missing required API credentials")
     
     if not has_postgres_config:
         logger.warning("No PostgreSQL configuration found - will use SQLite fallback")
+
+class TockAPIClient:
+    """Tock API client for data ingestion."""
+    
+    def __init__(self):
+        self.auth_header = os.getenv('X_TOCK_AUTH')
+        self.scope_header = os.getenv('X_TOCK_SCOPE')
+        self.base_url = 'https://dashboard.exploretock.com/api/data/export/urls'
+        
+        if not all([self.auth_header, self.scope_header]):
+            raise ValueError("Missing required Tock API credentials (X_TOCK_AUTH and X_TOCK_SCOPE)")
+        
+        self.session = requests.Session()
+        self.session.headers.update({
+            'X-Tock-Authorization': self.auth_header,
+            'X-Tock-Scope': self.scope_header
+        })
+        logger.debug("TockAPIClient initialized successfully")
+    
+    def get_data_urls(self) -> Dict[str, List[str]]:
+        """Get the data export URLs from Tock API."""
+        try:
+            logger.debug("Fetching Tock data export URLs...")
+            response = self.session.get(self.base_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            result = data.get('result', {})
+            guest_urls = result.get('guestDataUrls', [])
+            reservation_urls = result.get('reservationDataUrls', [])
+            
+            logger.info(f"Retrieved {len(guest_urls)} guest data URLs and {len(reservation_urls)} reservation data URLs")
+            return {
+                'guest_urls': guest_urls,
+                'reservation_urls': reservation_urls
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch Tock data URLs: {str(e)}")
+            raise
+    
+    def fetch_json_data(self, url: str) -> List[Dict]:
+        """Fetch and parse JSON data from a single URL."""
+        try:
+            logger.debug(f"Fetching data from: {url[:100]}...")
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            # Parse the JSON data
+            data = response.json()
+            
+            # Handle both single objects and arrays
+            if isinstance(data, dict):
+                # If it's a single object, wrap it in a list
+                return [data]
+            elif isinstance(data, list):
+                return data
+            else:
+                logger.warning(f"Unexpected data format from URL: {type(data)}")
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch data from URL: {str(e)}")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON from URL: {str(e)}")
+            return []
+    
+    def get_latest_guest_url(self, urls: List[str]) -> str:
+        """Get the URL with the highest guest-profile number."""
+        import re
+        
+        guest_urls_with_numbers = []
+        for url in urls:
+            # Extract the number from guest-profile-X.json
+            match = re.search(r'guest-profile-(\d+)\.json', url)
+            if match:
+                number = int(match.group(1))
+                guest_urls_with_numbers.append((number, url))
+        
+        if not guest_urls_with_numbers:
+            logger.warning("No guest-profile URLs found with expected naming pattern")
+            return urls[0] if urls else None
+        
+        # Sort by number and get the highest
+        guest_urls_with_numbers.sort(key=lambda x: x[0])
+        latest_number, latest_url = guest_urls_with_numbers[-1]
+        
+        logger.info(f"Latest guest data file: guest-profile-{latest_number}.json")
+        return latest_url
+    
+    def get_latest_reservation_url(self, urls: List[str]) -> str:
+        """Get the URL with the highest reservation number."""
+        import re
+        
+        reservation_urls_with_numbers = []
+        for url in urls:
+            # Extract the number from reservation-X.json
+            match = re.search(r'reservation-(\d+)\.json', url)
+            if match:
+                number = int(match.group(1))
+                reservation_urls_with_numbers.append((number, url))
+        
+        if not reservation_urls_with_numbers:
+            logger.warning("No reservation URLs found with expected naming pattern")
+            return urls[0] if urls else None
+        
+        # Sort by number and get the highest
+        reservation_urls_with_numbers.sort(key=lambda x: x[0])
+        latest_number, latest_url = reservation_urls_with_numbers[-1]
+        
+        logger.info(f"Latest reservation data file: reservation-{latest_number}.json")
+        return latest_url
+    
+    def fetch_all_guest_data(self, incremental: bool = False) -> List[Dict]:
+        """Fetch guest data from URLs. If incremental=True, only fetch the latest file."""
+        urls_data = self.get_data_urls()
+        all_guest_data = []
+        
+        if incremental:
+            # Only fetch the latest guest data file
+            latest_url = self.get_latest_guest_url(urls_data['guest_urls'])
+            if latest_url:
+                logger.info("Fetching latest guest data file only (incremental mode)")
+                guest_data = self.fetch_json_data(latest_url)
+                all_guest_data.extend(guest_data)
+                logger.debug(f"Added {len(guest_data)} guest records from latest file")
+            else:
+                logger.error("Could not determine latest guest data URL")
+                return []
+        else:
+            # Fetch all guest data files (initial load)
+            logger.info("Fetching all guest data files (initial load mode)")
+            for i, url in enumerate(urls_data['guest_urls']):
+                logger.info(f"Processing guest data file {i+1}/{len(urls_data['guest_urls'])}")
+                guest_data = self.fetch_json_data(url)
+                all_guest_data.extend(guest_data)
+                logger.debug(f"Added {len(guest_data)} guest records from file {i+1}")
+        
+        logger.info(f"Total guest records fetched: {len(all_guest_data)}")
+        return all_guest_data
+    
+    def fetch_all_reservation_data(self, incremental: bool = False) -> List[Dict]:
+        """Fetch reservation data from URLs. If incremental=True, only fetch the latest file."""
+        urls_data = self.get_data_urls()
+        all_reservation_data = []
+        
+        if incremental:
+            # Only fetch the latest reservation data file
+            latest_url = self.get_latest_reservation_url(urls_data['reservation_urls'])
+            if latest_url:
+                logger.info("Fetching latest reservation data file only (incremental mode)")
+                reservation_data = self.fetch_json_data(latest_url)
+                all_reservation_data.extend(reservation_data)
+                logger.debug(f"Added {len(reservation_data)} reservation records from latest file")
+            else:
+                logger.error("Could not determine latest reservation data URL")
+                return []
+        else:
+            # Fetch all reservation data files (initial load)
+            logger.info("Fetching all reservation data files (initial load mode)")
+            for i, url in enumerate(urls_data['reservation_urls']):
+                logger.info(f"Processing reservation data file {i+1}/{len(urls_data['reservation_urls'])}")
+                reservation_data = self.fetch_json_data(url)
+                all_reservation_data.extend(reservation_data)
+                logger.debug(f"Added {len(reservation_data)} reservation records from file {i+1}")
+        
+        logger.info(f"Total reservation records fetched: {len(all_reservation_data)}")
+        return all_reservation_data
+    
+    @retry_on_db_error(max_retries=3, base_delay=2.0)
+    def get_watermark(self, table: str) -> Optional[datetime]:
+        """Get the last processed timestamp for a Tock table."""
+        try:
+            logger.debug("Attempting to create database engine...")
+            engine = create_database_engine()
+            logger.debug("Engine created successfully")
+            
+            logger.debug("Attempting to establish connection...")
+            with engine.connect() as conn:
+                logger.debug("Connection established successfully")
+                
+                # Convert table name to database compatible format
+                db_table = table.replace('-', '_')
+                
+                # Create table if it doesn't exist with PostgreSQL-compatible schema
+                logger.debug(f"Creating table raw_{db_table} if it doesn't exist")
+                
+                create_table_sql = f"""
+                    CREATE TABLE IF NOT EXISTS raw_{db_table} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        last_processed_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_ab_id VARCHAR(255),
+                        _airbyte_emitted_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_normalized_at TIMESTAMP WITH TIME ZONE,
+                        _airbyte_{db_table}_hashid VARCHAR(255),
+                        data JSONB
+                    )
+                """
+                conn.execute(text(create_table_sql))
+                conn.commit()
+                
+                logger.debug(f"Executing query for watermark on table: raw_{db_table}")
+                result = conn.execute(text(
+                    f"SELECT MAX(last_processed_at) FROM raw_{db_table}"
+                )).scalar()
+                logger.debug(f"Watermark for {table}: {result}")
+                
+                # Convert timestamp to datetime object if it exists
+                if result:
+                    try:
+                        if isinstance(result, datetime):
+                            return result
+                        elif isinstance(result, str):
+                            if 'T' in result:
+                                return datetime.fromisoformat(result.replace('Z', '+00:00'))
+                            else:
+                                return datetime.strptime(result, '%Y-%m-%d %H:%M:%S.%f')
+                        else:
+                            logger.warning(f"Unexpected watermark type: {type(result)}, value: {result}")
+                            return None
+                    except ValueError as e:
+                        logger.error(f"Failed to parse watermark timestamp '{result}': {e}")
+                        return None
+                
+                return None
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while getting watermark for {table}: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            raise
+    
+    @retry_on_db_error(max_retries=3, base_delay=2.0)
+    def upsert_data(self, table: str, data: List[Dict]):
+        """Upsert Tock data into the database."""
+        if not data:
+            logger.info(f"No new data to upsert for {table}")
+            return
+        
+        try:
+            current_time = datetime.now(timezone.utc)
+            
+            # Convert table name to database compatible format
+            db_table = table.replace('-', '_')
+            
+            # Create DataFrame with only the essential columns
+            df = pd.DataFrame([{
+                'id': str(record.get('id', '')),  # Convert to string to handle different ID types
+                'last_processed_at': current_time,
+                'data': json.dumps(record)  # Store the entire record as JSON
+            } for record in data])
+            
+            logger.debug("Attempting to create database engine...")
+            engine = create_database_engine()
+            logger.debug("Engine created successfully")
+            
+            # Add metadata columns
+            df['_airbyte_ab_id'] = pd.util.hash_pandas_object(df).astype(str)
+            df['_airbyte_emitted_at'] = current_time
+            df['_airbyte_normalized_at'] = current_time
+            df['_airbyte_' + db_table + '_hashid'] = pd.util.hash_pandas_object(df).astype(str)
+            
+            # Create a temporary table for the new data
+            temp_table = f'temp_{db_table}'
+            df.to_sql(
+                temp_table,
+                engine,
+                if_exists='replace',
+                index=False
+            )
+            
+            # Perform the upsert using PostgreSQL's ON CONFLICT
+            with engine.connect() as conn:
+                upsert_sql = f"""
+                    INSERT INTO raw_{db_table} (
+                        id, last_processed_at, _airbyte_ab_id, 
+                        _airbyte_emitted_at, _airbyte_normalized_at, 
+                        _airbyte_{db_table}_hashid, data
+                    )
+                    SELECT 
+                        id, last_processed_at, _airbyte_ab_id,
+                        _airbyte_emitted_at, _airbyte_normalized_at,
+                        _airbyte_{db_table}_hashid, data::jsonb
+                    FROM {temp_table}
+                    ON CONFLICT (id) DO UPDATE SET
+                        last_processed_at = EXCLUDED.last_processed_at,
+                        _airbyte_ab_id = EXCLUDED._airbyte_ab_id,
+                        _airbyte_emitted_at = EXCLUDED._airbyte_emitted_at,
+                        _airbyte_normalized_at = EXCLUDED._airbyte_normalized_at,
+                        _airbyte_{db_table}_hashid = EXCLUDED._airbyte_{db_table}_hashid,
+                        data = EXCLUDED.data
+                """
+                conn.execute(text(upsert_sql))
+                conn.commit()
+                
+                # Drop the temporary table
+                conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+                conn.commit()
+            
+            logger.info(f"Successfully upserted {len(data)} records to raw_{db_table}")
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while upserting data to {table}: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            raise
 
 class Commerce7Client:
     """Commerce7 API client for data ingestion."""
@@ -478,19 +790,87 @@ def main(endpoint: str = None):
         # Load and validate environment variables
         load_environment()
         
-        client = Commerce7Client()
-        endpoints = [endpoint] if endpoint else ['customer', 'club-membership', 'product', 'order']
+        # Initialize clients based on available credentials
+        clients = {}
         
-        for endpoint in endpoints:
+        # Check for Commerce7 credentials
+        if all([os.getenv('C7_AUTH_TOKEN'), os.getenv('C7_TENANT')]):
+            clients['commerce7'] = Commerce7Client()
+            logger.info("Commerce7 client initialized")
+        
+        # Check for Tock credentials
+        if all([os.getenv('X_TOCK_AUTH'), os.getenv('X_TOCK_SCOPE')]):
+            clients['tock'] = TockAPIClient()
+            logger.info("Tock client initialized")
+        
+        if not clients:
+            raise ValueError("No API clients could be initialized. Check your environment variables.")
+        
+        # Process endpoints based on client type
+        if 'commerce7' in clients and endpoint:
+            # Single Commerce7 endpoint
             table = endpoint.replace('-', '_')
-            watermark = client.get_watermark(table)
+            watermark = clients['commerce7'].get_watermark(table)
             
             logger.info(f"Fetching {endpoint} data since {watermark}")
-            data = client.fetch_data(endpoint, watermark)
+            data = clients['commerce7'].fetch_data(endpoint, watermark)
             
             logger.info(f"Upserting {len(data)} records to {table}")
-            client.upsert_data(table, data)
+            clients['commerce7'].upsert_data(table, data)
             
+        elif 'commerce7' in clients and not endpoint:
+            # All Commerce7 endpoints
+            endpoints = ['customer', 'club-membership', 'product', 'order']
+            
+            for endpoint in endpoints:
+                table = endpoint.replace('-', '_')
+                watermark = clients['commerce7'].get_watermark(table)
+                
+                logger.info(f"Fetching {endpoint} data since {watermark}")
+                data = clients['commerce7'].fetch_data(endpoint, watermark)
+                
+                logger.info(f"Upserting {len(data)} records to {table}")
+                clients['commerce7'].upsert_data(table, data)
+        
+        # Process Tock data if client is available
+        if 'tock' in clients and (not endpoint or endpoint in ['tock-guest', 'tock-reservation']):
+            # Check if this is an incremental run (data already exists)
+            tock_guest_watermark = clients['tock'].get_watermark('tock_guest')
+            tock_reservation_watermark = clients['tock'].get_watermark('tock_reservation')
+            
+            guest_incremental = tock_guest_watermark is not None
+            reservation_incremental = tock_reservation_watermark is not None
+            
+            # Process guest data
+            if not endpoint or endpoint == 'tock-guest':
+                if guest_incremental:
+                    logger.info("Fetching Tock guest data (incremental mode - latest file only)...")
+                else:
+                    logger.info("Fetching Tock guest data (initial load - all files)...")
+                
+                guest_data = clients['tock'].fetch_all_guest_data(incremental=guest_incremental)
+                
+                if guest_data:
+                    logger.info(f"Upserting {len(guest_data)} guest records")
+                    clients['tock'].upsert_data('tock_guest', guest_data)
+                else:
+                    logger.info("No guest data to process")
+            
+            # Process reservation data
+            if not endpoint or endpoint == 'tock-reservation':
+                if reservation_incremental:
+                    logger.info("Fetching Tock reservation data (incremental mode - latest file only)...")
+                else:
+                    logger.info("Fetching Tock reservation data (initial load - all files)...")
+                
+                reservation_data = clients['tock'].fetch_all_reservation_data(incremental=reservation_incremental)
+                
+                if reservation_data:
+                    logger.info(f"Upserting {len(reservation_data)} reservation records")
+                    clients['tock'].upsert_data('tock_reservation', reservation_data)
+                else:
+                    logger.info("No reservation data to process")
+        
         logger.info("Data ingestion completed successfully")
         
         # Run dbt models after successful data ingestion
@@ -606,6 +986,76 @@ def run_dbt():
         logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
         return False
 
+def test_tock_integration():
+    """Test the Tock API integration with sample data."""
+    try:
+        logger.info("🧪 Testing Tock API integration...")
+        
+        # Check if Tock credentials are available
+        if not all([os.getenv('X_TOCK_AUTH'), os.getenv('X_TOCK_SCOPE')]):
+            logger.warning("Tock credentials not available, skipping integration test")
+            return True
+        
+        # Initialize Tock client
+        tock_client = TockAPIClient()
+        logger.info("✅ Tock client initialized successfully")
+        
+        # Test getting data URLs (this will make an actual API call)
+        logger.info("🔍 Testing data URL retrieval...")
+        urls_data = tock_client.get_data_urls()
+        
+        guest_urls = urls_data.get('guest_urls', [])
+        reservation_urls = urls_data.get('reservation_urls', [])
+        
+        logger.info(f"✅ Retrieved {len(guest_urls)} guest URLs and {len(reservation_urls)} reservation URLs")
+        
+        # Test fetching data from latest URLs (incremental mode)
+        if guest_urls:
+            logger.info("🔍 Testing guest data fetch from latest URL...")
+            latest_guest_url = tock_client.get_latest_guest_url(guest_urls)
+            logger.info(f"Latest guest URL: {latest_guest_url[:100]}...")
+            
+            sample_guest_data = tock_client.fetch_json_data(latest_guest_url)
+            logger.info(f"✅ Successfully fetched {len(sample_guest_data)} guest records from latest file")
+            
+            if sample_guest_data:
+                # Test upsert with sample data
+                logger.info("🔍 Testing guest data upsert...")
+                tock_client.upsert_data('tock_guest', sample_guest_data[:5])  # Only test with first 5 records
+                logger.info("✅ Guest data upsert test completed")
+        
+        if reservation_urls:
+            logger.info("🔍 Testing reservation data fetch from latest URL...")
+            latest_reservation_url = tock_client.get_latest_reservation_url(reservation_urls)
+            logger.info(f"Latest reservation URL: {latest_reservation_url[:100]}...")
+            
+            sample_reservation_data = tock_client.fetch_json_data(latest_reservation_url)
+            logger.info(f"✅ Successfully fetched {len(sample_reservation_data)} reservation records from latest file")
+            
+            if sample_reservation_data:
+                # Test upsert with sample data
+                logger.info("🔍 Testing reservation data upsert...")
+                tock_client.upsert_data('tock_reservation', sample_reservation_data[:5])  # Only test with first 5 records
+                logger.info("✅ Reservation data upsert test completed")
+        
+        # Verify the data was inserted correctly
+        engine = create_database_engine()
+        with engine.connect() as conn:
+            # Check guest data
+            guest_count = conn.execute(text("SELECT COUNT(*) FROM raw_tock_guest")).scalar()
+            logger.info(f"✅ Total guest records in database: {guest_count}")
+            
+            # Check reservation data
+            reservation_count = conn.execute(text("SELECT COUNT(*) FROM raw_tock_reservation")).scalar()
+            logger.info(f"✅ Total reservation records in database: {reservation_count}")
+        
+        logger.info("🎉 Tock API integration test completed successfully!")
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Error during Tock integration test: {str(e)}", exc_info=True)
+        return False
+
 def test_upsert():
     """Test the upsert process with sample data."""
     try:
@@ -666,6 +1116,8 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         if sys.argv[1] == '--test':
             test_upsert()
+        elif sys.argv[1] == '--test-tock':
+            test_tock_integration()
         elif sys.argv[1] == '--test-connection':
             test_database_connection()
         else:
