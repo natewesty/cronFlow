@@ -25,6 +25,8 @@ from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.pool import QueuePool
 import numpy as np
 
+load_dotenv()
+
 # Configure logging with more detailed format
 logging.basicConfig(
     level=logging.DEBUG,  # Changed to DEBUG for more verbose output
@@ -348,7 +350,7 @@ class TockAPIClient:
                 db_table = table.replace('-', '_')
                 
                 # Create table if it doesn't exist with PostgreSQL-compatible schema
-                logger.debug(f"Creating table raw_{db_table} if it doesn't exist")
+                logger.info(f"Creating table raw_{db_table} if it doesn't exist")
                 
                 create_table_sql = f"""
                     CREATE TABLE IF NOT EXISTS raw_{db_table} (
@@ -361,8 +363,10 @@ class TockAPIClient:
                         data JSONB
                     )
                 """
+                logger.debug(f"Executing CREATE TABLE SQL: {create_table_sql}")
                 conn.execute(text(create_table_sql))
                 conn.commit()
+                logger.info(f"Table raw_{db_table} created/verified successfully")
                 
                 logger.debug(f"Executing query for watermark on table: raw_{db_table}")
                 result = conn.execute(text(
@@ -415,9 +419,36 @@ class TockAPIClient:
                 'data': json.dumps(record)  # Store the entire record as JSON
             } for record in data])
             
-            logger.debug("Attempting to create database engine...")
+            # Check for and handle duplicate IDs
+            initial_count = len(df)
+            df = df.drop_duplicates(subset=['id'], keep='last')  # Keep the last occurrence of duplicates
+            final_count = len(df)
+            
+            if initial_count != final_count:
+                logger.warning(f"Removed {initial_count - final_count} duplicate records from {table}")
+            
+            # Remove records with empty or invalid IDs
+            before_empty_check = len(df)
+            df = df[df['id'].notna() & (df['id'] != '') & (df['id'] != 'None')]
+            after_empty_check = len(df)
+            
+            if before_empty_check != after_empty_check:
+                logger.warning(f"Removed {before_empty_check - after_empty_check} records with empty/invalid IDs from {table}")
+            
+            logger.info(f"Created DataFrame with {len(df)} rows for {table}")
+            
+            # Check if we have any data to process
+            if len(df) == 0:
+                logger.warning(f"No valid data to process for {table} after deduplication and validation")
+                return
+            
+            # Show sample IDs for debugging
+            sample_ids = df['id'].head(5).tolist()
+            logger.debug(f"Sample IDs being processed: {sample_ids}")
+            
+            logger.info("Attempting to create database engine...")
             engine = create_database_engine()
-            logger.debug("Engine created successfully")
+            logger.info("Engine created successfully")
             
             # Add metadata columns
             df['_airbyte_ab_id'] = pd.util.hash_pandas_object(df).astype(str)
@@ -807,7 +838,10 @@ def main(endpoint: str = None):
             raise ValueError("No API clients could be initialized. Check your environment variables.")
         
         # Process endpoints based on client type
-        if 'commerce7' in clients and endpoint:
+        if endpoint and endpoint.startswith('tock-'):
+            # This is a Tock endpoint, skip Commerce7 processing
+            logger.info(f"Processing Tock endpoint: {endpoint}")
+        elif 'commerce7' in clients and endpoint:
             # Single Commerce7 endpoint
             table = endpoint.replace('-', '_')
             watermark = clients['commerce7'].get_watermark(table)
@@ -833,7 +867,7 @@ def main(endpoint: str = None):
                 clients['commerce7'].upsert_data(table, data)
         
         # Process Tock data if client is available
-        if 'tock' in clients and (not endpoint or endpoint in ['tock-guest', 'tock-reservation']):
+        if 'tock' in clients and (not endpoint or endpoint.startswith('tock-')):
             # Check if this is an incremental run (data already exists)
             tock_guest_watermark = clients['tock'].get_watermark('tock_guest')
             tock_reservation_watermark = clients['tock'].get_watermark('tock_reservation')
@@ -986,6 +1020,61 @@ def run_dbt():
         logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
         return False
 
+def cleanup_duplicate_records(table_name: str):
+    """Clean up duplicate records from a table by keeping the most recent record for each ID."""
+    try:
+        logger.info(f"🧹 Cleaning up duplicate records in {table_name}...")
+        
+        engine = create_database_engine()
+        with engine.connect() as conn:
+            # Get count of duplicates
+            duplicate_count_sql = f"""
+                SELECT COUNT(*) - COUNT(DISTINCT id) as duplicate_count 
+                FROM {table_name}
+            """
+            duplicate_count = conn.execute(text(duplicate_count_sql)).scalar()
+            
+            if duplicate_count == 0:
+                logger.info(f"✅ No duplicate records found in {table_name}")
+                return True
+            
+            logger.info(f"Found {duplicate_count} duplicate records in {table_name}")
+            
+            # Create a temporary table with deduplicated data
+            temp_table = f"temp_{table_name}_dedup"
+            dedup_sql = f"""
+                CREATE TEMP TABLE {temp_table} AS
+                SELECT DISTINCT ON (id) *
+                FROM {table_name}
+                ORDER BY id, last_processed_at DESC
+            """
+            conn.execute(text(dedup_sql))
+            
+            # Count records in temp table
+            temp_count = conn.execute(text(f"SELECT COUNT(*) FROM {temp_table}")).scalar()
+            
+            # Delete all records from original table
+            conn.execute(text(f"DELETE FROM {table_name}"))
+            
+            # Insert deduplicated records back
+            insert_sql = f"""
+                INSERT INTO {table_name}
+                SELECT * FROM {temp_table}
+            """
+            conn.execute(text(insert_sql))
+            conn.commit()
+            
+            # Drop temp table
+            conn.execute(text(f"DROP TABLE {temp_table}"))
+            conn.commit()
+            
+            logger.info(f"✅ Successfully cleaned up {table_name}: {duplicate_count} duplicates removed, {temp_count} unique records retained")
+            return True
+            
+    except Exception as e:
+        logger.error(f"❌ Error cleaning up {table_name}: {str(e)}")
+        return False
+
 def test_tock_integration():
     """Test the Tock API integration with sample data."""
     try:
@@ -1120,6 +1209,12 @@ if __name__ == '__main__':
             test_tock_integration()
         elif sys.argv[1] == '--test-connection':
             test_database_connection()
+        elif sys.argv[1] == '--cleanup-tock-reservation':
+            load_environment()
+            cleanup_duplicate_records('raw_tock_reservation')
+        elif sys.argv[1] == '--cleanup-tock-guest':
+            load_environment()
+            cleanup_duplicate_records('raw_tock_guest')
         else:
             main(sys.argv[1])  # Run with specific endpoint
     else:
