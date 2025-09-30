@@ -28,24 +28,24 @@ payment_data as (
 reservation_mart as (
     select
         -- Basic reservation information
-        tock_reservation_id,
+        sd.tock_reservation_id,
         
         -- Diner patron information (renamed columns)
-        diner_patron_id as patron_id,
-        diner_patron_first_name as first_name,
-        diner_patron_last_name as last_name,
-        diner_patron_email as email,
+        sd.diner_patron_id as patron_id,
+        sd.diner_patron_first_name as first_name,
+        sd.diner_patron_last_name as last_name,
+        sd.diner_patron_email as email,
         
         -- Reservation details
         to_char(
-            to_timestamp(reservation_datetime, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 
+            to_timestamp(sd.reservation_datetime, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 
             'MM-DD-YYYY'
         ) as reservation_datetime,
-        party_size,
-        experience_name,
+        sd.party_size,
+        sd.experience_name,
         
         -- Pricing information (converted from cents to dollars)
-        round(subtotal_cents / 100.0, 2) as subtotal,
+        round(sd.subtotal_cents / 100.0, 2) as subtotal,
         
         -- Payment fees (converted from cents to dollars)
         round(pd.tock_fee_cents / 100.0, 2) as tock_fee,
@@ -53,7 +53,7 @@ reservation_mart as (
         
         -- Calculate final total
         round(
-            (subtotal_cents / 100.0) + 
+            (sd.subtotal_cents / 100.0) + 
             (pd.tock_fee_cents / 100.0) + 
             (pd.processor_fee_cents / 100.0), 
             2
