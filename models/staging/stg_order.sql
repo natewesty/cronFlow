@@ -28,6 +28,10 @@ with src as (
         (data->>'posProfileId')::uuid            as pos_profile_id,
         data->>'taxSaleType'                     as tax_sale_type,
 
+        /* ───── sales associate ───── */
+        (data->'salesAssociate'->>'accountId')::uuid as sales_associate_id,
+        data->'salesAssociate'->>'name' as sales_associate,
+
         /* ───── money (still in cents) ───── */
         coalesce((data->>'subTotal')::bigint,0)       as sub_total_cents,
         coalesce((data->>'shipTotal')::bigint,0)      as ship_total_cents,

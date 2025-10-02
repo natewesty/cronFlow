@@ -28,6 +28,10 @@ with src as (
         ((data->>'autoRenewalConsentDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as auto_renewal_consent_at,
         ((data->>'lastProcessedDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as last_processed_at,
 
+        /* signup associate */
+        (data->'salesAssociate'->>'accountId')::uuid as signup_associate_id,
+        data->'salesAssociate'->>'name' as signup_associate,
+
         /* cancellation */
         data->>'cancellationReason'                as cancellation_reason,
         data->>'cancellationComments'              as cancellation_comments,

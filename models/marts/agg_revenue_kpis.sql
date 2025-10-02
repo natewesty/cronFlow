@@ -48,14 +48,11 @@ with tasting_room_metrics as (
         
         -- Tasting Room Fees Actual: Current fiscal year
         coalesce((
-            select sum(fo.subtotal)
-            from {{ ref('fct_order') }} fo
-            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
-            where fo.channel = 'POS'
-            and fo.external_order_vendor = 'Tock'
-            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
-            and fo.event_fee_or_wine is null
-            and fo.event_specific_sale is null
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Tasting Room'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -65,25 +62,22 @@ with tasting_room_metrics as (
         
         -- Tasting Room Fees Prior: Previous fiscal year (same date range)
         coalesce((
-            select sum(fo.subtotal)
-            from {{ ref('fct_order') }} fo
-            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
-            where fo.channel = 'POS'
-            and fo.external_order_vendor = 'Tock'
-            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
-            and fo.event_fee_or_wine is null
-            and fo.event_specific_sale is null
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Tasting Room'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
-            and fo.order_date_key >= (
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= (
                 select date_trunc('year', date_day)::date + interval '6 months'
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
-            and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as tasting_room_fees_prior,
         
         -- Wine Club Actual: Current fiscal year
@@ -92,6 +86,17 @@ with tasting_room_metrics as (
             from {{ ref('fct_order') }} fo
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.channel = 'Club'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) + coalesce((
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Club'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -116,6 +121,23 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
             and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+        ), 0) + coalesce((
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Club'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as wine_club_prior,
         
         -- eComm Actual: Current fiscal year
@@ -189,6 +211,18 @@ with tasting_room_metrics as (
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Fee'
             and fo.event_specific_sale = 'true'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            )
+        ), 0) + coalesce((
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Event'
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -203,6 +237,7 @@ with tasting_room_metrics as (
             left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
             where fo.event_fee_or_wine = 'Event Fee'
             and fo.event_specific_sale = 'true'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
             and dd.fiscal_year = (
                 select fiscal_year 
                 from {{ ref('dim_date') }} 
@@ -214,6 +249,23 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
             and fo.order_date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+        ), 0) + coalesce((
+            select sum(ftr.final_total)
+            from {{ ref('fct_tock_reservation') }} ftr
+            left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
+            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            where de.attribution = 'Event'
+            and dd.fiscal_year = (
+                select fiscal_year 
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
+            ) - 1
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= (
+                select date_trunc('year', date_day)::date + interval '6 months'
+                from {{ ref('dim_date') }} 
+                where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
+            )::date
+            and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as event_fees_prior,
         
         -- Event Wine Actual: Current fiscal year

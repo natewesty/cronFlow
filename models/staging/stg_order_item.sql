@@ -34,6 +34,8 @@ items as (
     coalesce((i->>'quantity')::int,0)        as qty,
     coalesce((i->>'tax')::bigint,0)          as tax_cents,
     i->>'taxType'                   as tax_type,
+    (b.o->'salesAssociate'->>'accountId')::uuid as sales_associate_id,
+    b.o->'salesAssociate'->>'name' as sales_associate,
     b.updated_at
   from base b
   cross join lateral jsonb_array_elements(b.o->'items') as i
