@@ -46,7 +46,7 @@ tasting_room_metrics as (
             and fo.order_date_key <= cp.current_date_pacific
         ), 0) as tasting_room_wine_month_to_date,
         
-        -- Tasting Room Wine Current Month Total: Entire current fiscal month
+        -- Tasting Room Wine Q1: Current fiscal year Q1
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -58,10 +58,25 @@ tasting_room_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = cp.current_fiscal_month
-        ), 0) as tasting_room_wine_current_month,
+            and dd.fiscal_quarter = 1
+        ), 0) as tasting_room_wine_q1,
         
-        -- Tasting Room Wine Current Quarter Total: Entire current fiscal quarter
+        -- Tasting Room Wine Q1 Prior: Previous fiscal year Q1
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year - 1
+            and dd.fiscal_quarter = 1
+        ), 0) as tasting_room_wine_q1_prior,
+        
+        -- Tasting Room Wine Q2: Current fiscal year Q2
         coalesce((
             select sum(fo.subtotal)
             from {{ ref('fct_order') }} fo
@@ -73,8 +88,102 @@ tasting_room_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_quarter = cp.current_fiscal_quarter
-        ), 0) as tasting_room_wine_current_quarter,
+            and dd.fiscal_quarter = 2
+        ), 0) as tasting_room_wine_q2,
+        
+        -- Tasting Room Wine Q2 Prior: Previous fiscal year Q2
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year - 1
+            and dd.fiscal_quarter = 2
+        ), 0) as tasting_room_wine_q2_prior,
+        
+        -- Tasting Room Wine Q3: Current fiscal year Q3
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year
+            and dd.fiscal_quarter = 3
+        ), 0) as tasting_room_wine_q3,
+        
+        -- Tasting Room Wine Q3 Prior: Previous fiscal year Q3
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year - 1
+            and dd.fiscal_quarter = 3
+        ), 0) as tasting_room_wine_q3_prior,
+        
+        -- Tasting Room Wine Q4: Current fiscal year Q4
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year
+            and dd.fiscal_quarter = 4
+        ), 0) as tasting_room_wine_q4,
+        
+        -- Tasting Room Wine Q4 Prior: Previous fiscal year Q4
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year - 1
+            and dd.fiscal_quarter = 4
+        ), 0) as tasting_room_wine_q4_prior,
+        
+        -- Tasting Room Wine Month-to-Date Prior: Previous fiscal year same month
+        coalesce((
+            select sum(fo.subtotal)
+            from {{ ref('fct_order') }} fo
+            left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
+            cross join current_periods cp
+            where fo.channel = 'POS'
+            and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+            and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+            and fo.event_fee_or_wine is null
+            and fo.event_specific_sale is null
+            and dd.fiscal_year = cp.current_fiscal_year - 1
+            and dd.fiscal_month = cp.current_fiscal_month
+            and fo.order_date_key <= (
+                select date_trunc('month', cp.current_date_pacific)::date + interval '1 month' - interval '1 day'
+                from current_periods
+            ) - interval '1 year'
+        ), 0) as tasting_room_wine_month_to_date_prior,
         
         -- Tasting Room Wine Prior: Previous fiscal year (same date range)
         coalesce((
