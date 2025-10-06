@@ -5,6 +5,8 @@ config-version: 2
 profile: 'cronDon'
 
 model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["models/seeds"]
 
 target-path: "target"
 clean-targets:
@@ -19,7 +21,25 @@ models:
       +materialized: table
     intermediate:
       +materialized: ephemeral
+    kpi:
+      +schema: nate_sandbox
+      dim_date:
+        +materialized: table
+      agg_kpi_dashboard:
+        +materialized: incremental
+        +on_schema_change: ignore
+        +incremental_strategy: merge
+
+seeds:
+  cronDon:
+    +schema: nate_sandbox
 
 vars:
   # Add any project-level variables here
-  raw_schema: "public"  # Schema where raw data is stored 
+  raw_schema: "public"  # Schema where raw data is stored
+  
+  # KPI Dashboard variables
+  dim_date_start: '2015-01-01'
+  dim_date_end:   '2035-12-31'
+  kpi_dashboard_lookback_days: 400   # supports YoY for 28/MTD/QTD/YTD
+  kpi_dashboard_backfill_days: 1     # recompute today (+ yesterday if you bump this) 

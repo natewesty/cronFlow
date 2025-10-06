@@ -1,0 +1,4 @@
+kpi_id,kpi_code,kpi_name,format,target_direction
+1,net_revenue,Net Revenue,currency,up
+2,avg_order_value,Average Order Value,currency,up
+3,gross_margin_pct,Gross Margin %,percent,up
