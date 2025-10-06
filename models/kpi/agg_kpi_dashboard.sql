@@ -14,8 +14,8 @@
 
 with params as (
   select
-      {{ dbt.current_timestamp_in_utc() }} as ts_utc
-    , current_date::date                   as today
+      current_timestamp as ts_utc
+    , current_date::date as today
 ),
 as_of_dates as (
   -- Recompute a small range of as_of_dates each run (today minus N days)
