@@ -25,6 +25,12 @@ annotated as (
     , (date_trunc('quarter',date_key) + interval '3 month - 1 day')::date   as quarter_end
     , date_trunc('year',    date_key)::date          as year_start
     , (date_trunc('year',   date_key) + interval '1 year - 1 day')::date    as year_end
+    -- Fiscal year starting July 1st
+    , case 
+        when extract(month from date_key) >= 7 
+        then extract(year from date_key)::int
+        else extract(year from date_key)::int - 1
+      end as fiscal_year
   from base
 )
 select * from annotated

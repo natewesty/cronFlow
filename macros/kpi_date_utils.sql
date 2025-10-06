@@ -7,7 +7,7 @@ window_bounds as (
     , dd.month_start
     , dd.quarter_start
     , dd.year_start
-    , dd.iso_year as fiscal_year
+    , dd.fiscal_year
     , {{ as_of_alias }}.as_of_date - interval '27 days' as last28_start
 
     , (dd.month_start   - interval '1 year')::date   as prev_month_start
