@@ -41,5 +41,5 @@ vars:
   # KPI Dashboard variables
   dim_date_start: '2015-01-01'
   dim_date_end:   '2035-12-31'
-  kpi_dashboard_lookback_days: 400   # supports YoY for 28/MTD/QTD/YTD
+  kpi_dashboard_lookback_days: 730   # supports YoY for 28/MTD/QTD/YTD (2 years of data)
   kpi_dashboard_backfill_days: 1     # recompute today (+ yesterday if you bump this) 
