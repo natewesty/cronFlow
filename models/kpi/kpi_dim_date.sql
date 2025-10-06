@@ -31,6 +31,17 @@ annotated as (
         then extract(year from date_key)::int
         else extract(year from date_key)::int - 1
       end as fiscal_year
+    -- Fiscal year boundaries (July 1 - June 30)
+    , case 
+        when extract(month from date_key) >= 7 
+        then make_date(extract(year from date_key)::int, 7, 1)
+        else make_date(extract(year from date_key)::int - 1, 7, 1)
+      end as fiscal_year_start
+    , case 
+        when extract(month from date_key) >= 7 
+        then make_date(extract(year from date_key)::int + 1, 6, 30)
+        else make_date(extract(year from date_key)::int, 6, 30)
+      end as fiscal_year_end
   from base
 )
 select * from annotated
