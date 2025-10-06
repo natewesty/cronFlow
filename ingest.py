@@ -957,27 +957,77 @@ def run_dbt():
         if is_render:
             logger.info("🔄 Running dbt in Render environment")
             # In Render, use the current directory for profiles and be explicit about project
-            dbt_command = ['dbt', 'run', '--profiles-dir', '.', '--project-dir', '.']
+            base_dir_args = ['--profiles-dir', '.', '--project-dir', '.']
         else:
             logger.info("🔄 Running dbt in local environment")
-            dbt_command = ['dbt', 'run']
+            base_dir_args = []
         
-        logger.info(f"🔄 Executing command: {' '.join(dbt_command)}")
+        # First, install dbt packages if needed
+        logger.info("🔄 Step 0: Installing dbt packages...")
+        deps_command = ['dbt', 'deps'] + base_dir_args
+        logger.info(f"🔄 Executing command: {' '.join(deps_command)}")
         
-        # Run dbt with subprocess
-        result = subprocess.run(
-            dbt_command,
+        subprocess.run(
+            deps_command,
+            capture_output=True,
+            text=True,
+            check=False,  # Don't fail if packages already installed
+            env=os.environ.copy()
+        )
+        logger.info("✅ dbt deps completed")
+        
+        # Load seed data (KPI definitions)
+        logger.info("🔄 Step 1: Loading seed data...")
+        seed_command = ['dbt', 'seed'] + base_dir_args
+        logger.info(f"🔄 Executing command: {' '.join(seed_command)}")
+        
+        subprocess.run(
+            seed_command,
+            capture_output=True,
+            text=True,
+            check=False,  # Don't fail if seeds already exist
+            env=os.environ.copy()
+        )
+        logger.info("✅ Seed data loaded")
+        
+        # Run dbt in stages to ensure proper build order
+        logger.info("🔄 Step 2: Building staging and marts models...")
+        base_command = ['dbt', 'run'] + base_dir_args
+        stage1_command = base_command + ['--exclude', 'kpi.*']
+        logger.info(f"🔄 Executing command: {' '.join(stage1_command)}")
+        
+        result1 = subprocess.run(
+            stage1_command,
             capture_output=True,
             text=True,
             check=True,
-            env=os.environ.copy()  # Pass through all environment variables
+            env=os.environ.copy()
         )
         
-        logger.info("✅ dbt run completed successfully")
-        logger.debug(f"dbt output: {result.stdout}")
+        logger.info("✅ Step 2 completed - marts built successfully")
+        logger.debug(f"dbt output: {result1.stdout}")
         
-        if result.stderr:
-            logger.warning(f"dbt stderr: {result.stderr}")
+        if result1.stderr:
+            logger.warning(f"dbt stderr: {result1.stderr}")
+        
+        # Run KPI models after marts are built
+        logger.info("🔄 Step 3: Building KPI models...")
+        stage2_command = base_command + ['--select', 'kpi.*']
+        logger.info(f"🔄 Executing command: {' '.join(stage2_command)}")
+        
+        result2 = subprocess.run(
+            stage2_command,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=os.environ.copy()
+        )
+        
+        logger.info("✅ Step 3 completed - KPI models built successfully")
+        logger.debug(f"dbt output: {result2.stdout}")
+        
+        if result2.stderr:
+            logger.warning(f"dbt stderr: {result2.stderr}")
         
         return True
         

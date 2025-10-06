@@ -1,0 +1,29 @@
+kpi_id,kpi_code,kpi_name,format,target_direction
+1,tasting_room_wine_revenue,Tasting Room Wine Revenue,currency,up
+2,tasting_room_fees_revenue,Tasting Room Fees Revenue,currency,up
+3,tasting_room_total_revenue,Tasting Room Total Revenue,currency,up
+4,wine_club_orders_revenue,Wine Club Orders Revenue,currency,up
+5,wine_club_fees_revenue,Wine Club Fees Revenue,currency,up
+6,wine_club_total_revenue,Wine Club Total Revenue,currency,up
+7,ecomm_revenue,eCommerce Revenue,currency,up
+8,phone_revenue,Phone Revenue,currency,up
+9,event_fees_orders_revenue,Event Fees Orders Revenue,currency,up
+10,event_fees_reservations_revenue,Event Fees Reservations Revenue,currency,up
+11,event_fees_total_revenue,Event Fees Total Revenue,currency,up
+12,event_wine_revenue,Event Wine Revenue,currency,up
+13,shipping_revenue,Shipping Revenue,currency,up
+14,total_daily_revenue,Total Daily Revenue,currency,up
+15,total_reservations,Total Reservations,number,up
+16,total_visitors,Total Visitors,number,up
+17,avg_party_size,Average Party Size,number,up
+18,tasting_room_guests,Tasting Room Guests,number,up
+19,event_guests,Event Guests,number,up
+20,avg_tasting_fee_per_guest,Avg Tasting Fee Per Guest,currency,up
+21,tasting_room_orders_per_guest_pct,Tasting Room Orders Per Guest %,percent,up
+22,total_9l_sold,Total 9L Sold,number,up
+23,total_active_club_membership,Total Active Club Membership,number,up
+24,new_member_acquisition,New Member Acquisition,number,up
+25,existing_member_attrition,Member Attrition,number,down
+26,club_population_net_gain_loss,Club Net Gain/Loss,number,up
+27,club_conversion_per_taster_pct,Club Conversion Per Taster %,percent,up
+

@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: fact_kpi_daily
+    columns:
+      - name: kpi_id
+        tests: [not_null]
+      - name: date_key
+        tests: [not_null]
+      - name: value
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ['date_key', 'kpi_id', 'entity_id']
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+
+  - name: agg_kpi_dashboard
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ['as_of_date', 'kpi_id', 'entity_id']
+    columns:
+      - name: as_of_date
+        tests: [not_null]
+      - name: kpi_id
+        tests: [not_null]
+      - name: entity_id
+        tests: []   # allow null if you aggregate to "global" (use 0 in your data if you prefer not null)
+      - name: mtd_value
+        tests: []
+      - name: mtd_prior
+        tests: []
+      - name: mtd_delta
+        tests: []
+      - name: mtd_delta_pct
+        tests: []
+      - name: payload
+        tests: [not_null]
+
+seeds:
+  - name: dim_kpi
+    config:
+      schema: nate_sandbox
+    columns:
+      - name: kpi_id
+        tests: [not_null, unique]
+      - name: kpi_code
+        tests:
+          - not_null
+          - unique
+      - name: format
+        tests:
+          - accepted_values:
+              values: ['currency', 'percent', 'number']
+      - name: target_direction
+        tests:
+          - accepted_values:
+              values: ['up', 'down']
+
+  - name: dim_entity
+    config:
+      schema: nate_sandbox
+    columns:
+      - name: entity_id
+        tests: [not_null, unique]
+      - name: entity_code
+        tests: [not_null, unique]
+
