@@ -13,7 +13,7 @@ window_bounds as (
     , (dd.quarter_start - interval '1 year')::date   as prev_quarter_start
     , (dd.year_start    - interval '1 year')::date   as prev_year_start
     , ({{ as_of_alias }}.as_of_date - interval '27 days' - interval '1 year')::date as prev_last28_start
-  from {{ ref('dim_date') }} dd
+  from {{ ref('kpi_dim_date') }} dd
   join {{ as_of_alias }} on dd.date_key = {{ as_of_alias }}.as_of_date
 )
 {% endmacro %}

@@ -23,7 +23,7 @@ models:
       +materialized: ephemeral
     kpi:
       +schema: nate_sandbox
-      dim_date:
+      kpi_dim_date:
         +materialized: table
       agg_kpi_dashboard:
         +materialized: incremental

@@ -13,7 +13,7 @@ models:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: ['date_key', 'kpi_id', 'entity_id']
 
-  - name: dim_date
+  - name: kpi_dim_date
     columns:
       - name: date_key
         tests:
