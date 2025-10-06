@@ -158,26 +158,13 @@ final as (
     , may_value, may_prior, may_delta, may_delta_pct
     , jun_value, jun_prior, jun_delta, jun_delta_pct
 
+    -- Optional: Lightweight JSON payload for API convenience (periods only, not months)
     , jsonb_build_object(
         'as_of', as_of_date,
         'mtd',    jsonb_build_object('v', mtd_value,    'p', mtd_prior,    'd', mtd_delta,    'dp', mtd_delta_pct),
         'qtd',    jsonb_build_object('v', qtd_value,    'p', qtd_prior,    'd', qtd_delta,    'dp', qtd_delta_pct),
         'ytd',    jsonb_build_object('v', ytd_value,    'p', ytd_prior,    'd', ytd_delta,    'dp', ytd_delta_pct),
-        'last28', jsonb_build_object('v', last28_value, 'p', last28_prior, 'd', last28_delta, 'dp', last28_delta_pct),
-        'months', jsonb_build_object(
-          'jul', jsonb_build_object('v', jul_value, 'p', jul_prior, 'd', jul_delta, 'dp', jul_delta_pct),
-          'aug', jsonb_build_object('v', aug_value, 'p', aug_prior, 'd', aug_delta, 'dp', aug_delta_pct),
-          'sep', jsonb_build_object('v', sep_value, 'p', sep_prior, 'd', sep_delta, 'dp', sep_delta_pct),
-          'oct', jsonb_build_object('v', oct_value, 'p', oct_prior, 'd', oct_delta, 'dp', oct_delta_pct),
-          'nov', jsonb_build_object('v', nov_value, 'p', nov_prior, 'd', nov_delta, 'dp', nov_delta_pct),
-          'dec', jsonb_build_object('v', dec_value, 'p', dec_prior, 'd', dec_delta, 'dp', dec_delta_pct),
-          'jan', jsonb_build_object('v', jan_value, 'p', jan_prior, 'd', jan_delta, 'dp', jan_delta_pct),
-          'feb', jsonb_build_object('v', feb_value, 'p', feb_prior, 'd', feb_delta, 'dp', feb_delta_pct),
-          'mar', jsonb_build_object('v', mar_value, 'p', mar_prior, 'd', mar_delta, 'dp', mar_delta_pct),
-          'apr', jsonb_build_object('v', apr_value, 'p', apr_prior, 'd', apr_delta, 'dp', apr_delta_pct),
-          'may', jsonb_build_object('v', may_value, 'p', may_prior, 'd', may_delta, 'dp', may_delta_pct),
-          'jun', jsonb_build_object('v', jun_value, 'p', jun_prior, 'd', jun_delta, 'dp', jun_delta_pct)
-        )
+        'last28', jsonb_build_object('v', last28_value, 'p', last28_prior, 'd', last28_delta, 'dp', last28_delta_pct)
       )::jsonb as payload
   from calc
 )
