@@ -9,7 +9,7 @@
 {#-----------------------------
  Vars controlling recompute window
 ------------------------------#}
-{% set lookback_days = var('kpi_dashboard_lookback_days', 400) %}  {# for YoY windows #}
+{% set lookback_days = var('kpi_dashboard_lookback_days', 730) %}  {# for YoY windows #}
 {% set backfill_days = var('kpi_dashboard_backfill_days', 1) %}    {# how many as_of_dates to (re)calculate each run #}
 
 with params as (
