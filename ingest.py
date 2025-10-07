@@ -867,43 +867,72 @@ def main(endpoint: str = None):
                 clients['commerce7'].upsert_data(table, data)
         
         # Process Tock data if client is available
+        logger.info("🔍 Checking if Tock data should be processed...")
+        logger.info(f"   - 'tock' in clients: {'tock' in clients}")
+        logger.info(f"   - endpoint value: {endpoint}")
+        logger.info(f"   - not endpoint: {not endpoint}")
+        logger.info(f"   - endpoint.startswith('tock-'): {endpoint.startswith('tock-') if endpoint else 'N/A'}")
+        
         if 'tock' in clients and (not endpoint or endpoint.startswith('tock-')):
+            logger.info("✅ Starting Tock data processing...")
+            
             # Check if this is an incremental run (data already exists)
+            logger.info("🔍 Checking Tock watermarks...")
             tock_guest_watermark = clients['tock'].get_watermark('tock_guest')
             tock_reservation_watermark = clients['tock'].get_watermark('tock_reservation')
+            
+            logger.info(f"   - Guest watermark: {tock_guest_watermark}")
+            logger.info(f"   - Reservation watermark: {tock_reservation_watermark}")
             
             guest_incremental = tock_guest_watermark is not None
             reservation_incremental = tock_reservation_watermark is not None
             
+            logger.info(f"   - Guest incremental mode: {guest_incremental}")
+            logger.info(f"   - Reservation incremental mode: {reservation_incremental}")
+            
             # Process guest data
+            logger.info(f"🔍 Checking if guest data should be processed (endpoint={endpoint})...")
             if not endpoint or endpoint == 'tock-guest':
+                logger.info("✅ Processing guest data...")
                 if guest_incremental:
                     logger.info("Fetching Tock guest data (incremental mode - latest file only)...")
                 else:
                     logger.info("Fetching Tock guest data (initial load - all files)...")
                 
                 guest_data = clients['tock'].fetch_all_guest_data(incremental=guest_incremental)
+                logger.info(f"📊 Fetched {len(guest_data) if guest_data else 0} guest records")
                 
                 if guest_data:
                     logger.info(f"Upserting {len(guest_data)} guest records")
                     clients['tock'].upsert_data('tock_guest', guest_data)
+                    logger.info("✅ Guest data upsert completed")
                 else:
-                    logger.info("No guest data to process")
+                    logger.info("⚠️ No guest data to process")
+            else:
+                logger.info(f"⏭️ Skipping guest data (endpoint filter: {endpoint})")
             
             # Process reservation data
+            logger.info(f"🔍 Checking if reservation data should be processed (endpoint={endpoint})...")
             if not endpoint or endpoint == 'tock-reservation':
+                logger.info("✅ Processing reservation data...")
                 if reservation_incremental:
                     logger.info("Fetching Tock reservation data (incremental mode - latest file only)...")
                 else:
                     logger.info("Fetching Tock reservation data (initial load - all files)...")
                 
                 reservation_data = clients['tock'].fetch_all_reservation_data(incremental=reservation_incremental)
+                logger.info(f"📊 Fetched {len(reservation_data) if reservation_data else 0} reservation records")
                 
                 if reservation_data:
                     logger.info(f"Upserting {len(reservation_data)} reservation records")
                     clients['tock'].upsert_data('tock_reservation', reservation_data)
+                    logger.info("✅ Reservation data upsert completed")
                 else:
-                    logger.info("No reservation data to process")
+                    logger.info("⚠️ No reservation data to process")
+            else:
+                logger.info(f"⏭️ Skipping reservation data (endpoint filter: {endpoint})")
+        else:
+            logger.warning("⚠️ Tock data processing skipped - condition not met")
         
         logger.info("Data ingestion completed successfully")
         
