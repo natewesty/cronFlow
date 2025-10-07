@@ -45,7 +45,7 @@ reservation_mart as (
         sd.experience_name,
         
         -- Pricing information (converted from cents to dollars)
-        round(sd.subtotal_cents / 100.0, 2) as subtotal,
+        round(sd.net_amount_paid_cents / 100.0, 2) as subtotal,
         
         -- Payment fees (converted from cents to dollars)
         round(pd.tock_fee_cents / 100.0, 2) as tock_fee,
@@ -53,8 +53,8 @@ reservation_mart as (
         
         -- Calculate final total
         round(
-            (sd.subtotal_cents / 100.0) + 
-            (pd.tock_fee_cents / 100.0) + 
+            (sd.net_amount_paid_cents / 100.0) - 
+            (pd.tock_fee_cents / 100.0) - 
             (pd.processor_fee_cents / 100.0), 
             2
         ) as final_total
