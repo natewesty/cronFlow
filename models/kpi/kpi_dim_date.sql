@@ -66,17 +66,17 @@ annotated as (
         else extract(quarter from date_day) + 2
       end::int as fiscal_quarter
       
-    -- Fiscal year boundaries (July 1 - June 30) - KPI-specific
+    -- Fiscal year boundaries (July 1 - June 30) - KPI-specific date fields
     , case 
         when extract(month from date_day) >= 7 
         then make_date(extract(year from date_day)::int, 7, 1)
         else make_date(extract(year from date_day)::int - 1, 7, 1)
-      end as fiscal_year_start_date
+      end as fiscal_year_start
     , case 
         when extract(month from date_day) >= 7 
         then make_date(extract(year from date_day)::int + 1, 6, 30)
         else make_date(extract(year from date_day)::int, 6, 30)
-      end as fiscal_year_end_date
+      end as fiscal_year_end_boundary
       
     -- Pacific Time specific fields (matching dim_date.sql)
     , 'America/Los_Angeles' as timezone

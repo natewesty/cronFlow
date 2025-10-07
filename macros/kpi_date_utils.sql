@@ -17,7 +17,7 @@ window_bounds as (
     , (dd.fiscal_year_start - interval '1 year')::date as prev_fiscal_year_start
     , ({{ as_of_alias }}.as_of_date - interval '27 days' - interval '1 year')::date as prev_last28_start
   from {{ ref('kpi_dim_date') }} dd
-  join {{ as_of_alias }} on dd.date_key = {{ as_of_alias }}.as_of_date
+  join {{ as_of_alias }} on dd.date_day = {{ as_of_alias }}.as_of_date
 )
 {% endmacro %}
 
