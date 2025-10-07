@@ -50,13 +50,13 @@ current_rollups as (
   select
       f.kpi_id
     , f.entity_id
-    , p.as_of_date
+    , wb.as_of_date
     , wb.fiscal_year
     -- Period metrics
-    , sum(case when f.date_key between wb.month_start        and p.as_of_date then f.value end) as mtd_value
-    , sum(case when f.date_key between wb.quarter_start      and p.as_of_date then f.value end) as qtd_value
-    , sum(case when f.date_key between wb.fiscal_year_start  and p.as_of_date then f.value end) as ytd_value
-    , sum(case when f.date_key between wb.last28_start       and p.as_of_date then f.value end) as last28_value
+    , sum(case when f.date_key between wb.month_start        and wb.as_of_date then f.value end) as mtd_value
+    , sum(case when f.date_key between wb.quarter_start      and wb.as_of_date then f.value end) as qtd_value
+    , sum(case when f.date_key between wb.fiscal_year_start  and wb.as_of_date then f.value end) as ytd_value
+    , sum(case when f.date_key between wb.last28_start       and wb.as_of_date then f.value end) as last28_value
     -- Fiscal month totals (Jul-Jun)
     , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jul_value
     , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as aug_value
@@ -71,20 +71,19 @@ current_rollups as (
     , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as may_value
     , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as jun_value
   from f
-  cross join p
-  join window_bounds wb on true
+  cross join window_bounds wb
   group by 1,2,3,4
 ),
 prior_rollups as (
   select
       f.kpi_id
     , f.entity_id
-    , p.as_of_date
+    , wb.as_of_date
     , wb.fiscal_year
     -- Period metrics
-    , sum(case when f.date_key between wb.prev_month_start        and (wb.prev_month_start        + (p.as_of_date - wb.month_start))        then f.value end) as mtd_prior
-    , sum(case when f.date_key between wb.prev_quarter_start      and (wb.prev_quarter_start      + (p.as_of_date - wb.quarter_start))      then f.value end) as qtd_prior
-    , sum(case when f.date_key between wb.prev_fiscal_year_start  and (wb.prev_fiscal_year_start  + (p.as_of_date - wb.fiscal_year_start))  then f.value end) as ytd_prior
+    , sum(case when f.date_key between wb.prev_month_start        and (wb.prev_month_start        + (wb.as_of_date - wb.month_start))        then f.value end) as mtd_prior
+    , sum(case when f.date_key between wb.prev_quarter_start      and (wb.prev_quarter_start      + (wb.as_of_date - wb.quarter_start))      then f.value end) as qtd_prior
+    , sum(case when f.date_key between wb.prev_fiscal_year_start  and (wb.prev_fiscal_year_start  + (wb.as_of_date - wb.fiscal_year_start))  then f.value end) as ytd_prior
     , sum(case when f.date_key between wb.prev_last28_start       and (wb.prev_last28_start       + interval '27 days')                      then f.value end) as last28_prior
     -- Prior fiscal month totals (Jul-Jun from prior year)
     , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jul_prior
@@ -100,8 +99,7 @@ prior_rollups as (
     , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as may_prior
     , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jun_prior
   from f
-  cross join p
-  join window_bounds wb on true
+  cross join window_bounds wb
   group by 1,2,3,4
 ),
 calc as (
