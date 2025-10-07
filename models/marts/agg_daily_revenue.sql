@@ -8,7 +8,7 @@ with date_range as (
     -- Get date range from beginning of previous fiscal year to current date
     select 
         (select current_date_pacific from {{ ref('dim_date') }} limit 1) as current_date,
-        date('2023-07-01') as start_date  -- Beginning of FY2024
+        date('2023-07-01') as start_date  -- Beginning of FY2024 (using END year naming)
 ),
 
 daily_tasting_room_wine as (

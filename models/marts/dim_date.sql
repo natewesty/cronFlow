@@ -22,21 +22,22 @@ select
     to_char(date_day, 'Day')            as weekday_name,
     extract(week    from date_day)::int as iso_week,
     extract(isoyear from date_day)::int as iso_year,
-    -- Fiscal year calculations (FY starts July 1st) - all in Pacific Time
+    -- Fiscal year calculations (FY starts July 1st) - using END year naming
+    -- e.g., July 1, 2025 - June 30, 2026 is "FY2026"
     case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
+        then extract(year from date_day) + 1
+        else extract(year from date_day)
     end::int as fiscal_year,
     case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
-    end::int + 1 as fiscal_year_end,
+        then extract(year from date_day) + 2
+        else extract(year from date_day) + 1
+    end::int as fiscal_year_end,
     'FY' || case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
+        then extract(year from date_day) + 1
+        else extract(year from date_day)
     end::text as fiscal_year_name,
     case 
         when extract(month from date_day) >= 7 

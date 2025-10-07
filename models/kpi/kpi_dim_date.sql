@@ -39,21 +39,22 @@ annotated as (
     , date_trunc('year',    date_day)::date             as year_start
     , (date_trunc('year',   date_day) + interval '1 year - 1 day')::date     as year_end
     
-    -- Fiscal year calculations (FY starts July 1st) - matching dim_date.sql
+    -- Fiscal year calculations (FY starts July 1st) - using END year naming
+    -- e.g., July 1, 2025 - June 30, 2026 is "FY2026"
     , case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
+        then extract(year from date_day) + 1
+        else extract(year from date_day)
       end::int as fiscal_year
     , case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
-      end::int + 1 as fiscal_year_end
+        then extract(year from date_day) + 2
+        else extract(year from date_day) + 1
+      end::int as fiscal_year_end
     , 'FY' || case 
         when extract(month from date_day) >= 7 
-        then extract(year from date_day) 
-        else extract(year from date_day) - 1 
+        then extract(year from date_day) + 1
+        else extract(year from date_day)
       end::text as fiscal_year_name
     , case 
         when extract(month from date_day) >= 7 
