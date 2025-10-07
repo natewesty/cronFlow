@@ -44,7 +44,7 @@ with src as (
         data->'metaData'->>'tasting-lounge'                    as tasting_lounge,
         data->'metaData'->>'event-fee-or-wine'                 as event_fee_or_wine,
         data->'metaData'->>'event-specific-sale'               as event_specific_sale,
-        data->'metaData'->>'event-revenue-realization-date'    as event_revenue_realization_date,
+        data->'metaData'->>'event-revenue-relization-date'    as event_revenue_realization_date,
 
         /* ───── bookkeeping ───── */
         -- Convert UTC timestamps to Pacific Time
