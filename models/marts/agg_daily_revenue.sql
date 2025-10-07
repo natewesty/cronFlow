@@ -20,7 +20,8 @@ daily_tasting_room_wine as (
     cross join date_range dr
     where fo.channel = 'POS'
     and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
-    and fo.event_fee_or_wine is null
+    and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+    and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
     and fo.event_specific_sale is null
     and fo.order_date_key >= dr.start_date
     and fo.order_date_key <= dr.current_date
@@ -213,7 +214,8 @@ daily_tasting_room_orders as (
     cross join date_range dr
     where fo.channel = 'POS'
     and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
-    and fo.event_fee_or_wine is null
+    and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+    and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
     and fo.event_specific_sale is null
     and fo.order_date_key >= dr.start_date
     and fo.order_date_key <= dr.current_date
