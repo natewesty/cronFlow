@@ -95,7 +95,7 @@ daily_phone as (
 
 daily_event_fees_orders as (
     select
-        fo.order_date_key as date_day,
+        coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) as date_day,
         sum(fo.subtotal) as event_fees_orders_revenue
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
@@ -103,9 +103,9 @@ daily_event_fees_orders as (
     where fo.event_fee_or_wine = 'Event Fee'
     and fo.event_specific_sale = 'true'
     and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
-    and fo.order_date_key >= dr.start_date
-    and fo.order_date_key <= dr.current_date
-    group by fo.order_date_key
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.start_date
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) <= dr.current_date
+    group by coalesce(date(fo.event_revenue_realization_date), fo.order_date_key)
 ),
 
 daily_event_fees_reservations as (
@@ -123,16 +123,16 @@ daily_event_fees_reservations as (
 
 daily_event_wine as (
     select
-        fo.order_date_key as date_day,
+        coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) as date_day,
         sum(fo.subtotal) as event_wine_revenue
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     cross join date_range dr
     where fo.event_fee_or_wine = 'Event Wine'
     and fo.event_specific_sale = 'true'
-    and fo.order_date_key >= dr.start_date
-    and fo.order_date_key <= dr.current_date
-    group by fo.order_date_key
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.start_date
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) <= dr.current_date
+    group by coalesce(date(fo.event_revenue_realization_date), fo.order_date_key)
 ),
 
 daily_shipping_revenue as (
