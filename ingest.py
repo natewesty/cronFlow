@@ -856,12 +856,12 @@ def main(endpoint: str = None):
             # All Commerce7 endpoints
             endpoints = ['customer', 'club-membership', 'product', 'order']
             
-            for endpoint in endpoints:
-                table = endpoint.replace('-', '_')
+            for c7_endpoint in endpoints:
+                table = c7_endpoint.replace('-', '_')
                 watermark = clients['commerce7'].get_watermark(table)
                 
-                logger.info(f"Fetching {endpoint} data since {watermark}")
-                data = clients['commerce7'].fetch_data(endpoint, watermark)
+                logger.info(f"Fetching {c7_endpoint} data since {watermark}")
+                data = clients['commerce7'].fetch_data(c7_endpoint, watermark)
                 
                 logger.info(f"Upserting {len(data)} records to {table}")
                 clients['commerce7'].upsert_data(table, data)
