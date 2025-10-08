@@ -235,6 +235,19 @@ daily_9l_sold as (
     group by date(foi.paid_at)
 ),
 
+-- Tasting Lounge Revenue (to be moved from wine to fees)
+daily_tasting_lounge_revenue as (
+    select
+        date(foi.paid_at) as date_day,
+        sum(foi.product_subtotal) as tasting_lounge_revenue
+    from {{ ref('fct_order_item') }} foi
+    cross join date_range dr
+    where foi.sku = 'TASTLOUNGE'
+    and date(foi.paid_at) >= dr.start_date
+    and date(foi.paid_at) <= dr.current_date
+    group by date(foi.paid_at)
+),
+
 -- Club membership metrics
 daily_club_signups as (
     select
@@ -306,8 +319,8 @@ select
     ds.fiscal_year_period,
     
     -- Tasting Room Revenue
-    coalesce(dtrw.tasting_room_wine_revenue, 0) as tasting_room_wine_revenue,
-    coalesce(dtrf.tasting_room_fees_revenue, 0) as tasting_room_fees_revenue,
+    coalesce(dtrw.tasting_room_wine_revenue, 0) - coalesce(dtlr.tasting_lounge_revenue, 0) as tasting_room_wine_revenue,
+    coalesce(dtrf.tasting_room_fees_revenue, 0) + coalesce(dtlr.tasting_lounge_revenue, 0) as tasting_room_fees_revenue,
     coalesce(dtrw.tasting_room_wine_revenue, 0) + coalesce(dtrf.tasting_room_fees_revenue, 0) as tasting_room_total_revenue,
     
     -- Wine Club Revenue
@@ -380,6 +393,7 @@ select
 from date_spine ds
 left join daily_tasting_room_wine dtrw on ds.date_day = dtrw.date_day
 left join daily_tasting_room_fees dtrf on ds.date_day = dtrf.date_day
+left join daily_tasting_lounge_revenue dtlr on ds.date_day = dtlr.date_day
 left join daily_wine_club_orders dwco on ds.date_day = dwco.date_day
 left join daily_wine_club_fees dwcf on ds.date_day = dwcf.date_day
 left join daily_ecomm de on ds.date_day = de.date_day
