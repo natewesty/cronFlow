@@ -235,6 +235,25 @@ daily_9l_sold as (
     group by date(foi.paid_at)
 ),
 
+-- Tasting Room Bottles Sold
+daily_tasting_room_bottles as (
+    select
+        fo.order_date_key as date_day,
+        sum(foi.quantity) as tasting_room_bottles_sold
+    from {{ ref('fct_order_item') }} foi
+    inner join {{ ref('fct_order') }} fo on foi.order_id = fo.order_id
+    cross join date_range dr
+    where foi.item_type = 'Wine'
+    and fo.channel = 'POS'
+    and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
+    and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
+    and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
+    and fo.event_specific_sale is null
+    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key <= dr.current_date
+    group by fo.order_date_key
+),
+
 -- Tasting Lounge Revenue (to be moved from wine to fees)
 daily_tasting_lounge_revenue as (
     select
@@ -246,6 +265,24 @@ daily_tasting_lounge_revenue as (
     and date(foi.paid_at) >= dr.start_date
     and date(foi.paid_at) <= dr.current_date
     group by date(foi.paid_at)
+),
+
+-- Order Metrics (total orders and average order value)
+daily_order_metrics as (
+    select
+        fo.order_date_key as date_day,
+        count(*) as total_orders,
+        avg(fo.subtotal) as average_order_value
+    from {{ ref('fct_order') }} fo
+    cross join date_range dr
+    where fo.external_order_vendor is null
+    and fo.subtotal > 0
+    and fo.tasting_lounge is null
+    and fo.event_fee_or_wine is null
+    and fo.event_specific_sale is null
+    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key <= dr.current_date
+    group by fo.order_date_key
 ),
 
 -- Club membership metrics
@@ -388,7 +425,17 @@ select
         when coalesce(dcs.new_member_acquisition, 0) > 0 
         then (coalesce(dtrg.tasting_room_guests, 0)::numeric / dcs.new_member_acquisition) * 100
         else 0 
-    end as club_conversion_per_taster_pct
+    end as club_conversion_per_taster_pct,
+    
+    -- Order Metrics
+    coalesce(dom.total_orders, 0) as total_orders,
+    coalesce(dom.average_order_value, 0) as average_order_value,
+    
+    -- Tasting Room Order Count
+    coalesce(dtro.tasting_room_order_count, 0) as tasting_room_orders,
+    
+    -- Tasting Room Bottles Sold
+    coalesce(dtrb.tasting_room_bottles_sold, 0) as tasting_room_bottles_sold
 
 from date_spine ds
 left join daily_tasting_room_wine dtrw on ds.date_day = dtrw.date_day
@@ -408,8 +455,10 @@ left join daily_event_guests deg on ds.date_day = deg.date_day
 left join daily_tasting_fee_per_guest dtfpg on ds.date_day = dtfpg.date_day
 left join daily_tasting_room_orders dtro on ds.date_day = dtro.date_day
 left join daily_9l_sold d9l on ds.date_day = d9l.date_day
+left join daily_tasting_room_bottles dtrb on ds.date_day = dtrb.date_day
 left join daily_club_signups dcs on ds.date_day = dcs.date_day
 left join daily_club_cancellations dcc on ds.date_day = dcc.date_day
 left join active_club_members_by_date acm on ds.date_day = acm.date_day
+left join daily_order_metrics dom on ds.date_day = dom.date_day
 order by ds.date_day
 

@@ -26,4 +26,8 @@ kpi_id,kpi_code,kpi_name,format,target_direction
 25,existing_member_attrition,Member Attrition,number,down
 26,club_population_net_gain_loss,Club Net Gain/Loss,number,up
 27,club_conversion_per_taster_pct,Club Conversion Per Taster %,percent,up
+28,total_orders,Total Orders,number,up
+29,average_order_value,Average Order Value,currency,up
+30,tasting_room_orders,Tasting Room Orders,number,up
+31,tasting_room_bottles_sold,Tasting Room Bottles Sold,number,up
 

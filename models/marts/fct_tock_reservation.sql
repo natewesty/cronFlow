@@ -61,6 +61,7 @@ reservation_mart as (
         
     from source_data sd
     left join payment_data pd on sd.tock_reservation_id = pd.tock_reservation_id
+    where sd.party_state != 'CANCELLED'
 )
 
 select * from reservation_mart

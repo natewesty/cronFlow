@@ -84,6 +84,16 @@ unpivoted as (
     select date_day, 26, 0, club_population_net_gain_loss from daily_revenue
     union all
     select date_day, 27, 0, club_conversion_per_taster_pct from daily_revenue
+    
+    -- Order Metrics
+    union all
+    select date_day, 28, 0, total_orders from daily_revenue
+    union all
+    select date_day, 29, 0, average_order_value from daily_revenue
+    union all
+    select date_day, 30, 0, tasting_room_orders from daily_revenue
+    union all
+    select date_day, 31, 0, tasting_room_bottles_sold from daily_revenue
 )
 
 select
