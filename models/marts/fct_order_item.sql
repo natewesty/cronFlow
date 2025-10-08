@@ -18,6 +18,7 @@ select
     oi.price_cents      / 100.0    as item_price,
     oi.tax_cents        / 100.0    as item_tax,
     oi.qty              as quantity,             -- ✅ matches stg_order_item
+    (oi.price_cents / 100.0) * oi.qty as product_subtotal,
     oi.bottle_deposit_cents / 100.0    as bottle_deposit,
     oi.updated_at
 from {{ ref('stg_order_item') }} oi
