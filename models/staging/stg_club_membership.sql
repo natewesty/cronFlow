@@ -22,9 +22,9 @@ with src as (
         (data->>'customerCreditCardId')::uuid      as customer_credit_card_id,
 
         /* lifecycle */
-        -- Convert UTC timestamps to Pacific Time
-        ((data->>'signupDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as signup_at,
-        ((data->>'cancelDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as cancel_at,
+        -- Convert UTC timestamps to Pacific Time, then to date (YYYY-MM-DD)
+        ((data->>'signupDate')::timestamptz AT TIME ZONE 'America/Los_Angeles')::date as signup_at,
+        ((data->>'cancelDate')::timestamptz AT TIME ZONE 'America/Los_Angeles')::date as cancel_at,
         ((data->>'autoRenewalConsentDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as auto_renewal_consent_at,
         ((data->>'lastProcessedDate')::timestamptz AT TIME ZONE 'America/Los_Angeles') as last_processed_at,
 

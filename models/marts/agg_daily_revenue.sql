@@ -288,25 +288,24 @@ daily_order_metrics as (
 -- Club membership metrics
 daily_club_signups as (
     select
-        date(dcm.signup_at) as date_day,
+        dcm.signup_at as date_day,
         count(*) as new_member_acquisition
     from {{ ref('dim_club_membership') }} dcm
     cross join date_range dr
-    where dcm.status = 'Active'
-    and date(dcm.signup_at) >= dr.start_date
-    and date(dcm.signup_at) <= dr.current_date
-    group by date(dcm.signup_at)
+    where dcm.signup_at >= dr.start_date
+    and dcm.signup_at <= dr.current_date
+    group by dcm.signup_at
 ),
 
 daily_club_cancellations as (
     select
-        date(dcm.cancel_at) as date_day,
+        dcm.cancel_at as date_day,
         count(*) as existing_member_attrition
     from {{ ref('dim_club_membership') }} dcm
     cross join date_range dr
-    where date(dcm.cancel_at) >= dr.start_date
-    and date(dcm.cancel_at) <= dr.current_date
-    group by date(dcm.cancel_at)
+    where dcm.cancel_at >= dr.start_date
+    and dcm.cancel_at <= dr.current_date
+    group by dcm.cancel_at
 ),
 
 -- Create a date spine for all dates in range

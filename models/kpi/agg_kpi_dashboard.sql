@@ -58,18 +58,24 @@ current_rollups as (
     , sum(case when f.date_key between wb.fiscal_year_start  and wb.as_of_date then f.value end) as ytd_value
     , sum(case when f.date_key between wb.last28_start       and wb.as_of_date then f.value end) as last28_value
     -- Fiscal month totals (Jul-Jun)
-    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jul_value
-    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as aug_value
-    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as sep_value
-    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year then f.value end) as oct_value
-    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year then f.value end) as nov_value
-    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year then f.value end) as dec_value
-    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as jan_value
-    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as feb_value
-    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as mar_value
-    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as apr_value
-    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as may_value
-    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year + 1 then f.value end) as jun_value
+    -- For FY2026 (Jul 2025 - Jun 2026): Jul-Dec use calendar year 2025 (fiscal_year - 1), Jan-Jun use 2026 (fiscal_year)
+    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jul_value
+    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as aug_value
+    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as sep_value
+    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as oct_value
+    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as nov_value
+    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as dec_value
+    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jan_value
+    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as feb_value
+    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as mar_value
+    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as apr_value
+    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as may_value
+    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jun_value
+    -- Fiscal quarter totals (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
+    , sum(case when extract(month from f.date_key) in (7, 8, 9)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q1_value
+    , sum(case when extract(month from f.date_key) in (10, 11, 12) and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q2_value
+    , sum(case when extract(month from f.date_key) in (1, 2, 3)   and extract(year from f.date_key) = wb.fiscal_year then f.value end) as q3_value
+    , sum(case when extract(month from f.date_key) in (4, 5, 6)   and extract(year from f.date_key) = wb.fiscal_year then f.value end) as q4_value
   from f
   cross join window_bounds wb
   group by 1,2,3,4
@@ -86,18 +92,24 @@ prior_rollups as (
     , sum(case when f.date_key between wb.prev_fiscal_year_start  and (wb.prev_fiscal_year_start  + (wb.as_of_date - wb.fiscal_year_start))  then f.value end) as ytd_prior
     , sum(case when f.date_key between wb.prev_last28_start       and (wb.prev_last28_start       + interval '27 days')                      then f.value end) as last28_prior
     -- Prior fiscal month totals (Jul-Jun from prior year)
-    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jul_prior
-    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as aug_prior
-    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as sep_prior
-    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as oct_prior
-    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as nov_prior
-    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as dec_prior
-    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jan_prior
-    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as feb_prior
-    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as mar_prior
-    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as apr_prior
-    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as may_prior
-    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jun_prior
+    -- For prior FY2025 (Jul 2024 - Jun 2025): Jul-Dec use calendar year 2024 (fiscal_year - 2), Jan-Jun use 2025 (fiscal_year - 1)
+    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as jul_prior
+    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as aug_prior
+    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as sep_prior
+    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as oct_prior
+    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as nov_prior
+    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as dec_prior
+    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jan_prior
+    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as feb_prior
+    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as mar_prior
+    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as apr_prior
+    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as may_prior
+    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jun_prior
+    -- Prior fiscal quarter totals (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
+    , sum(case when extract(month from f.date_key) in (7, 8, 9)   and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as q1_prior
+    , sum(case when extract(month from f.date_key) in (10, 11, 12) and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as q2_prior
+    , sum(case when extract(month from f.date_key) in (1, 2, 3)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q3_prior
+    , sum(case when extract(month from f.date_key) in (4, 5, 6)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q4_prior
   from f
   cross join window_bounds wb
   group by 1,2,3,4
@@ -109,24 +121,30 @@ calc as (
     , c.entity_id
 
     -- Period metrics
-    , c.mtd_value,  p.mtd_prior,  (c.mtd_value - p.mtd_prior) as mtd_delta,  case when p.mtd_prior = 0 then null else (c.mtd_value - p.mtd_prior)/p.mtd_prior end as mtd_delta_pct
-    , c.qtd_value,  p.qtd_prior,  (c.qtd_value - p.qtd_prior) as qtd_delta,  case when p.qtd_prior = 0 then null else (c.qtd_value - p.qtd_prior)/p.qtd_prior end as qtd_delta_pct
-    , c.ytd_value,  p.ytd_prior,  (c.ytd_value - p.ytd_prior) as ytd_delta,  case when p.ytd_prior = 0 then null else (c.ytd_value - p.ytd_prior)/p.ytd_prior end as ytd_delta_pct
-    , c.last28_value, p.last28_prior, (c.last28_value - p.last28_prior) as last28_delta, case when p.last28_prior = 0 then null else (c.last28_value - p.last28_prior)/p.last28_prior end as last28_delta_pct
+    , c.mtd_value,  p.mtd_prior,  (c.mtd_value - p.mtd_prior) as mtd_delta,  case when p.mtd_prior = 0 then null else (c.mtd_value - p.mtd_prior)/abs(p.mtd_prior) end as mtd_delta_pct
+    , c.qtd_value,  p.qtd_prior,  (c.qtd_value - p.qtd_prior) as qtd_delta,  case when p.qtd_prior = 0 then null else (c.qtd_value - p.qtd_prior)/abs(p.qtd_prior) end as qtd_delta_pct
+    , c.ytd_value,  p.ytd_prior,  (c.ytd_value - p.ytd_prior) as ytd_delta,  case when p.ytd_prior = 0 then null else (c.ytd_value - p.ytd_prior)/abs(p.ytd_prior) end as ytd_delta_pct
+    , c.last28_value, p.last28_prior, (c.last28_value - p.last28_prior) as last28_delta, case when p.last28_prior = 0 then null else (c.last28_value - p.last28_prior)/abs(p.last28_prior) end as last28_delta_pct
 
     -- Monthly metrics (Jul-Jun)
-    , c.jul_value, p.jul_prior, (c.jul_value - p.jul_prior) as jul_delta, case when p.jul_prior = 0 then null else (c.jul_value - p.jul_prior)/p.jul_prior end as jul_delta_pct
-    , c.aug_value, p.aug_prior, (c.aug_value - p.aug_prior) as aug_delta, case when p.aug_prior = 0 then null else (c.aug_value - p.aug_prior)/p.aug_prior end as aug_delta_pct
-    , c.sep_value, p.sep_prior, (c.sep_value - p.sep_prior) as sep_delta, case when p.sep_prior = 0 then null else (c.sep_value - p.sep_prior)/p.sep_prior end as sep_delta_pct
-    , c.oct_value, p.oct_prior, (c.oct_value - p.oct_prior) as oct_delta, case when p.oct_prior = 0 then null else (c.oct_value - p.oct_prior)/p.oct_prior end as oct_delta_pct
-    , c.nov_value, p.nov_prior, (c.nov_value - p.nov_prior) as nov_delta, case when p.nov_prior = 0 then null else (c.nov_value - p.nov_prior)/p.nov_prior end as nov_delta_pct
-    , c.dec_value, p.dec_prior, (c.dec_value - p.dec_prior) as dec_delta, case when p.dec_prior = 0 then null else (c.dec_value - p.dec_prior)/p.dec_prior end as dec_delta_pct
-    , c.jan_value, p.jan_prior, (c.jan_value - p.jan_prior) as jan_delta, case when p.jan_prior = 0 then null else (c.jan_value - p.jan_prior)/p.jan_prior end as jan_delta_pct
-    , c.feb_value, p.feb_prior, (c.feb_value - p.feb_prior) as feb_delta, case when p.feb_prior = 0 then null else (c.feb_value - p.feb_prior)/p.feb_prior end as feb_delta_pct
-    , c.mar_value, p.mar_prior, (c.mar_value - p.mar_prior) as mar_delta, case when p.mar_prior = 0 then null else (c.mar_value - p.mar_prior)/p.mar_prior end as mar_delta_pct
-    , c.apr_value, p.apr_prior, (c.apr_value - p.apr_prior) as apr_delta, case when p.apr_prior = 0 then null else (c.apr_value - p.apr_prior)/p.apr_prior end as apr_delta_pct
-    , c.may_value, p.may_prior, (c.may_value - p.may_prior) as may_delta, case when p.may_prior = 0 then null else (c.may_value - p.may_prior)/p.may_prior end as may_delta_pct
-    , c.jun_value, p.jun_prior, (c.jun_value - p.jun_prior) as jun_delta, case when p.jun_prior = 0 then null else (c.jun_value - p.jun_prior)/p.jun_prior end as jun_delta_pct
+    , c.jul_value, p.jul_prior, (c.jul_value - p.jul_prior) as jul_delta, case when p.jul_prior = 0 then null else (c.jul_value - p.jul_prior)/abs(p.jul_prior) end as jul_delta_pct
+    , c.aug_value, p.aug_prior, (c.aug_value - p.aug_prior) as aug_delta, case when p.aug_prior = 0 then null else (c.aug_value - p.aug_prior)/abs(p.aug_prior) end as aug_delta_pct
+    , c.sep_value, p.sep_prior, (c.sep_value - p.sep_prior) as sep_delta, case when p.sep_prior = 0 then null else (c.sep_value - p.sep_prior)/abs(p.sep_prior) end as sep_delta_pct
+    , c.oct_value, p.oct_prior, (c.oct_value - p.oct_prior) as oct_delta, case when p.oct_prior = 0 then null else (c.oct_value - p.oct_prior)/abs(p.oct_prior) end as oct_delta_pct
+    , c.nov_value, p.nov_prior, (c.nov_value - p.nov_prior) as nov_delta, case when p.nov_prior = 0 then null else (c.nov_value - p.nov_prior)/abs(p.nov_prior) end as nov_delta_pct
+    , c.dec_value, p.dec_prior, (c.dec_value - p.dec_prior) as dec_delta, case when p.dec_prior = 0 then null else (c.dec_value - p.dec_prior)/abs(p.dec_prior) end as dec_delta_pct
+    , c.jan_value, p.jan_prior, (c.jan_value - p.jan_prior) as jan_delta, case when p.jan_prior = 0 then null else (c.jan_value - p.jan_prior)/abs(p.jan_prior) end as jan_delta_pct
+    , c.feb_value, p.feb_prior, (c.feb_value - p.feb_prior) as feb_delta, case when p.feb_prior = 0 then null else (c.feb_value - p.feb_prior)/abs(p.feb_prior) end as feb_delta_pct
+    , c.mar_value, p.mar_prior, (c.mar_value - p.mar_prior) as mar_delta, case when p.mar_prior = 0 then null else (c.mar_value - p.mar_prior)/abs(p.mar_prior) end as mar_delta_pct
+    , c.apr_value, p.apr_prior, (c.apr_value - p.apr_prior) as apr_delta, case when p.apr_prior = 0 then null else (c.apr_value - p.apr_prior)/abs(p.apr_prior) end as apr_delta_pct
+    , c.may_value, p.may_prior, (c.may_value - p.may_prior) as may_delta, case when p.may_prior = 0 then null else (c.may_value - p.may_prior)/abs(p.may_prior) end as may_delta_pct
+    , c.jun_value, p.jun_prior, (c.jun_value - p.jun_prior) as jun_delta, case when p.jun_prior = 0 then null else (c.jun_value - p.jun_prior)/abs(p.jun_prior) end as jun_delta_pct
+
+    -- Quarterly metrics (Q1-Q4)
+    , c.q1_value, p.q1_prior, (c.q1_value - p.q1_prior) as q1_delta, case when p.q1_prior = 0 then null else (c.q1_value - p.q1_prior)/abs(p.q1_prior) end as q1_delta_pct
+    , c.q2_value, p.q2_prior, (c.q2_value - p.q2_prior) as q2_delta, case when p.q2_prior = 0 then null else (c.q2_value - p.q2_prior)/abs(p.q2_prior) end as q2_delta_pct
+    , c.q3_value, p.q3_prior, (c.q3_value - p.q3_prior) as q3_delta, case when p.q3_prior = 0 then null else (c.q3_value - p.q3_prior)/abs(p.q3_prior) end as q3_delta_pct
+    , c.q4_value, p.q4_prior, (c.q4_value - p.q4_prior) as q4_delta, case when p.q4_prior = 0 then null else (c.q4_value - p.q4_prior)/abs(p.q4_prior) end as q4_delta_pct
   from current_rollups c
   join prior_rollups  p using (as_of_date, kpi_id, entity_id)
 ),
@@ -155,6 +173,12 @@ final as (
     , apr_value, apr_prior, apr_delta, apr_delta_pct
     , may_value, may_prior, may_delta, may_delta_pct
     , jun_value, jun_prior, jun_delta, jun_delta_pct
+
+    -- Quarterly metrics
+    , q1_value, q1_prior, q1_delta, q1_delta_pct
+    , q2_value, q2_prior, q2_delta, q2_delta_pct
+    , q3_value, q3_prior, q3_delta, q3_delta_pct
+    , q4_value, q4_prior, q4_delta, q4_delta_pct
 
     -- Optional: Lightweight JSON payload for API convenience (periods only, not months)
     , jsonb_build_object(

@@ -43,6 +43,7 @@ reservation_mart as (
         ) as reservation_datetime,
         sd.party_size,
         sd.experience_name,
+        sd.party_state as status,
         
         -- Pricing information (converted from cents to dollars)
         round(sd.net_amount_paid_cents / 100.0, 2) as subtotal,
