@@ -8,7 +8,7 @@ with date_range as (
     -- Get date range from beginning of previous fiscal year to current date
     select 
         (select current_date_pacific from {{ ref('dim_date') }} limit 1) as current_date,
-        date('2023-07-01') as start_date  -- Beginning of FY2024 (using END year naming)
+        date('2023-07-01') as init_date  -- Beginning of FY2024 (using END year naming)
 ),
 
 daily_tasting_room_wine as (
@@ -21,9 +21,10 @@ daily_tasting_room_wine as (
     where fo.channel = 'POS'
     and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
     and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
-    and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
-    and fo.event_specific_sale is null
-    and fo.order_date_key >= dr.start_date
+    and (fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false')
+    and (fo.event_specific_sale is null or fo.event_specific_sale = 'false' or fo.event_specific_sale = '0')
+    and fo.event_revenue_realization_date is null
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -36,7 +37,7 @@ daily_tasting_room_fees as (
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Tasting Room'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -49,7 +50,7 @@ daily_wine_club_orders as (
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     cross join date_range dr
     where fo.channel = 'Club'
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -62,7 +63,7 @@ daily_wine_club_fees as (
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Club'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -75,7 +76,7 @@ daily_ecomm as (
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     cross join date_range dr
     where fo.channel = 'Web'
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -88,7 +89,7 @@ daily_phone as (
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     cross join date_range dr
     where fo.channel = 'Inbound'
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -103,7 +104,7 @@ daily_event_fees_orders as (
     where fo.event_fee_or_wine = 'Event Fee'
     and fo.event_specific_sale = 'true'
     and (fo.external_order_vendor is null or fo.external_order_vendor <> 'Tock')
-    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.start_date
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.init_date
     and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) <= dr.current_date
     group by coalesce(date(fo.event_revenue_realization_date), fo.order_date_key)
 ),
@@ -116,7 +117,7 @@ daily_event_fees_reservations as (
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Event'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -130,7 +131,7 @@ daily_event_wine as (
     cross join date_range dr
     where fo.event_fee_or_wine = 'Event Wine'
     and fo.event_specific_sale = 'true'
-    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.start_date
+    and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) >= dr.init_date
     and coalesce(date(fo.event_revenue_realization_date), fo.order_date_key) <= dr.current_date
     group by coalesce(date(fo.event_revenue_realization_date), fo.order_date_key)
 ),
@@ -142,7 +143,7 @@ daily_shipping_revenue as (
     from {{ ref('fct_order') }} fo
     left join {{ ref('dim_date') }} dd on fo.order_date_key = dd.date_day
     cross join date_range dr
-    where fo.order_date_key >= dr.start_date
+    where fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -156,7 +157,7 @@ daily_reservations as (
         avg(ftr.party_size) as avg_party_size
     from {{ ref('fct_tock_reservation') }} ftr
     cross join date_range dr
-    where to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    where to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -170,7 +171,7 @@ daily_tasting_room_guests as (
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Tasting Room'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -184,7 +185,7 @@ daily_event_guests as (
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Event'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -200,7 +201,7 @@ daily_tasting_fee_per_guest as (
         end as avg_tasting_fee_per_guest
     from {{ ref('fct_tock_reservation') }} ftr
     cross join date_range dr
-    where to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
+    where to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.init_date
     and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
     group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
 ),
@@ -217,7 +218,7 @@ daily_tasting_room_orders as (
     and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
     and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
     and fo.event_specific_sale is null
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -230,7 +231,7 @@ daily_9l_sold as (
     from {{ ref('fct_order_item') }} foi
     cross join date_range dr
     where foi.item_type = 'Wine'
-    and date(foi.paid_at) >= dr.start_date
+    and date(foi.paid_at) >= dr.init_date
     and date(foi.paid_at) <= dr.current_date
     group by date(foi.paid_at)
 ),
@@ -249,7 +250,7 @@ daily_tasting_room_bottles as (
     and (fo.tasting_lounge is null or fo.tasting_lounge = 'false')
     and fo.event_fee_or_wine is null or fo.event_fee_or_wine = 'false'
     and fo.event_specific_sale is null
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -262,7 +263,7 @@ daily_tasting_lounge_revenue as (
     from {{ ref('fct_order_item') }} foi
     cross join date_range dr
     where foi.sku = 'TASTLOUNGE'
-    and date(foi.paid_at) >= dr.start_date
+    and date(foi.paid_at) >= dr.init_date
     and date(foi.paid_at) <= dr.current_date
     group by date(foi.paid_at)
 ),
@@ -280,7 +281,7 @@ daily_order_metrics as (
     and fo.tasting_lounge is null
     and fo.event_fee_or_wine is null
     and fo.event_specific_sale is null
-    and fo.order_date_key >= dr.start_date
+    and fo.order_date_key >= dr.init_date
     and fo.order_date_key <= dr.current_date
     group by fo.order_date_key
 ),
@@ -292,7 +293,7 @@ daily_club_signups as (
         count(*) as new_member_acquisition
     from {{ ref('dim_club_membership') }} dcm
     cross join date_range dr
-    where dcm.signup_at >= dr.start_date
+    where dcm.signup_at >= dr.init_date
     and dcm.signup_at <= dr.current_date
     group by dcm.signup_at
 ),
@@ -303,7 +304,7 @@ daily_club_cancellations as (
         count(*) as existing_member_attrition
     from {{ ref('dim_club_membership') }} dcm
     cross join date_range dr
-    where dcm.cancel_at >= dr.start_date
+    where dcm.cancel_at >= dr.init_date
     and dcm.cancel_at <= dr.current_date
     group by dcm.cancel_at
 ),
@@ -327,7 +328,7 @@ date_spine as (
         end as fiscal_year_period
     from {{ ref('dim_date') }} dd
     cross join date_range dr
-    where dd.date_day >= dr.start_date
+    where dd.date_day >= dr.init_date
     and dd.date_day <= dr.current_date
 ),
 
@@ -355,8 +356,8 @@ select
     ds.fiscal_year_period,
     
     -- Tasting Room Revenue
-    coalesce(dtrw.tasting_room_wine_revenue, 0) - coalesce(dtlr.tasting_lounge_revenue, 0) as tasting_room_wine_revenue,
-    coalesce(dtrf.tasting_room_fees_revenue, 0) + coalesce(dtlr.tasting_lounge_revenue, 0) as tasting_room_fees_revenue,
+    coalesce(dtrw.tasting_room_wine_revenue, 0) as tasting_room_wine_revenue,
+    coalesce(dtrf.tasting_room_fees_revenue, 0) as tasting_room_fees_revenue,
     coalesce(dtrw.tasting_room_wine_revenue, 0) + coalesce(dtrf.tasting_room_fees_revenue, 0) as tasting_room_total_revenue,
     
     -- Wine Club Revenue
