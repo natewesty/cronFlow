@@ -199,7 +199,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Tasting Room'
             and dd.fiscal_year = cp.current_fiscal_year - 1
@@ -211,7 +211,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Tasting Room'
             and dd.fiscal_year = cp.current_fiscal_year
@@ -223,7 +223,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Tasting Room'
             and dd.fiscal_year = cp.current_fiscal_year - 1
@@ -243,7 +243,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year
@@ -263,7 +263,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year - 1
@@ -283,7 +283,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year
@@ -303,7 +303,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year - 1
@@ -323,7 +323,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year
@@ -343,7 +343,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year - 1
@@ -363,7 +363,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year
@@ -383,7 +383,7 @@ quarterly_metrics as (
             select sum(ftr.final_total)
             from {{ ref('fct_tock_reservation') }} ftr
             left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
-            left join {{ ref('dim_date') }} dd on to_date(ftr.reservation_datetime, 'MM-DD-YYYY') = dd.date_day
+            left join {{ ref('dim_date') }} dd on date(ftr.reservation_datetime) = dd.date_day
             cross join current_periods cp
             where de.attribution = 'Club'
             and dd.fiscal_year = cp.current_fiscal_year - 1
