@@ -25,6 +25,7 @@ select
     c.birth_date,
     c.city,
     c.state_code,
+    c.postal_code,
     c.country_code,
     c.email_mkt_status,
     coalesce(e.primary_email,'')      as primary_email,

@@ -71,3 +71,29 @@ seeds:
       - name: entity_code
         tests: [not_null, unique]
 
+  - name: dim_ruca
+    description: "RUCA (Rural-Urban Commuting Area) codes for US ZIP codes - provides geographic classification for customer segmentation"
+    columns:
+      - name: ZIPCode
+        description: "5-digit ZIP code"
+        tests:
+          - not_null
+      - name: State
+        description: "US state abbreviation"
+        tests:
+          - not_null
+      - name: ZIPCodeType
+        description: "Type of ZIP code area"
+      - name: POName
+        description: "Post Office name or place name"
+      - name: PrimaryRUCA
+        description: "Primary RUCA code (1-10) - main classification"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      - name: SecondaryRUCA
+        description: "Secondary RUCA code - additional classification detail"
+        tests:
+          - not_null
+

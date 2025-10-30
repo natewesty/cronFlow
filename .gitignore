@@ -6,3 +6,10 @@
 .env.development
 .env.test
 .env.production
+
+dbt_packages/
+logs/
+target/
+
+.user.yml
+package-lock.yml

@@ -37,10 +37,7 @@ reservation_mart as (
         sd.diner_patron_email as email,
         
         -- Reservation details
-        to_char(
-            to_timestamp(sd.reservation_datetime, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 
-            'MM-DD-YYYY'
-        ) as reservation_datetime,
+        sd.reservation_datetime,
         sd.party_size,
         sd.experience_name,
         sd.party_state as status,

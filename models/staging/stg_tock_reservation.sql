@@ -22,7 +22,7 @@ parsed_data as (
         data->'business'->>'timeZone' as business_time_zone,
         
         -- Reservation details
-        data->>'dateTime' as reservation_datetime,
+        (data->>'dateTime')::timestamp as reservation_datetime,
         (data->>'partySize')::int as party_size,
         data->>'partyState' as party_state,
         (data->>'sequenceId')::int as sequence_id,
