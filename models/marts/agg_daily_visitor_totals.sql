@@ -13,7 +13,7 @@ with date_range as (
 
 daily_reservations as (
     select
-        to_date(ftr.reservation_datetime, 'MM-DD-YYYY') as date_day,
+        date(ftr.reservation_datetime) as date_day,
         count(*) as total_reservations,
         sum(ftr.party_size) as total_visitors,
         avg(ftr.party_size) as avg_party_size,
@@ -21,9 +21,9 @@ daily_reservations as (
         min(ftr.party_size) as min_party_size
     from {{ ref('fct_tock_reservation') }} ftr
     cross join date_range dr
-    where to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
-    group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
+    where date(ftr.reservation_datetime) >= dr.start_date
+    and date(ftr.reservation_datetime) <= dr.current_date
+    group by date(ftr.reservation_datetime)
 ),
 
 -- Create a complete date spine for the two-year period

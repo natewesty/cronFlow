@@ -30,15 +30,15 @@ daily_tasting_room_wine as (
 
 daily_tasting_room_fees as (
     select
-        to_date(ftr.reservation_datetime, 'MM-DD-YYYY') as date_day,
+        date(ftr.reservation_datetime) as date_day,
         sum(ftr.final_total) as tasting_room_fees_revenue
     from {{ ref('fct_tock_reservation') }} ftr
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Tasting Room'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
-    group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
+    and date(ftr.reservation_datetime) >= dr.start_date
+    and date(ftr.reservation_datetime) <= dr.current_date
+    group by date(ftr.reservation_datetime)
 ),
 
 daily_wine_club_orders as (
@@ -56,15 +56,15 @@ daily_wine_club_orders as (
 
 daily_wine_club_fees as (
     select
-        to_date(ftr.reservation_datetime, 'MM-DD-YYYY') as date_day,
+        date(ftr.reservation_datetime) as date_day,
         sum(ftr.final_total) as wine_club_fees_revenue
     from {{ ref('fct_tock_reservation') }} ftr
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Club'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
-    group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
+    and date(ftr.reservation_datetime) >= dr.start_date
+    and date(ftr.reservation_datetime) <= dr.current_date
+    group by date(ftr.reservation_datetime)
 ),
 
 daily_ecomm as (
@@ -110,15 +110,15 @@ daily_event_fees_orders as (
 
 daily_event_fees_reservations as (
     select
-        to_date(ftr.reservation_datetime, 'MM-DD-YYYY') as date_day,
+        date(ftr.reservation_datetime) as date_day,
         sum(ftr.final_total) as event_fees_reservations_revenue
     from {{ ref('fct_tock_reservation') }} ftr
     left join {{ ref('dim_experience') }} de on ftr.experience_name = de.experience
     cross join date_range dr
     where de.attribution = 'Event'
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') >= dr.start_date
-    and to_date(ftr.reservation_datetime, 'MM-DD-YYYY') <= dr.current_date
-    group by to_date(ftr.reservation_datetime, 'MM-DD-YYYY')
+    and date(ftr.reservation_datetime) >= dr.start_date
+    and date(ftr.reservation_datetime) <= dr.current_date
+    group by date(ftr.reservation_datetime)
 ),
 
 daily_event_wine as (
