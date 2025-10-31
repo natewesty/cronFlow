@@ -7,6 +7,7 @@ with base as (
     order_id, 
     channel,
     paid_at,
+    customer_id,
     _order_json as o, 
     updated_at
   from {{ ref('stg_order') }}
@@ -16,6 +17,7 @@ items as (
     b.order_id,
     b.channel,
     b.paid_at,
+    b.customer_id,
     (i->>'id')::uuid                as order_item_id,
     i->>'externalOrderVendor'       as external_order_vendor,
     i->>'purchaseType'              as purchase_type,

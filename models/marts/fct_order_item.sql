@@ -7,6 +7,7 @@
 select
     oi.order_item_id,
     oi.order_id,
+    oi.customer_id,
     oi.product_id,
     oi.product_title,
     oi.external_order_vendor,
@@ -16,6 +17,8 @@ select
     oi.sku,                                     -- ✅ Added from stg_order_item
     oi.channel,                                    -- ✅ Added from stg_order_item
     oi.paid_at,                                   -- ✅ Added from stg_order_item
+    date(oi.paid_at) as paid_date,                -- Date format for RFM calculations
+    
     oi.price_cents      / 100.0    as item_price,
     oi.tax_cents        / 100.0    as item_tax,
     oi.qty              as quantity,             -- ✅ matches stg_order_item
