@@ -5,7 +5,7 @@
 ) }}
 
 with base as (
-    select product_id, _product_json as p, updated_at, sub_title
+    select product_id, _product_json as p, updated_at, sub_title, product_type
     from {{ ref('stg_product') }}
 ),
 
@@ -22,6 +22,7 @@ variant as (
         (v->>'hasInventory')::boolean         as has_inventory,
         (v->>'weight')::numeric               as weight_kg,
         (v->>'volumeInML')::int               as volume_ml,
+        product_type,
         (v->>'alcoholPercentage')::numeric    as abv,
         (v->>'costOfGood')::bigint            as cogs_cents,
         (v->>'price')::bigint                 as price_cents,

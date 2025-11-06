@@ -4,9 +4,12 @@
 
 with base as (
   select 
-    order_id, 
+    order_id,
+    external_order_vendor,
     channel,
     paid_at,
+    fulfilled_at,
+    delivery_method,
     customer_id,
     _order_json as o, 
     updated_at
@@ -15,11 +18,13 @@ with base as (
 items as (
   select
     b.order_id,
+    b.external_order_vendor,
     b.channel,
     b.paid_at,
+    b.fulfilled_at,
+    b.delivery_method,
     b.customer_id,
     (i->>'id')::uuid                as order_item_id,
-    i->>'externalOrderVendor'       as external_order_vendor,
     i->>'purchaseType'              as purchase_type,
     i->>'type'                      as item_type,
     i->>'productTitle'              as product_title,

@@ -29,6 +29,8 @@ models:
         +materialized: incremental
         +on_schema_change: ignore
         +incremental_strategy: merge
+    fin_ref:
+      +schema: fin_ref
 
 seeds:
   cronDon:
