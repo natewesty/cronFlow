@@ -12,7 +12,9 @@ with base as (
     delivery_method,
     customer_id,
     _order_json as o, 
-    updated_at
+    updated_at,
+    event_fee_or_wine,
+    state_code
   from {{ ref('stg_order') }}
 ),
 items as (
@@ -43,7 +45,9 @@ items as (
     i->>'taxType'                   as tax_type,
     (b.o->'salesAssociate'->>'accountId')::uuid as sales_associate_id,
     b.o->'salesAssociate'->>'name' as sales_associate,
-    b.updated_at
+    b.updated_at,
+    b.event_fee_or_wine,
+    b.state_code
   from base b
   cross join lateral jsonb_array_elements(b.o->'items') as i
 )

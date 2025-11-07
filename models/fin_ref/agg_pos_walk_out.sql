@@ -12,14 +12,14 @@ with monthly_data as (
         class_code,
         quantity
     from {{ ref('stg_qb_format_base') }}
-    where class_code = '54 Wine Club'
-        and ref_number like '%.1'
+    where class_code = '50 TR'
+        and ref_number like '%.13'
         and case_size is not null
         and case_size > 0
         and in_month = true
 )
 select
-    'Club Pickup & Carry Out' as customer,
+    'POS Pickup & Carry Out' as customer,
     month_end_date_fulfilled as transaction_date,
     max(ref_number) as ref_number,
     max(class_code) as class_code,
@@ -37,4 +37,3 @@ group by
     unit_of_measure
 having round(sum(quantity)::numeric / max(case_size)::numeric, 5) != 0
 order by month_end_date_fulfilled desc, sku
-

@@ -31,6 +31,8 @@ with joined_data as (
         pv.case_size,
         pv.unit_of_measure,
         oi.updated_at,
+        oi.event_fee_or_wine,
+        oi.state_code,
         row_number() over (partition by oi.order_item_id order by oi.updated_at desc) as rn
     from {{ ref('stg_order_item') }} oi
     left join {{ ref('dim_product_variant') }} pv
@@ -67,6 +69,8 @@ select
     extrapolated_price,
     case_size,
     unit_of_measure,
-    updated_at
+    updated_at,
+    event_fee_or_wine,
+    state_code
 from joined_data
 where rn = 1

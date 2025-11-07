@@ -18,6 +18,10 @@ with src as (
 
         /* ───── statuses & refs ───── */
         data->>'channel'                         as channel,
+        case
+            when data->>'shipTo' is null then null
+            else data->'shipTo'->>'stateCode'
+        end as state_code,
         data->>'orderDeliveryMethod'             as delivery_method,
         data->>'externalOrderVendor'             as external_order_vendor,
         data->>'paymentStatus'                   as payment_status,

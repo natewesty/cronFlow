@@ -22,14 +22,19 @@ with base as (
         p.admin_status,
         p.created_at,
         p.updated_at,
-        case
-            when p.product_type = 'Wine' and pv.volume_ml = 750 then 12
-            when p.product_type = 'Wine' and pv.volume_ml = 1500 then 6
-            else 1
-        end                                         as case_size
+        coalesce(
+            cs.units_per_case,
+            case
+                when p.product_type = 'Wine' and pv.volume_ml = 750 then 12
+                when p.product_type = 'Wine' and pv.volume_ml = 1500 then 6
+                else 1
+            end
+        )                                           as case_size
     from {{ ref('stg_product_variant') }} pv
     join {{ ref('stg_product') }} p
       on p.product_id = pv.product_id
+    left join {{ ref('dim_case_size') }} cs
+      on pv.sku::text = cs.sku::text
 )
 select
     product_variant_id,

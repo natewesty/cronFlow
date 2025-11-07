@@ -12,15 +12,14 @@ with monthly_data as (
         class_code,
         quantity
     from {{ ref('stg_qb_format_base') }}
-    where class_code = '54 Wine Club'
-        and ref_number like '%.1'
+    where class_code = '43 Inbound'
+        and ref_number like '%.8'
         and case_size is not null
         and case_size > 0
-        and in_month = true
 )
 select
-    'Club Pickup & Carry Out' as customer,
-    month_end_date_fulfilled as transaction_date,
+    'Inbound Unfulfilled' as customer,
+    month_end_date_paid as transaction_date,
     max(ref_number) as ref_number,
     max(class_code) as class_code,
     sku as item,
@@ -29,12 +28,10 @@ select
     unit_of_measure,
     '10100' as deposit_to
 from monthly_data
-where month_end_date_fulfilled = month_end_date_paid
 group by
-    month_end_date_fulfilled,
+    month_end_date_paid,
     sku,
     extrapolated_price,
     unit_of_measure
 having round(sum(quantity)::numeric / max(case_size)::numeric, 5) != 0
-order by month_end_date_fulfilled desc, sku
-
+order by month_end_date_paid desc, sku
