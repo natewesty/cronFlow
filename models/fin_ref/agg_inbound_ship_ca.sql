@@ -27,7 +27,7 @@ select
     extrapolated_price::money as price,
     round(sum(quantity)::numeric / max(case_size)::numeric, 5) as quantity,
     unit_of_measure,
-    '10100' as deposit_to
+    '11300' as deposit_to
 from monthly_data
 where month_end_date_fulfilled = month_end_date_paid
 group by
