@@ -6,6 +6,7 @@ with monthly_data as (
         month_end_date_paid,
         sku,
         extrapolated_price,
+        product_subtotal,
         case_size,
         unit_of_measure,
         ref_number,
@@ -16,6 +17,7 @@ with monthly_data as (
         and ref_number like '%.12'
         and case_size is not null
         and case_size > 0
+        and product_subtotal != 0
 )
 select
     'Web Unfulfilled' as customer,

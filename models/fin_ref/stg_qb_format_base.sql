@@ -1,7 +1,8 @@
 {{ config(materialized='view') }}
 
 with base as (
-    select 
+    select
+        customer_id,
         sku,
         paid_date,
         fulfilled_date,
@@ -26,6 +27,7 @@ with base as (
         channel,
         delivery_method,
         quantity,
+        product_subtotal,
         extrapolated_price,
         case_size,
         unit_of_measure,
@@ -37,6 +39,7 @@ with base as (
     where external_order_vendor IS NULL
 )
 select 
+    customer_id,
     sku,
     paid_date,
     fulfilled_date,
@@ -47,6 +50,7 @@ select
     channel,
     delivery_method,
     quantity,
+    product_subtotal,
     extrapolated_price,
     case_size,
     unit_of_measure,
