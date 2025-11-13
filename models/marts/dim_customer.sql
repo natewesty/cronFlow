@@ -36,6 +36,7 @@ select
     c.is_active_club_member,
     c.acquisition_channel,
     t.customer_tags,
+    c.no_charge_guest_type,
     c.created_at,
     c.updated_at
 from base c

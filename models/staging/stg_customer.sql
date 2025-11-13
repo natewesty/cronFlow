@@ -36,6 +36,7 @@ with src as (
 
         /* flags */
         (data->>'hasAccount')::bool              as has_account,
+        data->'metaData'->>'no-charge-guest-type' as no_charge_guest_type,
 
         /* bookkeeping */
         coalesce(last_processed_at, current_timestamp) as load_ts,
