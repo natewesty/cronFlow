@@ -37,6 +37,7 @@ with base as (
         (date_trunc('month', paid_date) + interval '1 month - 1 day')::date as in_month
     from {{ ref('fct_order_item') }}
     where external_order_vendor IS NULL
+    and item_type in ('Bundle', 'General Merchandise', 'Wine')
 )
 select 
     customer_id,

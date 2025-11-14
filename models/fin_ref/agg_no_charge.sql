@@ -15,6 +15,7 @@ with monthly_data as (
     from {{ ref('stg_qb_format_base') }} as qb
     inner join {{ ref('stg_no_charge_accounts') }} as nca
         on qb.customer_id = nca.customer_id
+    where qb.in_month = true
 ),
 
 aggregated as (
