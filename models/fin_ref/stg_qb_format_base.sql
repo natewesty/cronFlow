@@ -2,43 +2,50 @@
 
 with base as (
     select
-        order_id,
-        customer_id,
-        sku,
-        paid_date,
-        fulfilled_date,
-        (date_trunc('month', fulfilled_date) + interval '1 month - 1 day')::date as month_end_date_fulfilled,
-        (date_trunc('month', paid_date) + interval '1 month - 1 day')::date as month_end_date_paid,
-        extract(month from paid_date) as month_number,
+        oi.order_id,
+        oi.customer_id,
+        oi.sku,
+        oi.paid_date,
+        oi.fulfilled_date,
+        (date_trunc('month', oi.fulfilled_date) + interval '1 month - 1 day')::date as month_end_date_fulfilled,
+        (date_trunc('month', oi.paid_date) + interval '1 month - 1 day')::date as month_end_date_paid,
+        extract(month from oi.paid_date) as month_number,
         case
-            when extract(month from paid_date) = 1 then 'Jan'
-            when extract(month from paid_date) = 2 then 'Feb'
-            when extract(month from paid_date) = 3 then 'Mar'
-            when extract(month from paid_date) = 4 then 'Apr'
-            when extract(month from paid_date) = 5 then 'May'
-            when extract(month from paid_date) = 6 then 'Jun'
-            when extract(month from paid_date) = 7 then 'Jul'
-            when extract(month from paid_date) = 8 then 'Aug'
-            when extract(month from paid_date) = 9 then 'Sept'
-            when extract(month from paid_date) = 10 then 'Oct'
-            when extract(month from paid_date) = 11 then 'Nov'
-            when extract(month from paid_date) = 12 then 'Dec'
+            when extract(month from oi.paid_date) = 1 then 'Jan'
+            when extract(month from oi.paid_date) = 2 then 'Feb'
+            when extract(month from oi.paid_date) = 3 then 'Mar'
+            when extract(month from oi.paid_date) = 4 then 'Apr'
+            when extract(month from oi.paid_date) = 5 then 'May'
+            when extract(month from oi.paid_date) = 6 then 'Jun'
+            when extract(month from oi.paid_date) = 7 then 'Jul'
+            when extract(month from oi.paid_date) = 8 then 'Aug'
+            when extract(month from oi.paid_date) = 9 then 'Sept'
+            when extract(month from oi.paid_date) = 10 then 'Oct'
+            when extract(month from oi.paid_date) = 11 then 'Nov'
+            when extract(month from oi.paid_date) = 12 then 'Dec'
             else null
         end as month_name,
-        channel,
-        delivery_method,
-        quantity,
-        product_subtotal,
-        extrapolated_price,
-        case_size,
-        unit_of_measure,
-        event_fee_or_wine,
-        state_code,
-        (date_trunc('month', fulfilled_date) + interval '1 month - 1 day')::date = 
-        (date_trunc('month', paid_date) + interval '1 month - 1 day')::date as in_month
-    from {{ ref('fct_order_item') }}
-    where external_order_vendor IS NULL
-    and item_type in ('Bundle', 'General Merchandise', 'Wine')
+        oi.channel,
+        oi.delivery_method,
+        oi.quantity,
+        oi.product_subtotal,
+        oi.extrapolated_price,
+        oi.case_size,
+        oi.unit_of_measure,
+        oi.event_fee_or_wine,
+        oi.state_code,
+        (date_trunc('month', oi.fulfilled_date) + interval '1 month - 1 day')::date = 
+        (date_trunc('month', oi.paid_date) + interval '1 month - 1 day')::date as in_month,
+        pv.price as variant_price,
+        case 
+            when oi.quantity > 0 then oi.product_subtotal / oi.quantity
+            else null
+        end as unit_price_from_order
+    from {{ ref('fct_order_item') }} oi
+    left join {{ ref('dim_product_variant') }} pv
+        on oi.sku = pv.sku
+    where oi.external_order_vendor IS NULL
+    and oi.item_type in ('Bundle', 'General Merchandise', 'Wine')
 )
 select 
     order_id,
@@ -60,6 +67,17 @@ select
     in_month,
     event_fee_or_wine,
     state_code,
+    variant_price,
+    unit_price_from_order,
+    case
+        when unit_price_from_order is null or variant_price is null then null
+        when round(unit_price_from_order::numeric, 2) = round(variant_price::numeric, 2) then true
+        else false
+    end as is_full_price,
+    case
+        when product_subtotal = 0 then true
+        else false
+    end as zero_dollar_order,
     case
         when channel = 'Club' then '54 Wine Club'
         when channel = 'Inbound' then '43 Inbound'

@@ -19,6 +19,7 @@ with monthly_data as (
         and case_size > 0
         and in_month = true
         and product_subtotal != 0
+        and is_full_price = true
 )
 select
     'Event Wine' as customer,
