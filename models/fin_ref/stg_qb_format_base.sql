@@ -2,6 +2,7 @@
 
 with base as (
     select
+        order_id,
         customer_id,
         sku,
         paid_date,
@@ -40,6 +41,7 @@ with base as (
     and item_type in ('Bundle', 'General Merchandise', 'Wine')
 )
 select 
+    order_id,
     customer_id,
     sku,
     paid_date,
