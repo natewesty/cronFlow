@@ -25,6 +25,18 @@ with src as (
         data->>'orderDeliveryMethod'             as delivery_method,
         data->>'externalOrderVendor'             as external_order_vendor,
         data->>'refundOrderId'                    as refund_order_id,
+        (
+            select (linked_order->>'orderId')::uuid
+            from jsonb_array_elements(data->'linkedOrders') as linked_order
+            where linked_order->>'purchaseType' = 'Refund'
+            limit 1
+        ) as linked_order_id,
+        (
+            select linked_order->>'purchaseType'
+            from jsonb_array_elements(data->'linkedOrders') as linked_order
+            where linked_order->>'purchaseType' = 'Refund'
+            limit 1
+        ) as linked_order_purchase_type,
         data->>'paymentStatus'                   as payment_status,
         data->>'fulfillmentStatus'               as fulfillment_status,
         data->>'shippingStatus'                  as shipping_status,

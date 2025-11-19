@@ -12,6 +12,7 @@ with monthly_data as (
     from {{ ref('stg_qb_format_base') }}
     where in_month = false
         and month_end_date_fulfilled is not null
+        and is_refunded = false
 ),
 export_tracking as (
     select

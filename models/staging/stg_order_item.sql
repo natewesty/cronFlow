@@ -6,6 +6,8 @@ with base as (
   select 
     order_id,
     refund_order_id,
+    linked_order_id,
+    linked_order_purchase_type,
     external_order_vendor,
     channel,
     paid_at,
@@ -23,6 +25,8 @@ items as (
   select
     b.order_id,
     b.refund_order_id,
+    b.linked_order_id,
+    b.linked_order_purchase_type,
     b.external_order_vendor,
     b.channel,
     b.paid_at,

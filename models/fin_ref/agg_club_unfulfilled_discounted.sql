@@ -20,6 +20,7 @@ with monthly_data as (
         and case_size > 0
         and product_subtotal != 0
         and is_full_price = false
+        and is_refunded = false
 )
 select
     'Club Unfulfilled' as customer,

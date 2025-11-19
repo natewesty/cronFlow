@@ -4,6 +4,8 @@ with base as (
     select
         oi.order_id,
         oi.refund_order_id,
+        oi.linked_order_id,
+        oi.linked_order_purchase_type,
         oi.customer_id,
         oi.sku,
         oi.paid_date,
@@ -52,6 +54,8 @@ with base as (
 select 
     order_id,
     customer_id,
+    linked_order_id,
+    linked_order_purchase_type,
     sku,
     paid_date,
     fulfilled_date,
@@ -82,7 +86,7 @@ select
         else false
     end as zero_dollar_order,
     case
-        when refund_order_id is not null then true
+        when refund_order_id is not null or linked_order_id is not null then true
         else false
     end as is_refunded,
     case
