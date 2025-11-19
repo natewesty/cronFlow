@@ -3,10 +3,12 @@
 with base as (
     select
         oi.order_id,
+        oi.refund_order_id,
         oi.customer_id,
         oi.sku,
         oi.paid_date,
         oi.fulfilled_date,
+        oi.fulfillment_status,
         (date_trunc('month', oi.fulfilled_date) + interval '1 month - 1 day')::date as month_end_date_fulfilled,
         (date_trunc('month', oi.paid_date) + interval '1 month - 1 day')::date as month_end_date_paid,
         extract(month from oi.paid_date) as month_number,
@@ -53,6 +55,7 @@ select
     sku,
     paid_date,
     fulfilled_date,
+    fulfillment_status,
     month_end_date_fulfilled,
     month_end_date_paid,
     month_number,
@@ -78,6 +81,14 @@ select
         when product_subtotal = 0 then true
         else false
     end as zero_dollar_order,
+    case
+        when refund_order_id is not null then true
+        else false
+    end as is_refunded,
+    case
+        when quantity <0 or product_subtotal <0 then true
+        else false
+    end as refund_order_item,
     case
         when channel = 'Club' then '54 Wine Club'
         when channel = 'Inbound' then '43 Inbound'

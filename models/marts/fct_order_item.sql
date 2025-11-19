@@ -8,6 +8,7 @@ with joined_data as (
     select
         oi.order_item_id,
         oi.order_id,
+        oi.refund_order_id,
         oi.customer_id,
         oi.product_id,
         oi.product_title,
@@ -21,6 +22,7 @@ with joined_data as (
         date(oi.paid_at) as paid_date,                -- Date format for RFM calculations
         oi.fulfilled_at,
         date(oi.fulfilled_at) as fulfilled_date,
+        oi.fulfillment_status,
         oi.delivery_method,
         oi.price_cents      / 100.0    as item_price,
         oi.tax_cents        / 100.0    as item_tax,
@@ -47,6 +49,7 @@ with joined_data as (
 select
     order_item_id,
     order_id,
+    refund_order_id,
     customer_id,
     product_id,
     product_title,
@@ -60,6 +63,7 @@ select
     paid_date,
     fulfilled_at,
     fulfilled_date,
+    fulfillment_status,
     delivery_method,
     item_price,
     item_tax,

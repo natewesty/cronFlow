@@ -5,10 +5,12 @@
 with base as (
   select 
     order_id,
+    refund_order_id,
     external_order_vendor,
     channel,
     paid_at,
     fulfilled_at,
+    fulfillment_status,
     delivery_method,
     customer_id,
     _order_json as o, 
@@ -20,10 +22,12 @@ with base as (
 items as (
   select
     b.order_id,
+    b.refund_order_id,
     b.external_order_vendor,
     b.channel,
     b.paid_at,
     b.fulfilled_at,
+    b.fulfillment_status,
     b.delivery_method,
     b.customer_id,
     (i->>'id')::uuid                as order_item_id,

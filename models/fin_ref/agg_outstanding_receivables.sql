@@ -11,11 +11,13 @@ with monthly_data as (
         ref_number,
         class_code,
         quantity,
-        month_name
+        month_name,
+        is_refunded
     from {{ ref('stg_qb_format_base') }}
     where fulfilled_date is null
         and quantity > 0
         and product_subtotal != 0
+        and is_refunded = false
 )
 select
     month_end_date_paid as transaction_date,

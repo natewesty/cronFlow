@@ -24,6 +24,7 @@ with src as (
         end as state_code,
         data->>'orderDeliveryMethod'             as delivery_method,
         data->>'externalOrderVendor'             as external_order_vendor,
+        data->>'refundOrderId'                    as refund_order_id,
         data->>'paymentStatus'                   as payment_status,
         data->>'fulfillmentStatus'               as fulfillment_status,
         data->>'shippingStatus'                  as shipping_status,
