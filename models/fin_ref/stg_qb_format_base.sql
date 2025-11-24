@@ -38,8 +38,21 @@ with base as (
         oi.unit_of_measure,
         oi.event_fee_or_wine,
         oi.state_code,
-        (date_trunc('month', oi.fulfilled_date) + interval '1 month - 1 day')::date = 
-        (date_trunc('month', oi.paid_date) + interval '1 month - 1 day')::date as in_month,
+
+        -- Treat these as refunded if either id is present
+        case
+            when oi.refund_order_id is not null or oi.linked_order_id is not null then true
+            else false
+        end as is_refunded,
+
+        -- in_month:
+        --  true when months match
+        --  OR when months do not match AND is_refunded = true
+        (
+            date_trunc('month', oi.fulfilled_date)::date = date_trunc('month', oi.paid_date)::date
+            or (oi.refund_order_id is not null or oi.linked_order_id is not null)
+        ) as in_month,
+
         pv.price as variant_price,
         case 
             when oi.quantity > 0 then oi.product_subtotal / oi.quantity
@@ -49,8 +62,9 @@ with base as (
     left join {{ ref('dim_product_variant') }} pv
         on oi.sku = pv.sku
     where oi.external_order_vendor IS NULL
-    and oi.item_type in ('Bundle', 'General Merchandise', 'Wine')
+      and oi.item_type in ('Bundle', 'General Merchandise', 'Wine')
 )
+
 select 
     order_id,
     customer_id,
@@ -85,12 +99,9 @@ select
         when product_subtotal = 0 then true
         else false
     end as zero_dollar_order,
+    is_refunded,
     case
-        when refund_order_id is not null or linked_order_id is not null then true
-        else false
-    end as is_refunded,
-    case
-        when quantity <0 or product_subtotal <0 then true
+        when quantity < 0 or product_subtotal < 0 then true
         else false
     end as refund_order_item,
     case
