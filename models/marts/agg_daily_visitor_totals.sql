@@ -26,6 +26,26 @@ daily_reservations as (
     group by date(ftr.reservation_datetime)
 ),
 
+daily_reservations_by_attribution as (
+    select
+        date(ftr.reservation_datetime) as date_day,
+        ftr.attribution,
+        count(*) as reservations_by_attribution,
+        sum(ftr.party_size) as visitors_by_attribution
+    from {{ ref('fct_tock_reservation') }} ftr
+    cross join date_range dr
+    where date(ftr.reservation_datetime) >= dr.start_date
+    and date(ftr.reservation_datetime) <= dr.current_date
+    group by date(ftr.reservation_datetime), ftr.attribution
+),
+
+-- Get distinct attributions for conditional aggregation
+distinct_attributions as (
+    select distinct attribution
+    from daily_reservations_by_attribution
+    where attribution is not null
+),
+
 -- Create a complete date spine for the two-year period
 date_spine as (
     select 
@@ -64,8 +84,40 @@ select
     coalesce(dr.total_visitors, 0) as total_visitors,
     coalesce(dr.avg_party_size, 0) as avg_party_size,
     coalesce(dr.max_party_size, 0) as max_party_size,
-    coalesce(dr.min_party_size, 0) as min_party_size
+    coalesce(dr.min_party_size, 0) as min_party_size,
+    
+    -- Visitor metrics by attribution (unattributed)
+    coalesce(sum(case when dra.attribution is null then dra.visitors_by_attribution else 0 end), 0) as visitors_unattributed,
+    coalesce(sum(case when dra.attribution is null then dra.reservations_by_attribution else 0 end), 0) as reservations_unattributed
+    {%- set attributions = dbt_utils.get_column_values(
+        table=ref('fct_tock_reservation'),
+        column='attribution'
+    ) -%}
+    {%- if attributions -%}
+    {%- for attribution in attributions -%}
+    {%- if attribution is not none -%}
+    ,
+    coalesce(sum(case when dra.attribution = '{{ attribution }}' then dra.visitors_by_attribution else 0 end), 0) as visitors_{{ attribution | replace(' ', '_') | replace('-', '_') | replace("'", '') | lower }},
+    coalesce(sum(case when dra.attribution = '{{ attribution }}' then dra.reservations_by_attribution else 0 end), 0) as reservations_{{ attribution | replace(' ', '_') | replace('-', '_') | replace("'", '') | lower }}
+    {%- endif -%}
+    {%- endfor -%}
+    {% endif %}
 
 from date_spine ds
 left join daily_reservations dr on ds.date_day = dr.date_day
+left join daily_reservations_by_attribution dra on ds.date_day = dra.date_day
+group by 
+    ds.date_day,
+    ds.fiscal_year,
+    ds.fiscal_year_name,
+    ds.fiscal_month,
+    ds.fiscal_quarter,
+    ds.month_name,
+    ds.weekday_name,
+    ds.fiscal_year_period,
+    dr.total_reservations,
+    dr.total_visitors,
+    dr.avg_party_size,
+    dr.max_party_size,
+    dr.min_party_size
 order by ds.date_day

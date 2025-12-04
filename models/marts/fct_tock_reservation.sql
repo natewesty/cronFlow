@@ -40,6 +40,7 @@ reservation_mart as (
         sd.reservation_datetime,
         sd.party_size,
         sd.experience_name,
+        de.attribution,
         sd.party_state as status,
         
         -- Pricing information (converted from cents to dollars)
@@ -59,6 +60,7 @@ reservation_mart as (
         
     from source_data sd
     left join payment_data pd on sd.tock_reservation_id = pd.tock_reservation_id
+    left join {{ ref('dim_experience') }} de on sd.experience_name = de.experience
     where sd.party_state != 'CANCELLED'
 )
 
