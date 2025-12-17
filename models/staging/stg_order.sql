@@ -39,6 +39,7 @@ with src as (
         ) as linked_order_purchase_type,
         data->>'paymentStatus'                   as payment_status,
         data->>'fulfillmentStatus'               as fulfillment_status,
+        (data->'fulfillments'->0->>'id')::uuid   as fulfillment_id,
         data->>'shippingStatus'                  as shipping_status,
         data->>'salesAttributionCode'            as sales_attribution_code,
         (data->>'customerId')::uuid              as customer_id,

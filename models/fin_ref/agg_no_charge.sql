@@ -11,7 +11,8 @@ with monthly_data as (
         qb.month_name,
         qb.product_subtotal,
         nca.no_charge_account,
-        nca.no_charge_class
+        nca.no_charge_class,
+        nca.no_charge_gl
     from {{ ref('stg_qb_format_base') }} as qb
     inner join {{ ref('stg_no_charge_accounts') }} as nca
         on qb.customer_id = nca.customer_id
@@ -20,10 +21,10 @@ with monthly_data as (
 
 aggregated as (
     select
-        '50001' as account,
+        no_charge_gl as account,
         month_end_date_fulfilled as transaction_date,
         sku as item,
-        round(sum(quantity)::numeric / max(case_size)::numeric, 5) as quantity,
+        -round(sum(quantity)::numeric / max(case_size)::numeric, 5) as quantity,
         no_charge_account as customer,
         no_charge_class as class_code,
         month_name
@@ -31,6 +32,7 @@ aggregated as (
     where month_end_date_fulfilled = month_end_date_paid
       and product_subtotal = 0
     group by
+        no_charge_gl,
         month_end_date_fulfilled,
         no_charge_account,
         no_charge_class,
