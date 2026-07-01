@@ -6,6 +6,11 @@ services:
     startCommand: python ingest.py
     schedule: "0 */1 * * *"  # Run every hour
     envVars:
+      # Set DBT_FULL_REFRESH=1 for one run after changing the fiscal start month
+      # (public.dashboard_fiscal_config), then remove it. Forces dbt --full-refresh
+      # so agg_kpi_dashboard recomputes historical fiscal buckets on the new boundary.
+      # - key: DBT_FULL_REFRESH
+      #   sync: false
       - key: C7_AUTH_TOKEN
         sync: false
       - key: C7_TENANT

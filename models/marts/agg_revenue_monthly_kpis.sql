@@ -62,7 +62,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 1
+            and dd.month = 7
         ), 0) as tasting_room_wine_jul,
         
         -- Tasting Room Wine Jul Prior: Previous fiscal year July
@@ -77,7 +77,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 1
+            and dd.month = 7
         ), 0) as tasting_room_wine_jul_prior,
         
         -- Tasting Room Wine Aug: Current fiscal year August
@@ -92,7 +92,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 2
+            and dd.month = 8
         ), 0) as tasting_room_wine_aug,
         
         -- Tasting Room Wine Aug Prior: Previous fiscal year August
@@ -107,7 +107,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 2
+            and dd.month = 8
         ), 0) as tasting_room_wine_aug_prior,
         
         -- Tasting Room Wine Sep: Current fiscal year September
@@ -122,7 +122,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 3
+            and dd.month = 9
         ), 0) as tasting_room_wine_sep,
         
         -- Tasting Room Wine Sep Prior: Previous fiscal year September
@@ -137,7 +137,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 3
+            and dd.month = 9
         ), 0) as tasting_room_wine_sep_prior,
         
         -- Tasting Room Wine Oct: Current fiscal year October
@@ -152,7 +152,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 4
+            and dd.month = 10
         ), 0) as tasting_room_wine_oct,
         
         -- Tasting Room Wine Oct Prior: Previous fiscal year October
@@ -167,7 +167,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 4
+            and dd.month = 10
         ), 0) as tasting_room_wine_oct_prior,
         
         -- Tasting Room Wine Nov: Current fiscal year November
@@ -182,7 +182,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 5
+            and dd.month = 11
         ), 0) as tasting_room_wine_nov,
         
         -- Tasting Room Wine Nov Prior: Previous fiscal year November
@@ -197,7 +197,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 5
+            and dd.month = 11
         ), 0) as tasting_room_wine_nov_prior,
         
         -- Tasting Room Wine Dec: Current fiscal year December
@@ -212,7 +212,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 6
+            and dd.month = 12
         ), 0) as tasting_room_wine_dec,
         
         -- Tasting Room Wine Dec Prior: Previous fiscal year December
@@ -227,7 +227,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 6
+            and dd.month = 12
         ), 0) as tasting_room_wine_dec_prior,
         
         -- Tasting Room Wine Jan: Current fiscal year January
@@ -242,7 +242,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 7
+            and dd.month = 1
         ), 0) as tasting_room_wine_jan,
         
         -- Tasting Room Wine Jan Prior: Previous fiscal year January
@@ -257,7 +257,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 7
+            and dd.month = 1
         ), 0) as tasting_room_wine_jan_prior,
         
         -- Tasting Room Wine Feb: Current fiscal year February
@@ -272,7 +272,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 8
+            and dd.month = 2
         ), 0) as tasting_room_wine_feb,
         
         -- Tasting Room Wine Feb Prior: Previous fiscal year February
@@ -287,7 +287,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 8
+            and dd.month = 2
         ), 0) as tasting_room_wine_feb_prior,
         
         -- Tasting Room Wine Mar: Current fiscal year March
@@ -302,7 +302,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 9
+            and dd.month = 3
         ), 0) as tasting_room_wine_mar,
         
         -- Tasting Room Wine Mar Prior: Previous fiscal year March
@@ -317,7 +317,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 9
+            and dd.month = 3
         ), 0) as tasting_room_wine_mar_prior,
         
         -- Tasting Room Wine Apr: Current fiscal year April
@@ -332,7 +332,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 10
+            and dd.month = 4
         ), 0) as tasting_room_wine_apr,
         
         -- Tasting Room Wine Apr Prior: Previous fiscal year April
@@ -347,7 +347,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 10
+            and dd.month = 4
         ), 0) as tasting_room_wine_apr_prior,
         
         -- Tasting Room Wine May: Current fiscal year May
@@ -362,7 +362,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 11
+            and dd.month = 5
         ), 0) as tasting_room_wine_may,
         
         -- Tasting Room Wine May Prior: Previous fiscal year May
@@ -377,7 +377,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 11
+            and dd.month = 5
         ), 0) as tasting_room_wine_may_prior,
         
         -- Tasting Room Wine Jun: Current fiscal year June
@@ -392,7 +392,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year
-            and dd.fiscal_month = 12
+            and dd.month = 6
         ), 0) as tasting_room_wine_jun,
         
         -- Tasting Room Wine Jun Prior: Previous fiscal year June
@@ -407,7 +407,7 @@ monthly_metrics as (
             and fo.event_fee_or_wine is null
             and fo.event_specific_sale is null
             and dd.fiscal_year = cp.current_fiscal_year - 1
-            and dd.fiscal_month = 12
+            and dd.month = 6
         ), 0) as tasting_room_wine_jun_prior
 )
 
