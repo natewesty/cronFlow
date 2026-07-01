@@ -1,13 +1,9 @@
 {{ config(materialized='table') }}
 
 with fiscal_year_period as (
-    -- Calculate current fiscal year start (FY starts July 1st)
-    select 
-        case 
-            when extract(month from current_date) >= 7 
-            then make_date(extract(year from current_date)::int, 7, 1)
-            else make_date(extract(year from current_date)::int - 1, 7, 1)
-        end as fy_start,
+    -- Current fiscal year start (configurable start month, macros/fiscal.sql)
+    select
+        {{ fiscal_year_start('current_date') }} as fy_start,
         current_date as fy_end
 ),
 

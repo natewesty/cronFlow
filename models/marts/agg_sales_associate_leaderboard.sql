@@ -8,12 +8,9 @@ with current_month as (
 
 -- Calculate fiscal year start based on dim_date logic (fiscal year starts July 1)
 fiscal_year_period as (
-    select 
-        case 
-            when extract(month from current_date) >= 7 
-            then make_date(extract(year from current_date)::int, 7, 1)
-            else make_date(extract(year from current_date)::int - 1, 7, 1)
-        end as fy_start,
+    -- Current fiscal year start (configurable start month, macros/fiscal.sql)
+    select
+        {{ fiscal_year_start('current_date') }} as fy_start,
         current_date as fy_end
 ),
 

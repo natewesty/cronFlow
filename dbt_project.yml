@@ -44,4 +44,13 @@ vars:
   dim_date_start: '2015-01-01'
   dim_date_end:   '2035-12-31'
   kpi_dashboard_lookback_days: 730   # supports YoY for 28/MTD/QTD/YTD (2 years of data)
-  kpi_dashboard_backfill_days: 1     # recompute today (+ yesterday if you bump this) 
+  kpi_dashboard_backfill_days: 1     # recompute today (+ yesterday if you bump this)
+
+  # Fiscal year configuration.
+  # The fiscal start month is normally sourced from public.dashboard_fiscal_config
+  # (written by the dashboard app); this var is only the fallback when that table
+  # is absent. IMPORTANT: changing the effective fiscal start month requires a
+  # `dbt build --full-refresh` so kpi_dim_date (table) and agg_kpi_dashboard
+  # (incremental) recompute every historical fiscal bucket onto the new boundary.
+  fiscal_start_month: 7              # 1-12 (7 = July). Fallback only; config table wins.
+  kpi_history_start: '2023-07-01'    # data-floor anchor for agg_daily_revenue

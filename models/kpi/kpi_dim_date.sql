@@ -8,8 +8,12 @@
 {% set start_date = var('dim_date_start', '2015-01-01') %}
 {% set end_date   = var('dim_date_end',   '2035-12-31') %}
 
+{#-- Resolve the fiscal start month once and thread it through the macros --#}
+{% set s = fiscal_start_month() %}
+
 -- Unified date dimension replicating all fields from dim_date.sql
--- plus additional boundary fields for KPI calculations
+-- plus additional boundary fields for KPI calculations.
+-- Fiscal fields derive from the configurable start month (macros/fiscal.sql).
 with base as (
   select d::date as date_day
   from generate_series({{ "'" ~ start_date ~ "'" }}::date, {{ "'" ~ end_date ~ "'" }}::date, interval '1 day') as g(d)
@@ -18,7 +22,7 @@ annotated as (
   select
       -- Primary key
       date_day
-      
+
     -- Standard calendar fields (matching dim_date.sql)
     , extract(year    from date_day)::int               as year
     , extract(quarter from date_day)::int               as quarter
@@ -29,7 +33,7 @@ annotated as (
     , to_char(date_day, 'Day')                          as weekday_name
     , extract(week    from date_day)::int               as iso_week
     , extract(isoyear from date_day)::int               as iso_year
-    
+
     -- Additional calendar boundary fields (KPI-specific)
     , to_char(date_day,'YYYY-MM')                       as month_ym
     , date_trunc('month',   date_day)::date             as month_start
@@ -38,53 +42,32 @@ annotated as (
     , (date_trunc('quarter',date_day) + interval '3 month - 1 day')::date    as quarter_end
     , date_trunc('year',    date_day)::date             as year_start
     , (date_trunc('year',   date_day) + interval '1 year - 1 day')::date     as year_end
-    
-    -- Fiscal year calculations (FY starts July 1st) - using END year naming
-    -- e.g., July 1, 2025 - June 30, 2026 is "FY2026"
-    , case 
-        when extract(month from date_day) >= 7 
-        then extract(year from date_day) + 1
-        else extract(year from date_day)
-      end::int as fiscal_year
-    , case 
-        when extract(month from date_day) >= 7 
-        then extract(year from date_day) + 2
-        else extract(year from date_day) + 1
-      end::int as fiscal_year_end
-    , 'FY' || case 
-        when extract(month from date_day) >= 7 
-        then extract(year from date_day) + 1
-        else extract(year from date_day)
-      end::text as fiscal_year_name
-    , case 
-        when extract(month from date_day) >= 7 
-        then extract(month from date_day) - 6
-        else extract(month from date_day) + 6
-      end::int as fiscal_month
-    , case 
-        when extract(quarter from date_day) >= 3 
-        then extract(quarter from date_day) - 2
-        else extract(quarter from date_day) + 2
-      end::int as fiscal_quarter
-      
-    -- Fiscal year boundaries (July 1 - June 30) - KPI-specific date fields
-    , case 
-        when extract(month from date_day) >= 7 
-        then make_date(extract(year from date_day)::int, 7, 1)
-        else make_date(extract(year from date_day)::int - 1, 7, 1)
-      end as fiscal_year_start
-    , case 
-        when extract(month from date_day) >= 7 
-        then make_date(extract(year from date_day)::int + 1, 6, 30)
-        else make_date(extract(year from date_day)::int, 6, 30)
-      end as fiscal_year_end_boundary
-      
+
+    -- Fiscal year calculations (configurable start month) - using END year naming
+    -- e.g., with a July start, Jul 1, 2025 - Jun 30, 2026 is "FY2026"
+    , {{ fiscal_year('date_day', s) }}                  as fiscal_year
+    , {{ fiscal_year('date_day', s) }} + 1              as fiscal_year_end
+    , {{ fiscal_year_name('date_day', s) }}             as fiscal_year_name
+    , {{ fiscal_month('date_day', s) }}                 as fiscal_month
+    , {{ fiscal_quarter('date_day', s) }}               as fiscal_quarter
+
+    -- Fiscal year boundaries (start month based) - KPI-specific date fields
+    , {{ fiscal_year_start('date_day', s) }}            as fiscal_year_start
+    , {{ fiscal_year_end_boundary('date_day', s) }}     as fiscal_year_end_boundary
+
     -- Pacific Time specific fields (matching dim_date.sql)
     , 'America/Los_Angeles' as timezone
     , (now() AT TIME ZONE 'America/Los_Angeles')::date as current_date_pacific
     , now() AT TIME ZONE 'America/Los_Angeles'         as current_timestamp_pacific
-      
-  from base
-)
-select * from annotated
 
+  from base
+),
+fiscal as (
+  -- Second stage: derive the fiscal quarter start from the fiscal year start
+  -- and fiscal quarter computed above.
+  select
+      a.*
+    , (a.fiscal_year_start + ((a.fiscal_quarter - 1) * interval '3 months'))::date as fiscal_quarter_start
+  from annotated a
+)
+select * from fiscal

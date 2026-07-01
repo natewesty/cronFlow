@@ -180,7 +180,7 @@ signup_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and date_key >= (
-                select date_trunc('year', (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year') + interval '6 months'
+                select fiscal_year_start from {{ ref('dim_date') }} where date_day = ((select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year')::date
             )
             and date_key <= (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
         ), 0) as net_signups_prev_fiscal_year_to_date

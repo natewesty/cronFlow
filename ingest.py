@@ -1019,9 +1019,20 @@ def run_dbt():
         )
         logger.info("✅ Seed data loaded")
         
+        # Full-refresh toggle: set DBT_FULL_REFRESH=1 for a run when the fiscal
+        # start month changes, so the incremental agg_kpi_dashboard recomputes all
+        # historical fiscal buckets onto the new boundary. Unset it afterwards.
+        full_refresh_args = (
+            ['--full-refresh']
+            if os.environ.get('DBT_FULL_REFRESH', '').strip().lower() in ('1', 'true', 'yes')
+            else []
+        )
+        if full_refresh_args:
+            logger.info("🔄 DBT_FULL_REFRESH set - running dbt with --full-refresh")
+
         # Run dbt in stages to ensure proper build order
         logger.info("🔄 Step 2: Building staging and marts models...")
-        base_command = ['dbt', 'run'] + base_dir_args
+        base_command = ['dbt', 'run'] + base_dir_args + full_refresh_args
         stage1_command = base_command + ['--exclude', 'kpi.*']
         logger.info(f"🔄 Executing command: {' '.join(stage1_command)}")
         

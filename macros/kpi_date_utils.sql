@@ -6,15 +6,19 @@ window_bounds as (
       {{ as_of_alias }}.as_of_date
     , dd.month_start
     , dd.quarter_start
+    , dd.fiscal_quarter_start
     , dd.year_start
     , dd.fiscal_year
     , dd.fiscal_year_start
+    , dd.fiscal_year_end_boundary
     , {{ as_of_alias }}.as_of_date - interval '27 days' as last28_start
 
     , (dd.month_start   - interval '1 year')::date   as prev_month_start
     , (dd.quarter_start - interval '1 year')::date   as prev_quarter_start
+    , (dd.fiscal_quarter_start - interval '1 year')::date as prev_fiscal_quarter_start
     , (dd.year_start    - interval '1 year')::date   as prev_year_start
     , (dd.fiscal_year_start - interval '1 year')::date as prev_fiscal_year_start
+    , (dd.fiscal_year_end_boundary - interval '1 year')::date as prev_fiscal_year_end_boundary
     , ({{ as_of_alias }}.as_of_date - interval '27 days' - interval '1 year')::date as prev_last28_start
   from {{ ref('kpi_dim_date') }} dd
   join {{ as_of_alias }} on dd.date_day = {{ as_of_alias }}.as_of_date

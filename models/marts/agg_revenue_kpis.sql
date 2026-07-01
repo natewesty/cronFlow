@@ -39,7 +39,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -73,7 +73,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and date(ftr.reservation_datetime) >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -116,7 +116,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -133,7 +133,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and date(ftr.reservation_datetime) >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -165,7 +165,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -197,7 +197,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -244,7 +244,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -261,7 +261,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and date(ftr.reservation_datetime) >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -295,7 +295,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date
@@ -325,7 +325,7 @@ with tasting_room_metrics as (
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1)
             ) - 1
             and fo.order_date_key >= (
-                select date_trunc('year', date_day)::date + interval '6 months'
+                select fiscal_year_start
                 from {{ ref('dim_date') }} 
                 where date_day = (select current_date_pacific from {{ ref('dim_date') }} limit 1) - interval '1 year'
             )::date

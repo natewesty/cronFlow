@@ -12,6 +12,12 @@
 {% set lookback_days = var('kpi_dashboard_lookback_days', 730) %}  {# for YoY windows #}
 {% set backfill_days = var('kpi_dashboard_backfill_days', 1) %}    {# how many as_of_dates to (re)calculate each run #}
 
+{#- Calendar-month columns. The column name is always the calendar month abbr;
+    the value is that calendar month within the current fiscal year (each month
+    occurs once per 12-month FY, so the correct year is selected automatically).
+    Order is cosmetic. -#}
+{% set month_cols = [(7,'jul'),(8,'aug'),(9,'sep'),(10,'oct'),(11,'nov'),(12,'dec'),(1,'jan'),(2,'feb'),(3,'mar'),(4,'apr'),(5,'may'),(6,'jun')] %}
+
 with params as (
   select
       current_timestamp as ts_utc
@@ -52,30 +58,19 @@ current_rollups as (
     , f.entity_id
     , wb.as_of_date
     , wb.fiscal_year
-    -- Period metrics
-    , sum(case when f.date_key between wb.month_start        and wb.as_of_date then f.value end) as mtd_value
-    , sum(case when f.date_key between wb.quarter_start      and wb.as_of_date then f.value end) as qtd_value
-    , sum(case when f.date_key between wb.fiscal_year_start  and wb.as_of_date then f.value end) as ytd_value
-    , sum(case when f.date_key between wb.last28_start       and wb.as_of_date then f.value end) as last28_value
-    -- Fiscal month totals (Jul-Jun)
-    -- For FY2026 (Jul 2025 - Jun 2026): Jul-Dec use calendar year 2025 (fiscal_year - 1), Jan-Jun use 2026 (fiscal_year)
-    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jul_value
-    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as aug_value
-    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as sep_value
-    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as oct_value
-    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as nov_value
-    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as dec_value
-    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jan_value
-    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as feb_value
-    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as mar_value
-    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as apr_value
-    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as may_value
-    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year then f.value end) as jun_value
-    -- Fiscal quarter totals (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
-    , sum(case when extract(month from f.date_key) in (7, 8, 9)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q1_value
-    , sum(case when extract(month from f.date_key) in (10, 11, 12) and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q2_value
-    , sum(case when extract(month from f.date_key) in (1, 2, 3)   and extract(year from f.date_key) = wb.fiscal_year then f.value end) as q3_value
-    , sum(case when extract(month from f.date_key) in (4, 5, 6)   and extract(year from f.date_key) = wb.fiscal_year then f.value end) as q4_value
+    -- Period metrics (windows from kpi_dim_date via the bounds macro)
+    , sum(case when f.date_key between wb.month_start          and wb.as_of_date then f.value end) as mtd_value
+    , sum(case when f.date_key between wb.fiscal_quarter_start and wb.as_of_date then f.value end) as qtd_value
+    , sum(case when f.date_key between wb.fiscal_year_start    and wb.as_of_date then f.value end) as ytd_value
+    , sum(case when f.date_key between wb.last28_start         and wb.as_of_date then f.value end) as last28_value
+    -- Fiscal month totals: each calendar month within the current fiscal year
+    {% for m, abbr in month_cols %}
+    , sum(case when f.date_key between wb.fiscal_year_start and wb.fiscal_year_end_boundary and extract(month from f.date_key) = {{ m }} then f.value end) as {{ abbr }}_value
+    {% endfor %}
+    -- Fiscal quarter totals: each quarter is 3 months from the fiscal year start
+    {% for k in range(1, 5) %}
+    , sum(case when f.date_key >= (wb.fiscal_year_start + interval '{{ (k-1)*3 }} months') and f.date_key < (wb.fiscal_year_start + interval '{{ k*3 }} months') then f.value end) as q{{ k }}_value
+    {% endfor %}
   from f
   cross join window_bounds wb
   group by 1,2,3,4
@@ -86,30 +81,19 @@ prior_rollups as (
     , f.entity_id
     , wb.as_of_date
     , wb.fiscal_year
-    -- Period metrics
-    , sum(case when f.date_key between wb.prev_month_start        and (wb.prev_month_start        + (wb.as_of_date - wb.month_start))        then f.value end) as mtd_prior
-    , sum(case when f.date_key between wb.prev_quarter_start      and (wb.prev_quarter_start      + (wb.as_of_date - wb.quarter_start))      then f.value end) as qtd_prior
-    , sum(case when f.date_key between wb.prev_fiscal_year_start  and (wb.prev_fiscal_year_start  + (wb.as_of_date - wb.fiscal_year_start))  then f.value end) as ytd_prior
-    , sum(case when f.date_key between wb.prev_last28_start       and (wb.prev_last28_start       + interval '27 days')                      then f.value end) as last28_prior
-    -- Prior fiscal month totals (Jul-Jun from prior year)
-    -- For prior FY2025 (Jul 2024 - Jun 2025): Jul-Dec use calendar year 2024 (fiscal_year - 2), Jan-Jun use 2025 (fiscal_year - 1)
-    , sum(case when extract(month from f.date_key) = 7  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as jul_prior
-    , sum(case when extract(month from f.date_key) = 8  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as aug_prior
-    , sum(case when extract(month from f.date_key) = 9  and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as sep_prior
-    , sum(case when extract(month from f.date_key) = 10 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as oct_prior
-    , sum(case when extract(month from f.date_key) = 11 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as nov_prior
-    , sum(case when extract(month from f.date_key) = 12 and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as dec_prior
-    , sum(case when extract(month from f.date_key) = 1  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jan_prior
-    , sum(case when extract(month from f.date_key) = 2  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as feb_prior
-    , sum(case when extract(month from f.date_key) = 3  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as mar_prior
-    , sum(case when extract(month from f.date_key) = 4  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as apr_prior
-    , sum(case when extract(month from f.date_key) = 5  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as may_prior
-    , sum(case when extract(month from f.date_key) = 6  and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as jun_prior
-    -- Prior fiscal quarter totals (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
-    , sum(case when extract(month from f.date_key) in (7, 8, 9)   and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as q1_prior
-    , sum(case when extract(month from f.date_key) in (10, 11, 12) and extract(year from f.date_key) = wb.fiscal_year - 2 then f.value end) as q2_prior
-    , sum(case when extract(month from f.date_key) in (1, 2, 3)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q3_prior
-    , sum(case when extract(month from f.date_key) in (4, 5, 6)   and extract(year from f.date_key) = wb.fiscal_year - 1 then f.value end) as q4_prior
+    -- Period metrics (prior year: same-length window one year back)
+    , sum(case when f.date_key between wb.prev_month_start          and (wb.prev_month_start          + (wb.as_of_date - wb.month_start))          then f.value end) as mtd_prior
+    , sum(case when f.date_key between wb.prev_fiscal_quarter_start and (wb.prev_fiscal_quarter_start + (wb.as_of_date - wb.fiscal_quarter_start)) then f.value end) as qtd_prior
+    , sum(case when f.date_key between wb.prev_fiscal_year_start    and (wb.prev_fiscal_year_start    + (wb.as_of_date - wb.fiscal_year_start))    then f.value end) as ytd_prior
+    , sum(case when f.date_key between wb.prev_last28_start         and (wb.prev_last28_start         + interval '27 days')                        then f.value end) as last28_prior
+    -- Prior fiscal month totals: each calendar month within the prior fiscal year
+    {% for m, abbr in month_cols %}
+    , sum(case when f.date_key between wb.prev_fiscal_year_start and wb.prev_fiscal_year_end_boundary and extract(month from f.date_key) = {{ m }} then f.value end) as {{ abbr }}_prior
+    {% endfor %}
+    -- Prior fiscal quarter totals: each quarter is 3 months from the prior fiscal year start
+    {% for k in range(1, 5) %}
+    , sum(case when f.date_key >= (wb.prev_fiscal_year_start + interval '{{ (k-1)*3 }} months') and f.date_key < (wb.prev_fiscal_year_start + interval '{{ k*3 }} months') then f.value end) as q{{ k }}_prior
+    {% endfor %}
   from f
   cross join window_bounds wb
   group by 1,2,3,4
@@ -119,6 +103,7 @@ calc as (
       c.as_of_date
     , c.kpi_id
     , c.entity_id
+    , c.fiscal_year
 
     -- Period metrics
     , c.mtd_value,  p.mtd_prior,  (c.mtd_value - p.mtd_prior) as mtd_delta,  case when p.mtd_prior = 0 then null else ((c.mtd_value / p.mtd_prior) - 1) * 100 end as mtd_delta_pct
@@ -153,6 +138,8 @@ final as (
       as_of_date
     , kpi_id
     , entity_id
+    -- fiscal_year is carried from calc for the payload labels below (not emitted
+    -- as its own column, to keep the incremental output schema stable)
 
     -- Period metrics
     , mtd_value,  mtd_prior,  mtd_delta,  mtd_delta_pct
@@ -183,6 +170,8 @@ final as (
     -- Optional: Lightweight JSON payload for API convenience (periods only, not months)
     , jsonb_build_object(
         'as_of', as_of_date,
+        'current_fiscal_year',  'FY' || fiscal_year::text,
+        'previous_fiscal_year', 'FY' || (fiscal_year - 1)::text,
         'mtd',    jsonb_build_object('v', mtd_value,    'p', mtd_prior,    'd', mtd_delta,    'dp', mtd_delta_pct),
         'qtd',    jsonb_build_object('v', qtd_value,    'p', qtd_prior,    'd', qtd_delta,    'dp', qtd_delta_pct),
         'ytd',    jsonb_build_object('v', ytd_value,    'p', ytd_prior,    'd', ytd_delta,    'dp', ytd_delta_pct),
