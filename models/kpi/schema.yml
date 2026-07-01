@@ -15,7 +15,7 @@ models:
 
   - name: kpi_dim_date
     columns:
-      - name: date_key
+      - name: date_day
         tests:
           - not_null
           - unique
