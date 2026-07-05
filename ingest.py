@@ -844,8 +844,11 @@ def main(endpoint: str = None):
         elif 'commerce7' in clients and endpoint:
             # Single Commerce7 endpoint
             table = endpoint.replace('-', '_')
-            watermark = clients['commerce7'].get_watermark(table)
-            
+            # The product catalog is small; always full-fetch it so a product
+            # whose updatedAt predates the ever-advancing watermark can't be
+            # permanently skipped. High-volume endpoints stay incremental.
+            watermark = None if endpoint == 'product' else clients['commerce7'].get_watermark(table)
+
             logger.info(f"Fetching {endpoint} data since {watermark}")
             data = clients['commerce7'].fetch_data(endpoint, watermark)
             
@@ -858,8 +861,11 @@ def main(endpoint: str = None):
             
             for c7_endpoint in endpoints:
                 table = c7_endpoint.replace('-', '_')
-                watermark = clients['commerce7'].get_watermark(table)
-                
+                # Products are a small catalog; always full-fetch so a product
+                # whose updatedAt predates the ever-advancing watermark can't be
+                # permanently skipped. High-volume endpoints stay incremental.
+                watermark = None if c7_endpoint == 'product' else clients['commerce7'].get_watermark(table)
+
                 logger.info(f"Fetching {c7_endpoint} data since {watermark}")
                 data = clients['commerce7'].fetch_data(c7_endpoint, watermark)
                 
