@@ -113,4 +113,25 @@ sources:
           - name: _airbyte_normalized_at
             description: "Airbyte normalization timestamp"
           - name: _airbyte_tock_reservation_hashid
-            description: "Airbyte hash ID" 
+            description: "Airbyte hash ID"
+
+  - name: manual
+    description: "User-maintained mapping tables, written by the dashboard app (not dbt-managed)"
+    schema: "{{ var('raw_schema', 'public') }}"
+    tables:
+      - name: experience_attribution
+        description: "Tock experience -> attribution group, maintained via the dashboard Inputs Manager"
+        columns:
+          - name: experience
+            description: "Tock experience name (primary key)"
+            tests:
+              - unique
+              - not_null
+          - name: attribution
+            description: "Attribution group (Tasting Room, Club, Event, No Pay)"
+            tests:
+              - not_null
+          - name: updated_by
+            description: "Dashboard user who set the attribution"
+          - name: updated_at
+            description: "When the attribution was last changed" 
