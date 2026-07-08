@@ -332,16 +332,19 @@ date_spine as (
     and dd.date_day <= dr.current_date
 ),
 
--- Total Active Club Membership (count as of each date)
+-- Total Active Club Membership (point-in-time count as of each date, from
+-- signup/cancel dates only; filtering on current status would erase members
+-- from history as soon as they cancel)
 active_club_members_by_date as (
     select
         ds.date_day,
         count(*) as total_active_club_membership
     from date_spine ds
     cross join {{ ref('dim_club_membership') }} dcm
-    where dcm.status = 'Active'
-    and date(dcm.signup_at) <= ds.date_day
+    where date(dcm.signup_at) <= ds.date_day
     and (dcm.cancel_at is null or date(dcm.cancel_at) > ds.date_day)
+    -- a cancelled membership missing its cancel date must not count as active forever
+    and not (dcm.status = 'Cancelled' and dcm.cancel_at is null)
     group by ds.date_day
 )
 
