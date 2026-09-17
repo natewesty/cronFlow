@@ -1,14 +1,42 @@
+# Connection settings are derived from DATABASE_URL when it is set, so a rolled
+# Postgres credential only has to be updated in one place. ingest.py already
+# prefers DATABASE_URL (see get_database_path), so both halves of the pipeline
+# now read the same variable.
+#
+# Each field parses the URL inline because dbt loads this file as YAML *before*
+# rendering Jinja, so a shared {% set %} block at the top is not possible.
+# When DATABASE_URL is unset, the individual DB_* vars are used instead, which
+# keeps local development and the Render internal-hostname setup working.
+#
+# Note: the URL is split textually -- percent-encoded characters in the password
+# are NOT decoded. Render-generated passwords are alphanumeric, but if you ever
+# set one containing @ : / ? # or %, unset DATABASE_URL and use the DB_* vars.
 cronDon:
   target: prod_url
   outputs:
-    # Primary configuration using DATABASE_URL (recommended for Render)
     prod_url:
       type: postgres
-      host: "{{ env_var('DB_HOST') }}"
-      port: "{{ env_var('DB_PORT', '5432') | as_native }}"
-      user: "{{ env_var('DB_USER') }}"
-      password: "{{ env_var('DB_PASSWORD') }}"
-      database: "{{ env_var('DB_NAME') }}"
+      host: >-
+        {{ ((env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[0].rsplit(':',1)[0])
+            if ':' in env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[0]
+            else env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[0])
+           if '://' in env_var('DATABASE_URL','') else env_var('DB_HOST') }}
+      port: >-
+        {{ (((env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[0].rsplit(':',1)[1])
+             if ':' in env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[0]
+             else '5432')
+            if '://' in env_var('DATABASE_URL','') else env_var('DB_PORT','5432')) | as_native }}
+      user: >-
+        {{ env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[0].split(':',1)[0]
+           if '://' in env_var('DATABASE_URL','') else env_var('DB_USER') }}
+      password: >-
+        {{ ((env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[0].split(':',1)[1])
+            if ':' in env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[0] else '')
+           if '://' in env_var('DATABASE_URL','') else env_var('DB_PASSWORD') }}
+      database: >-
+        {{ ((env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1].split('/',1)[1].split('?',1)[0])
+            if '/' in env_var('DATABASE_URL').split('://',1)[1].rsplit('@',1)[1] else '')
+           if '://' in env_var('DATABASE_URL','') else env_var('DB_NAME') }}
       schema: public
       threads: 4
       keepalives_idle: 0
@@ -16,4 +44,3 @@ cronDon:
       application_name: dashdon_dbt
       # SSL configuration for Render
       sslmode: require
-      

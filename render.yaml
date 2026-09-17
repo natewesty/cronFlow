@@ -15,6 +15,10 @@ services:
         sync: false
       - key: C7_TENANT
         sync: false
+      - key: X_TOCK_AUTH
+        sync: false
+      - key: X_TOCK_SCOPE
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DB_HOST
