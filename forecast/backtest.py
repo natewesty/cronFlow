@@ -46,7 +46,8 @@ def backtest_frame(hist: pd.DataFrame, releases: List[Release], params: EnginePa
         n = min(params.horizon, (origin - o).days)
         dates = pd.date_range(o + pd.Timedelta(days=1), periods=n, freq="D")
         past = [r for r in releases if r.start <= o]
-        future = [ScheduledRelease(start=r.start, days=r.days, label="hist") for r in releases if r.start > o]
+        future = [ScheduledRelease(start=r.start, days=r.days, label="hist") for r in releases
+                  if r.start + pd.Timedelta(days=r.days - 1) > o]
         a0 = float(hist.loc[o, ACTIVE_MEMBERS_KPI]) if ACTIVE_MEMBERS_KPI in hist and o in hist.index else 0.0
         ctx = Context(params=params, releases=past, schedule=future, events=[], otb=None, members_a0=a0)
         point, _ = forecast_daily(hist, o, dates, ctx)
@@ -110,6 +111,8 @@ def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,
     for k in point.columns:
         lo = np.array([lookup.get((int(k), b), (np.nan, np.nan))[0] for b in buckets], dtype=float)
         hi = np.array([lookup.get((int(k), b), (np.nan, np.nan))[1] for b in buckets], dtype=float)
-        p10[k] = point[k].to_numpy(dtype=float) * lo
-        p90[k] = point[k].to_numpy(dtype=float) * hi
+        v = point[k].to_numpy(dtype=float)
+        a, b = v * lo, v * hi
+        p10[k] = np.minimum(a, b)
+        p90[k] = np.maximum(a, b)
     return p10, p90

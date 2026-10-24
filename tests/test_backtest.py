@@ -63,3 +63,21 @@ def test_apply_bands_multiplies_by_bucket_ratio():
     assert p10.loc[dates[0], 1] == 80 and p90.loc[dates[0], 1] == 120
     assert p10.loc[dates[9], 1] == 50 and p90.loc[dates[9], 1] == 150
     assert np.isnan(p10.loc[dates[0], 2])
+
+
+def test_backtest_origin_on_release_day_one_forecasts_day_two():
+    df = make_history(rpm=300.0)
+    rel = detect_releases(df[4], P)
+    o = rel[-1].start
+    p = EngineParams(backtest_days=7, backtest_step=3)
+    bt = backtest_frame(df, rel, p, o + pd.Timedelta(days=3))
+    row = bt[(bt.origin == o) & (bt.kpi_id == 4) & (bt.horizon == 1)]
+    assert len(row) == 1 and row.iloc[0].forecast > 0
+
+
+def test_apply_bands_negative_point_keeps_p10_below_p90():
+    dates = pd.date_range("2026-10-24", periods=3)
+    point = pd.DataFrame({26: -10.0}, index=dates)
+    acc = pd.DataFrame([{"kpi_id": 26, "horizon_bucket": "1-7", "ratio_p10": 0.8, "ratio_p90": 1.2}])
+    p10, p90 = apply_bands(point, acc, P)
+    assert (p10[26] <= p90[26]).all()
