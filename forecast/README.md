@@ -13,6 +13,8 @@ Daily forecasting for the Donum KPI dashboard. Spec: `shad_dash_don/shad-dash-do
 
 `--origin` backfills become the latest run and do not write a bookings snapshot; origins after yesterday (Pacific) are rejected.
 
+A `--skip-backtest` run also becomes the latest run, so the app shows no p10/p90 bands and an empty Accuracy tab until the next full run. Against production (Oct 2026: 13 releases, ~3,600 members) a full run takes ~7 s: ~4 s compute including the backtest, ~1.5 s to write 4,960 rows. Sanity check before a first write: next-28-day total revenue vs the last 28 days is skewed by whether a club release falls in either window (3.4× on 2026-10-23 with the Nov 18–19 release ahead; 1.10× against the same 28 days last year).
+
 Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` locally. `KPI_SCHEMA` overrides the source schema (default `public_nate_sandbox`).
 
 ## Tables (schema `forecast`)
