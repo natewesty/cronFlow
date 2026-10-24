@@ -31,3 +31,24 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false 
+  - type: cron
+    name: cronDon-forecast
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m forecast run
+    schedule: "30 13 * * *"  # 06:30 America/Los_Angeles (PST); 07:30 during PDT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: KPI_SCHEMA
+        value: public_nate_sandbox
