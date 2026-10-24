@@ -83,3 +83,17 @@ def test_release_magnitude_ignores_in_progress_release():
     rpm, shares = release_magnitude(cut[4], rels, cut[23], P.release_lookback_n)
     assert abs(rpm - 300.0) < 1.0
     assert np.allclose(shares, [0.3, 0.7], atol=0.005)
+
+
+def test_default_schedule_does_not_double_list_when_origin_is_release_day_one():
+    from forecast.types import Release
+    # Last year's release and this year's release (day 1 == origin) are both in the
+    # trailing 365 days: last year's +2y shift lands on this year's +1y shift.
+    last_year = Release(start=pd.Timestamp("2025-11-19"), days=2, day_totals=[1.0, 2.0])
+    this_year = Release(start=pd.Timestamp("2026-11-18"), days=2, day_totals=[1.0, 2.0])
+    origin = this_year.start
+    sched = default_schedule([last_year, this_year], origin, years=2)
+    starts = [s.start for s in sched]
+    assert len(starts) == len(set(starts))
+    assert starts == [pd.Timestamp("2026-11-18"), pd.Timestamp("2027-11-17"), pd.Timestamp("2028-11-15")]
+    assert sched[1].label == "Nov 2026 +1y"          # keeps the first (nearest-year) listing

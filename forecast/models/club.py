@@ -37,10 +37,16 @@ def default_schedule(releases: List[Release], origin: pd.Timestamp, years: int =
     """Each release in the 365 days before origin, shifted +364 days per year ahead."""
     recent = [r for r in releases if r.start > origin - pd.Timedelta(days=365)]
     out: List[ScheduledRelease] = []
+    seen = set()
     for k in range(1, years + 1):
         for r in recent:
             start = r.start + pd.Timedelta(days=364 * k)
+            # Two releases 364 days apart (e.g. origin on a release's first day) shift
+            # onto the same start; keep the first (nearest-year) listing only.
+            if start in seen:
+                continue
             if start + pd.Timedelta(days=r.days - 1) > origin:
+                seen.add(start)
                 out.append(ScheduledRelease(start=start, days=r.days, label=f"{r.start:%b %Y} +{k}y"))
     return sorted(out, key=lambda s: s.start)
 
