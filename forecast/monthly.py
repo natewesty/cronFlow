@@ -142,11 +142,15 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                 release = hist_release_total(k, month) if k in CLUB_KPIS else 0.0
                 event = 0.0
             elif k == NEW_MEMBERS_KPI:
-                organic = organic_n = p50 = new_m
+                organic = new_m
+                organic_n = new_org_n
                 release = event = 0.0
+                p50 = new_m
             elif k == ATTRITION_KPI:
-                organic = organic_n = attr_m
-                release = event = 0.0
+                organic = attr_base
+                organic_n = attr_org_n
+                release = spike_m
+                event = 0.0
                 p50 = attr_m
             elif k == ACTIVE_MEMBERS_KPI:
                 organic = organic_n = p50 = stock_m
@@ -173,10 +177,16 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                     organic = organic_n = p50 if k in RATE_KPIS else p50 - release - event
                 else:
                     p50 = organic + release + event
+            if is_current and k != ACTIVE_MEMBERS_KPI:
+                # Current-month organic already carries fitted growth; strip it so the
+                # app does not apply growth to MTD actuals a second time.
+                organic_n = organic / growth[k]
             p50_by_kpi[k] = p50
             month_rows.append({"month_start": month, "kpi_id": k, "is_actual": is_actual,
                                "organic": organic, "organic_neutral": organic_n, "release": release,
-                               "event": event, "fitted_growth": growth[k], "p50": p50})
+                               "event": event,
+                               "fitted_growth": 1.0 if k == ACTIVE_MEMBERS_KPI else growth[k],
+                               "p50": p50})
         stock = stock_m
         # Derived KPIs from identities on this month's p50 values.
         wide = pd.DataFrame([p50_by_kpi], index=[month])

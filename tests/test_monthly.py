@@ -73,3 +73,15 @@ def test_identities_hold_monthly():
     wide = m.pivot(index="month_start", columns="kpi_id", values="p50")
     assert np.allclose(wide[14], wide[[1, 2, 4, 5, 7, 8, 9, 10, 12, 13]].sum(axis=1))
     assert np.allclose(wide[26], wide[24] - wide[25])
+
+
+def test_components_rebuild_p50_for_forecast_months():
+    df = make_history()
+    m = monthly_forecast(df, ORIGIN, _ctx(df))
+    f = m[(~m.is_actual) & m.kpi_id.isin([1, 4, 24, 25, 29])]
+    assert np.allclose(f.organic, f.organic_neutral * f.fitted_growth)
+    g = f[f.kpi_id != 29]
+    assert np.allclose(g.p50, g.organic + g.release + g.event)
+    assert (m[m.kpi_id == 23].fitted_growth == 1.0).all()
+    r25 = m[(m.kpi_id == 25) & (m.month_start == "2027-02-01")].iloc[0]
+    assert r25.release > 0
