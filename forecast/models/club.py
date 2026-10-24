@@ -35,9 +35,24 @@ def detect_releases(club: pd.Series, params: EngineParams) -> List[Release]:
 
 def default_schedule(releases: List[Release], origin: pd.Timestamp, years: int = 2) -> List[ScheduledRelease]:
     """Each release in the 365 days before origin, shifted +364 days per year ahead."""
-    recent = [r for r in releases if r.start > origin - pd.Timedelta(days=365)]
     out: List[ScheduledRelease] = []
     seen = set()
+    recent = [r for r in releases if r.start > origin - pd.Timedelta(days=365)]
+    # Keep the latest release per yearly slot: a recent release with a later one 300-430
+    # days after it is the same seasonal event, superseded (its shift would be a phantom).
+    kept: List[Release] = []
+    for r in recent:
+        later = [o for o in releases if pd.Timedelta(days=300) <= o.start - r.start <= pd.Timedelta(days=430)]
+        if not later:
+            kept.append(r)
+            continue
+        # The superseding release may be truncated at origin and still running: schedule it
+        # as itself, with the predecessor's length when that is longer.
+        o = later[-1]
+        if o.start + pd.Timedelta(days=o.days - 1) >= origin and o.start <= origin:
+            seen.add(o.start)
+            out.append(ScheduledRelease(start=o.start, days=max(o.days, r.days), label=f"{o.start:%b %Y}"))
+    recent = kept
     for k in range(1, years + 1):
         for r in recent:
             start = r.start + pd.Timedelta(days=364 * k)

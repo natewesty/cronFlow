@@ -15,7 +15,7 @@ from sqlalchemy.engine import Connection, Engine
 from .config import ACTIVE_MEMBERS_KPI, ALL_KPIS, ENGINE_VERSION, FORECAST_SCHEMA, KPI_SCHEMA
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
-CHUNK = 1000          # rows per multi-row INSERT (10 cols x 1000 stays under Postgres' 65535 binds)
+CHUNK = 1000          # rows per multi-row INSERT (11 cols x 1000 stays under Postgres' 65535 binds)
 
 
 # --- connection -------------------------------------------------------------

@@ -97,3 +97,17 @@ def test_default_schedule_does_not_double_list_when_origin_is_release_day_one():
     assert len(starts) == len(set(starts))
     assert starts == [pd.Timestamp("2026-11-18"), pd.Timestamp("2027-11-17"), pd.Timestamp("2028-11-15")]
     assert sched[1].label == "Nov 2026 +1y"          # keeps the first (nearest-year) listing
+
+
+def test_default_schedule_drops_superseded_release_when_gap_is_357_days():
+    from forecast.types import Release
+    # Same seasonal release came 7 days earlier this year (357-day gap): last year's
+    # +364 shift would put a phantom release a week after the real one.
+    last_year = Release(start=pd.Timestamp("2025-09-10"), days=2, day_totals=[1.0, 2.0])
+    this_year = Release(start=pd.Timestamp("2026-09-03"), days=2, day_totals=[1.0, 2.0])
+    for origin in (pd.Timestamp("2026-09-03"), pd.Timestamp("2026-09-06")):
+        sched = default_schedule([last_year, this_year], origin, years=2)
+        starts = [s.start for s in sched]
+        assert pd.Timestamp("2026-09-09") not in starts
+        assert pd.Timestamp("2027-09-08") not in starts
+        assert all(not s.label.startswith("Sep 2025") for s in sched)
