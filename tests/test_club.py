@@ -64,3 +64,22 @@ def test_release_component_partial_overlap():
     comp = release_component(sched, 300.0, [0.3, 0.7], members, dates)
     assert comp[pd.Timestamp("2027-02-25")] == 0.7 * 3500 * 300
     assert comp.sum() == 0.7 * 3500 * 300
+
+
+def test_default_schedule_keeps_release_in_progress_at_origin():
+    df = make_history()
+    rel = detect_releases(df[4], P)
+    origin = rel[-4].start + pd.Timedelta(days=364)       # day 1 of last year's shifted release
+    sched = default_schedule(rel, origin)
+    assert origin in [s.start for s in sched]
+
+
+def test_release_magnitude_ignores_in_progress_release():
+    df = make_history(rpm=300.0)
+    rel = detect_releases(df[4], P)
+    cut = df.loc[:rel[-1].start]
+    rels = detect_releases(cut[4], P)
+    assert rels[-1].start == rel[-1].start
+    rpm, shares = release_magnitude(cut[4], rels, cut[23], P.release_lookback_n)
+    assert abs(rpm - 300.0) < 1.0
+    assert np.allclose(shares, [0.3, 0.7], atol=0.005)

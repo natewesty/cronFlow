@@ -40,7 +40,7 @@ def default_schedule(releases: List[Release], origin: pd.Timestamp, years: int =
     for k in range(1, years + 1):
         for r in recent:
             start = r.start + pd.Timedelta(days=364 * k)
-            if start > origin:
+            if start + pd.Timedelta(days=r.days - 1) > origin:
                 out.append(ScheduledRelease(start=start, days=r.days, label=f"{r.start:%b %Y} +{k}y"))
     return sorted(out, key=lambda s: s.start)
 
@@ -55,7 +55,11 @@ def _members_at(members: pd.Series, when: pd.Timestamp) -> float:
 def release_magnitude(y: pd.Series, releases: List[Release], members: pd.Series,
                       n: int) -> Tuple[float, List[float]]:
     """Mean revenue-per-member over the last `n` releases and the mean per-day share."""
-    rs = [r for r in releases if r.start in y.index][-n:]
+    if not len(y):
+        return 0.0, [1.0]
+    last = y.index[-1]
+    rs = [r for r in releases
+          if r.start in y.index and r.start + pd.Timedelta(days=r.days - 1) < last][-n:]
     if not rs:
         return 0.0, [1.0]
     rpms, shares = [], []

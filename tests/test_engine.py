@@ -5,7 +5,7 @@ from forecast.config import ALL_KPIS, EngineParams
 from forecast.engine import forecast_daily
 from forecast.identities import apply_identities
 from forecast.models.club import default_schedule, detect_releases, release_magnitude
-from forecast.types import Context, Release
+from forecast.types import Context, Release, ScheduledRelease
 from tests.synth import make_history
 
 P = EngineParams()
@@ -89,3 +89,33 @@ def test_recent_release_spike_carries_into_forecast():
     assert comps[25]["spike"].iloc[0] > 0
     assert comps[25]["spike"].iloc[0] > comps[25]["spike"].iloc[10]
     assert comps[25]["spike"].iloc[25] == 0
+
+
+def test_in_progress_release_spike_not_double_counted():
+    df = make_history()
+    rel = detect_releases(df[4], P)
+    origin = rel[-1].start + pd.Timedelta(days=6)
+    dates = pd.date_range(origin + pd.Timedelta(days=1), periods=30)
+    past = [r for r in rel if r.start <= origin]
+    default = default_schedule(rel, origin)
+    base = Context(params=P, releases=past, schedule=default, events=[], otb=None,
+                   members_a0=float(df.loc[origin, 23]))
+    dup = Context(params=P, releases=past,
+                  schedule=[ScheduledRelease(start=rel[-1].start, days=2, label="admin")] + default,
+                  events=[], otb=None, members_a0=float(df.loc[origin, 23]))
+    _, c0 = forecast_daily(df, origin, dates, base)
+    _, c1 = forecast_daily(df, origin, dates, dup)
+    assert np.allclose(c1[25]["spike"], c0[25]["spike"])
+
+
+def test_release_in_progress_at_origin_is_forecast_on_day_two():
+    df = make_history(rpm=300.0)
+    rel = detect_releases(df[4], P)
+    origin = rel[-1].start
+    dates = pd.date_range(origin + pd.Timedelta(days=1), periods=30)
+    past = detect_releases(df[4].loc[:origin], P)
+    ctx = Context(params=P, releases=past, schedule=default_schedule(past, origin), events=[],
+                  otb=None, members_a0=float(df.loc[origin, 23]))
+    point, _ = forecast_daily(df, origin, dates, ctx)
+    actual = df.loc[origin + pd.Timedelta(days=1), 4]
+    assert abs(point.loc[origin + pd.Timedelta(days=1), 4] - actual) / actual < 0.15

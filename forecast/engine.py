@@ -63,7 +63,8 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
               if r.start > origin - pd.Timedelta(days=p.attrition_spike_days)]
     spike = pd.Series(0.0, index=dates)
     attr = base_attr.copy()
-    for s in sorted(recent + list(ctx.schedule), key=lambda s: s.start):
+    future_sched = [s for s in ctx.schedule if s.start > origin]
+    for s in sorted(recent + future_sched, key=lambda s: s.start):
         if s.start > dates[-1]:
             break
         if s.start <= origin:
