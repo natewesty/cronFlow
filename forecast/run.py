@@ -46,6 +46,9 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         fio.ensure_schema(conn)
 
     origin = pd.Timestamp(origin).normalize() if origin is not None else today_pacific() - pd.Timedelta(days=1)
+    live = today_pacific() - pd.Timedelta(days=1)
+    if origin > live:
+        raise ValueError(f"origin {origin.date()} is after the last complete day {live.date()}")
     with engine.connect() as conn:
         hist = fio.load_history(conn, origin)
         otb = fio.load_otb(conn, origin)
@@ -66,45 +69,54 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
     log.info("origin=%s horizon=%s history=%s..%s releases=%s scheduled=%s events=%s members=%s",
              origin.date(), horizon, hist.index[0].date(), hist.index[-1].date(),
              len(releases), len(schedule), len(events), a0)
-    point, comps = forecast_daily(hist, origin, dates, ctx)
-    accuracy = pd.DataFrame(columns=fbt.ACCURACY_COLUMNS) if skip_backtest else fbt.run_backtest(hist, releases, params, origin)
-    p10, p90 = fbt.apply_bands(point, accuracy, params)
-    monthly = monthly_forecast(hist, origin, ctx, daily_point=point)
-
-    next28 = float(point[14].iloc[:28].sum())
-    for k in ALL_KPIS:
-        row = accuracy[(accuracy.kpi_id == k) & (accuracy.horizon_bucket == "8-28")]
-        wm = f"{float(row.wmape.iloc[0]):.3f}" if len(row) and pd.notna(row.wmape.iloc[0]) else "n/a"
-        log.info("kpi=%s next28=%.2f wmape_8_28=%s", k, float(point[k].iloc[:28].sum()), wm)
 
     engine_params = params.to_dict()
     engine_params["horizon"] = horizon
     effective = {"engine": engine_params, "engine_version": ENGINE_VERSION,
                  "schedule": [{"start": s.start.strftime("%Y-%m-%d"), "days": s.days, "label": s.label} for s in schedule],
                  "events": events, "members_a0": a0, "releases_detected": len(releases)}
-    daily_recs = fio.daily_records(point, p10, p90, comps, run_id=0)
-    monthly_recs = fio.monthly_records(monthly, run_id=0)
-    acc_recs = fio.accuracy_records(accuracy, run_id=0)
-    summary = RunSummary(run_id=None, origin=origin, horizon=horizon, kpis=len(point.columns),
-                         daily_rows=len(daily_recs), monthly_rows=len(monthly_recs),
-                         accuracy_rows=len(acc_recs), next28_total_revenue=next28)
-    if dry_run:
-        log.info("dry run: %s", summary)
-        return summary
+    run_id: Optional[int] = None
+    if not dry_run:
+        with engine.begin() as conn:
+            run_id = fio.start_run(conn, origin, horizon, effective)
 
-    with engine.begin() as conn:
-        run_id = fio.start_run(conn, origin, horizon, effective)
-    for rec in daily_recs + monthly_recs + acc_recs:
-        rec["run_id"] = run_id
     try:
+        point, comps = forecast_daily(hist, origin, dates, ctx)
+        accuracy = pd.DataFrame(columns=fbt.ACCURACY_COLUMNS) if skip_backtest else fbt.run_backtest(hist, releases, params, origin)
+        p10, p90 = fbt.apply_bands(point, accuracy, params)
+        monthly = monthly_forecast(hist, origin, ctx, daily_point=point)
+
+        next28 = float(point[14].iloc[:28].sum())
+        for k in ALL_KPIS:
+            row = accuracy[(accuracy.kpi_id == k) & (accuracy.horizon_bucket == "8-28")]
+            wm = f"{float(row.wmape.iloc[0]):.3f}" if len(row) and pd.notna(row.wmape.iloc[0]) else "n/a"
+            log.info("kpi=%s next28=%.2f wmape_8_28=%s", k, float(point[k].iloc[:28].sum()), wm)
+
+        daily_recs = fio.daily_records(point, p10, p90, comps, run_id=0)
+        monthly_recs = fio.monthly_records(monthly, run_id=0)
+        acc_recs = fio.accuracy_records(accuracy, run_id=0)
+        summary = RunSummary(run_id=None, origin=origin, horizon=horizon, kpis=len(point.columns),
+                             daily_rows=len(daily_recs), monthly_rows=len(monthly_recs),
+                             accuracy_rows=len(acc_recs), next28_total_revenue=next28)
+        if dry_run:
+            log.info("dry run: %s", summary)
+            return summary
+
+        for rec in daily_recs + monthly_recs + acc_recs:
+            rec["run_id"] = run_id
         with engine.begin() as conn:
             fio.write_results(conn, run_id, daily_recs, monthly_recs, acc_recs)
-            fio.write_bookings_snapshot(conn, origin + pd.Timedelta(days=1), otb)
+            if origin == live:
+                fio.write_bookings_snapshot(conn, origin + pd.Timedelta(days=1), otb)
+            else:
+                log.info("bookings snapshot skipped: backfill origin %s; the OTB table reflects today, not the origin",
+                         origin.date())
             fio.finish_run(conn, run_id, "success")
             fio.prune_runs(conn)
     except Exception as exc:  # noqa: BLE001 - we want to record any failure
-        with engine.begin() as conn:
-            fio.finish_run(conn, run_id, "failed", str(exc))
+        if run_id is not None:
+            with engine.begin() as conn:
+                fio.finish_run(conn, run_id, "failed", str(exc))
         raise
     summary.run_id = run_id
     log.info("run %s complete: %s", run_id, summary)

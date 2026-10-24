@@ -11,6 +11,8 @@ Daily forecasting for the Donum KPI dashboard. Spec: `shad_dash_don/shad-dash-do
 .venv/bin/python -m forecast schema               # create the forecast schema/tables only
 ```
 
+`--origin` backfills become the latest run and do not write a bookings snapshot; origins after yesterday (Pacific) are rejected.
+
 Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` locally. `KPI_SCHEMA` overrides the source schema (default `public_nate_sandbox`).
 
 ## Tables (schema `forecast`)

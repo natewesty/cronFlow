@@ -41,6 +41,7 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None: state["finished"].append((run_id, status, error)))
     monkeypatch.setattr(frun.fio, "write_bookings_snapshot", lambda conn, d, otb: state["snapshots"].append(d))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
+    monkeypatch.setattr(frun, "today_pacific", lambda: ORIGIN + pd.Timedelta(days=1))
     return state
 
 
@@ -96,3 +97,28 @@ def test_run_with_backtest_produces_accuracy_and_bands(fake_io, monkeypatch):
     assert s.accuracy_rows == len(accuracy) > 0
     kpi1 = next(r for r in daily if r["kpi_id"] == 1 and r["horizon"] == 1)
     assert kpi1["p10"] is not None and kpi1["p10"] < kpi1["p50"] < kpi1["p90"]
+
+
+def test_run_rejects_future_origin(fake_io):
+    with pytest.raises(ValueError):
+        frun.run(origin=ORIGIN + pd.Timedelta(days=1), horizon=5, skip_backtest=True)
+    assert fake_io["runs"] == []
+
+
+def test_run_marks_failed_on_compute_error(fake_io, monkeypatch):
+    monkeypatch.setattr(frun, "detect_releases", lambda club, params: [])
+    monkeypatch.setattr(frun, "default_schedule", lambda releases, origin, years=2: [])
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("model boom")
+    monkeypatch.setattr(frun, "forecast_daily", boom)
+    with pytest.raises(RuntimeError, match="model boom"):
+        frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    assert fake_io["finished"] == [(42, "failed", "model boom")]
+    assert fake_io["written"] is None
+
+
+def test_backfill_skips_bookings_snapshot(fake_io):
+    frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
+    assert fake_io["snapshots"] == []
+    assert fake_io["finished"][-1][1] == "success"
