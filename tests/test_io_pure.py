@@ -96,3 +96,30 @@ def test_load_assumptions_tolerates_bad_json():
                       ("shipment_schedule", "not json")])
     assert fio.load_assumptions(conn) == {"engine_params": {"lambda_shrink": 0.4}, "events": {"events": []},
                                           "shipment_schedule": "not json"}
+
+
+def test_expand_values_repeats_tuple_with_indexed_params():
+    sql = "insert into s.t (a, b) values (:a, cast(:b as jsonb)) on conflict (a) do update set b = excluded.b"
+    out = fio.expand_values(sql, 2)
+    assert out == ("insert into s.t (a, b) values (:a_0, cast(:b_0 as jsonb)), (:a_1, cast(:b_1 as jsonb))"
+                   " on conflict (a) do update set b = excluded.b")
+
+
+def test_insert_many_sends_one_statement_per_chunk_and_writes_every_row(monkeypatch):
+    from sqlalchemy import create_engine, text
+    monkeypatch.setattr(fio, "CHUNK", 3)
+    engine = create_engine("sqlite://")
+    calls = []
+    with engine.begin() as conn:
+        conn.execute(text("create table t (a integer, b text)"))
+        real = conn.execute
+        def spy(stmt, *args, **kw):
+            calls.append(str(stmt))
+            return real(stmt, *args, **kw)
+        monkeypatch.setattr(conn, "execute", spy)
+        fio._insert_many(conn, "insert into t (a, b) values (:a, :b)", [{"a": i, "b": str(i)} for i in range(7)])
+        monkeypatch.undo()
+        rows = conn.execute(text("select a, b from t order by a")).fetchall()
+    assert len(calls) == 3                                   # 3 + 3 + 1 rows
+    assert [c.count("(:a_") for c in calls] == [3, 3, 1]     # multi-row VALUES, not executemany
+    assert rows == [(i, str(i)) for i in range(7)]

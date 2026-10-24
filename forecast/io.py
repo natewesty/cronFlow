@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -14,7 +15,7 @@ from sqlalchemy.engine import Connection, Engine
 from .config import ACTIVE_MEMBERS_KPI, ALL_KPIS, ENGINE_VERSION, FORECAST_SCHEMA, KPI_SCHEMA
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
-CHUNK = 2000
+CHUNK = 1000          # rows per multi-row INSERT (10 cols x 1000 stays under Postgres' 65535 binds)
 
 
 # --- connection -------------------------------------------------------------
@@ -190,9 +191,32 @@ def start_run(conn: Connection, origin: pd.Timestamp, horizon: int, params: dict
     return int(row[0])
 
 
+_PARAM = re.compile(r"(?<![:\w]):(\w+)")
+
+
+def expand_values(sql: str, n: int) -> str:
+    """Repeat the statement's `values (...)` tuple `n` times, suffixing each bind
+    parameter with the row index (`:p` -> `:p_0, :p_1, ...`), so a chunk is sent as
+    one multi-row INSERT instead of one round trip per row."""
+    m = re.search(r"\bvalues\s*\(", sql, flags=re.IGNORECASE)
+    if not m:
+        raise ValueError("insert statement has no VALUES tuple")
+    start, depth, i = m.end() - 1, 0, m.end() - 1
+    while i < len(sql):
+        depth += {"(": 1, ")": -1}.get(sql[i], 0)
+        if depth == 0:
+            break
+        i += 1
+    tpl, tail = sql[start:i + 1], sql[i + 1:]
+    rows = ", ".join(_PARAM.sub(lambda p, j=j: f":{p.group(1)}_{j}", tpl) for j in range(n))
+    return sql[:start] + rows + tail
+
+
 def _insert_many(conn: Connection, sql: str, records: List[dict]) -> None:
     for i in range(0, len(records), CHUNK):
-        conn.execute(text(sql), records[i:i + CHUNK])
+        chunk = records[i:i + CHUNK]
+        params = {f"{k}_{j}": v for j, rec in enumerate(chunk) for k, v in rec.items()}
+        conn.execute(text(expand_values(sql, len(chunk))), params)
 
 
 def write_results(conn: Connection, run_id: int, daily: List[dict], monthly: List[dict],
@@ -222,7 +246,7 @@ def finish_run(conn: Connection, run_id: int, status: str, error: Optional[str] 
         conn.execute(text(f"update {FORECAST_SCHEMA}.forecast_runs set is_latest = false where is_latest"))
     conn.execute(text(f"""
         update {FORECAST_SCHEMA}.forecast_runs
-        set status = :status, finished_at = now(), error = :error, is_latest = :latest
+        set status = :status, finished_at = clock_timestamp(), error = :error, is_latest = :latest
         where run_id = :run_id
     """), {"status": status, "error": error, "latest": status == "success", "run_id": run_id})
 
