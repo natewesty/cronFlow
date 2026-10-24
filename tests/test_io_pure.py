@@ -73,3 +73,26 @@ def test_monthly_and_accuracy_records_convert_nan_to_none():
                          "monthly_wmape": np.nan, "n": 56}])
     a = fio.accuracy_records(acc, run_id=3)
     assert a[0]["wmape"] is None and a[0]["n"] == 56 and a[0]["run_id"] == 3
+
+
+class _FakeResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetchall(self):
+        return self._rows
+
+
+class _FakeConn:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def execute(self, stmt, *args, **kwargs):
+        return _FakeResult(self._rows)
+
+
+def test_load_assumptions_tolerates_bad_json():
+    conn = _FakeConn([("engine_params", '{"lambda_shrink": 0.4}'), ("events", {"events": []}),
+                      ("shipment_schedule", "not json")])
+    assert fio.load_assumptions(conn) == {"engine_params": {"lambda_shrink": 0.4}, "events": {"events": []},
+                                          "shipment_schedule": "not json"}

@@ -169,7 +169,12 @@ def load_assumptions(conn: Connection) -> dict:
     rows = conn.execute(text(f"select key, value from {FORECAST_SCHEMA}.assumptions")).fetchall()
     out = {}
     for key, value in rows:
-        out[key] = json.loads(value) if isinstance(value, str) else value
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                pass  # malformed entry: keep the raw value, downstream parsers ignore it
+        out[key] = value
     return out
 
 
