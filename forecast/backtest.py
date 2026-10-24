@@ -113,6 +113,9 @@ def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,
         hi = np.array([lookup.get((int(k), b), (np.nan, np.nan))[1] for b in buckets], dtype=float)
         v = point[k].to_numpy(dtype=float)
         a, b = v * lo, v * hi
-        p10[k] = np.minimum(a, b)
-        p90[k] = np.maximum(a, b)
+        # A zero forecast has a zero band whatever the ratio (none is finite when the
+        # backtest forecast was always 0), so identity sums over it keep their bands.
+        zero = v == 0
+        p10[k] = np.where(zero, 0.0, np.minimum(a, b))
+        p90[k] = np.where(zero, 0.0, np.maximum(a, b))
     return p10, p90

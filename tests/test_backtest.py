@@ -81,3 +81,17 @@ def test_apply_bands_negative_point_keeps_p10_below_p90():
     acc = pd.DataFrame([{"kpi_id": 26, "horizon_bucket": "1-7", "ratio_p10": 0.8, "ratio_p90": 1.2}])
     p10, p90 = apply_bands(point, acc, P)
     assert (p10[26] <= p90[26]).all()
+
+
+def test_apply_bands_zero_forecast_gets_zero_band_even_without_ratio():
+    # A KPI forecast at 0 has no finite actual/forecast ratios (production KPI 5);
+    # its band is 0, not NaN, so sums such as 6 and 14 keep their bands.
+    dates = pd.date_range("2026-10-24", periods=3)
+    point = pd.DataFrame({1: 100.0, 5: 0.0}, index=dates)
+    acc = pd.DataFrame([
+        {"kpi_id": 1, "horizon_bucket": "1-7", "ratio_p10": 0.8, "ratio_p90": 1.2},
+        {"kpi_id": 5, "horizon_bucket": "1-7", "ratio_p10": np.nan, "ratio_p90": np.nan},
+    ])
+    p10, p90 = apply_bands(point, acc, P)
+    assert (p10[5] == 0).all() and (p90[5] == 0).all()
+    assert (p10[1] == 80).all()
