@@ -1,12 +1,15 @@
 """Parse forecast.assumptions jsonb values into engine inputs (spec §4.7)."""
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 import pandas as pd
 
 from .config import EngineParams
 from .types import ScheduledRelease
+
+log = logging.getLogger("forecast")
 
 
 def parse_schedule(value) -> Optional[List[ScheduledRelease]]:
@@ -19,7 +22,7 @@ def parse_schedule(value) -> Optional[List[ScheduledRelease]]:
         try:
             start = pd.Timestamp(item["start"]).normalize()
             days = int(item.get("days", 2))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError, AttributeError):
             continue
         if pd.isna(start) or days < 1:
             continue
@@ -36,7 +39,7 @@ def parse_events(value) -> List[dict]:
             continue
         try:
             d = pd.Timestamp(item["date"]).normalize()
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError, AttributeError):
             continue
         if pd.isna(d):
             continue
@@ -53,4 +56,8 @@ def parse_events(value) -> List[dict]:
 
 
 def parse_params(value) -> EngineParams:
-    return EngineParams.from_overrides(value if isinstance(value, dict) else None)
+    try:
+        return EngineParams.from_overrides(value if isinstance(value, dict) else None)
+    except (TypeError, ValueError) as exc:
+        log.warning("ignoring invalid engine_params overrides (%s); using defaults", exc)
+        return EngineParams()

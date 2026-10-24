@@ -40,3 +40,14 @@ def test_parse_params():
     p = parse_params({"lambda_shrink": 0.4, "bogus": 1})
     assert p.lambda_shrink == 0.4 and p.w1 == 0.7
     assert parse_params(None).lambda_shrink == 0.7
+
+
+def test_parse_params_bad_override_falls_back():
+    assert parse_params({"trend_clip": 5}).trend_clip == (0.5, 2.0)
+
+
+def test_parse_schedule_and_events_skip_pathological():
+    sched = parse_schedule({"releases": [{"start": "NaT"}, {"start": "2027-05-05", "days": float("inf")},
+                                         {"start": "2027-06-01"}]})
+    assert len(sched) == 1
+    assert len(parse_events({"events": [{"date": "NaT"}, {"date": "2027-07-24"}]})) == 1
