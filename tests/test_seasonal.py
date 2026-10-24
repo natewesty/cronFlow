@@ -33,6 +33,13 @@ def test_trend_factor_zero_history_is_one():
     assert trend_factor(y, pd.Timestamp("2026-10-23"), 364, P) == 1.0
 
 
+def test_trend_factor_partial_prior_window_is_one():
+    idx = pd.date_range("2025-09-01", "2026-10-23")
+    y = pd.Series(np.where(idx >= pd.Timestamp("2026-07-01"), 2.0, 1.0), index=idx)
+    # lagged window starts 2025-07-26, before history begins -> no spurious uplift
+    assert trend_factor(y, pd.Timestamp("2026-10-23"), 364, P) == 1.0
+
+
 def test_same_weekday_base_averages_three_lags_and_handles_holidays():
     idx = pd.date_range("2024-12-01", "2026-01-31")
     y = pd.Series(1.0, index=idx)

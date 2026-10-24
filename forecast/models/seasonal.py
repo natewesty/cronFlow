@@ -19,6 +19,8 @@ def trend_factor(y: pd.Series, origin: pd.Timestamp, lag_days: int, params: Engi
     y = y.loc[:origin].astype(float)
     start = origin - pd.Timedelta(days=params.trend_window - 1)
     lag = pd.Timedelta(days=lag_days)
+    if len(y) == 0 or y.index.min() > start - lag:
+        return 1.0
     cur = float(y.loc[start:origin].sum())
     prev = float(y.loc[start - lag:origin - lag].sum())
     if not np.isfinite(prev) or prev <= 0 or not np.isfinite(cur) or cur <= 0:
