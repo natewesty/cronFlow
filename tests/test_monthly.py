@@ -85,3 +85,22 @@ def test_components_rebuild_p50_for_forecast_months():
     assert (m[m.kpi_id == 23].fitted_growth == 1.0).all()
     r25 = m[(m.kpi_id == 25) & (m.month_start == "2027-02-01")].iloc[0]
     assert r25.release > 0
+
+
+def test_second_year_organic_compounds_growth():
+    df = make_history(annual_growth=0.05)
+    m = monthly_forecast(df, ORIGIN, _ctx(df))
+    r1 = m[(m.kpi_id == 1) & (m.month_start == "2026-12-01")].iloc[0]
+    r2 = m[(m.kpi_id == 1) & (m.month_start == "2027-12-01")].iloc[0]
+    assert abs(r2.organic / r1.organic - r2.fitted_growth) < 0.01
+
+
+def test_aov_monthly_averages_only_order_days():
+    df = make_history()
+    df.loc["2025-11-01":"2025-11-10", 28] = 0
+    df.loc["2025-11-01":"2025-11-10", 29] = 0
+    m = monthly_forecast(df, ORIGIN, _ctx(df))
+    row = m[(m.kpi_id == 29) & (m.month_start == "2025-11-01")].iloc[0]
+    nov = df.loc["2025-11"]
+    assert abs(row.p50 - nov[nov[28] > 0][29].mean()) < 1e-9
+    assert not m.p50.isna().any()

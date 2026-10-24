@@ -15,11 +15,18 @@ from .models.events import cap_series
 from .models.membership import attrition_base_series, spike_profile
 from .types import Context
 
+AOV_KPI = 29
+ORDERS_KPI = 28
+
 MONTHLY_COLUMNS = ["month_start", "kpi_id", "is_actual", "organic", "organic_neutral",
                    "release", "event", "fitted_growth", "p50"]
 
 
-def _resample(s: pd.Series, k: int) -> pd.Series:
+def _resample(s: pd.Series, k: int, orders: Optional[pd.Series] = None) -> pd.Series:
+    if k == AOV_KPI and orders is not None:
+        # Average order value is averaged over days that had orders only.
+        s = s.where(orders.reindex(s.index) > 0)
+        return s.resample("MS").mean().fillna(0.0)
     if k in RATE_KPIS:
         return s.resample("MS").mean()
     if k == ACTIVE_MEMBERS_KPI:
@@ -39,16 +46,28 @@ def _growth(mh: pd.Series, params) -> float:
     return 1.0 + params.lambda_shrink * (g - 1.0)
 
 
-def _base(mh: pd.Series, month: pd.Timestamp, w1: float, w2: float) -> float:
-    b1 = mh.get(month - pd.DateOffset(years=1), np.nan)
-    b2 = mh.get(month - pd.DateOffset(years=2), np.nan)
-    if np.isfinite(b1) and np.isfinite(b2):
-        return float(w1 * b1 + w2 * b2)
-    if np.isfinite(b1):
-        return float(b1)
-    if np.isfinite(b2):
-        return float(b2)
-    return float(mh.iloc[-3:].mean()) if len(mh) else 0.0
+def _fitted(mh: pd.Series, fitted: Dict[pd.Timestamp, float], month: pd.Timestamp,
+            w1: float, w2: float, g: float) -> float:
+    """Fitted organic value: each year-ago base is carried forward by its own number
+    of years of growth. A base missing from history is taken from the fitted value
+    already computed for that earlier month."""
+    m1 = month - pd.DateOffset(years=1)
+    m2 = month - pd.DateOffset(years=2)
+    b1 = mh.get(m1, np.nan)
+    if not np.isfinite(b1):
+        b1 = fitted.get(m1, np.nan)
+    b2 = mh.get(m2, np.nan)
+    if not np.isfinite(b2):
+        b2 = fitted.get(m2, np.nan)
+    t1 = b1 * g if np.isfinite(b1) else np.nan
+    t2 = b2 * g * g if np.isfinite(b2) else np.nan
+    if np.isfinite(t1) and np.isfinite(t2):
+        return float(w1 * t1 + w2 * t2)
+    if np.isfinite(t1):
+        return float(t1)
+    if np.isfinite(t2):
+        return float(t2)
+    return float(mh.iloc[-3:].mean() * g) if len(mh) else 0.0
 
 
 def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
@@ -72,8 +91,9 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
             cleaned[k] = attrition_base_series(h[k], ctx.releases, p.attrition_spike_days)
         else:
             cleaned[k] = h[k].astype(float)
-    mh = {k: _resample(cleaned[k].loc[:last_complete], k) for k in MODELED_KPIS}
-    raw_mh = {k: _resample(h[k].astype(float).loc[:last_complete], k) for k in MODELED_KPIS}
+    orders = h[ORDERS_KPI].astype(float)
+    mh = {k: _resample(cleaned[k].loc[:last_complete], k, orders) for k in MODELED_KPIS}
+    raw_mh = {k: _resample(h[k].astype(float).loc[:last_complete], k, orders) for k in MODELED_KPIS}
     growth = {k: _growth(mh[k], p) for k in MODELED_KPIS}
 
     # Release magnitudes per club KPI and the attrition spike mass per release.
@@ -113,6 +133,8 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
     elapsed = (origin - cur_month).days + 1
     remaining_frac = max(0.0, (days_in_cur - elapsed) / days_in_cur)
 
+    fitted: Dict[int, Dict[pd.Timestamp, float]] = {k: {} for k in MODELED_KPIS}
+
     for month in months:
         is_actual = month < cur_month
         is_current = month == cur_month
@@ -124,10 +146,13 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
             attr_m = float(raw_mh[ATTRITION_KPI].get(month, 0.0))
             stock_m = float(raw_mh[ACTIVE_MEMBERS_KPI].get(month, stock))
         else:
-            new_org_n = _base(mh[NEW_MEMBERS_KPI], month, p.w1, p.w2)
-            attr_org_n = _base(mh[ATTRITION_KPI], month, p.w1, p.w2)
-            new_m = new_org_n * growth[NEW_MEMBERS_KPI]
-            attr_base = attr_org_n * growth[ATTRITION_KPI]
+            for k in MODELED_KPIS:
+                if k != ACTIVE_MEMBERS_KPI:
+                    fitted[k][month] = _fitted(mh[k], fitted[k], month, p.w1, p.w2, growth[k])
+            new_m = fitted[NEW_MEMBERS_KPI][month]
+            attr_base = fitted[ATTRITION_KPI][month]
+            new_org_n = new_m / growth[NEW_MEMBERS_KPI]
+            attr_org_n = attr_base / growth[ATTRITION_KPI]
             spike_m = sum(spike_mass * stock for _ in releases_in(month))
             if is_current:
                 new_m = float(h.loc[cur_month:origin, NEW_MEMBERS_KPI].sum()) + new_m * remaining_frac
@@ -156,8 +181,8 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                 organic = organic_n = p50 = stock_m
                 release = event = 0.0
             else:
-                organic_n = _base(mh[k], month, p.w1, p.w2)
-                organic = organic_n * growth[k]
+                organic = fitted[k][month]
+                organic_n = organic / growth[k]
                 release = sum(magnitudes[k] * stock for _ in releases_in(month)) if k in CLUB_KPIS else 0.0
                 event = events_in(month, EVENT_CALENDAR_FIELD[k]) if k in EVENT_CALENDAR_FIELD else 0.0
                 if is_current:
