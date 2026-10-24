@@ -44,3 +44,14 @@ def test_project_stock_is_running_balance():
     new = pd.Series([5.0, 0.0, 2.0], index=dates)
     attr = pd.Series([1.0, 1.0, 1.0], index=dates)
     assert project_stock(100.0, new, attr).tolist() == [104.0, 103.0, 104.0]
+
+
+def test_spike_profile_ignores_unobserved_days_of_recent_release():
+    df = make_history()
+    rel = detect_releases(df[4], P)
+    cut = rel[-1].start + pd.Timedelta(days=3)
+    attr = df[25].loc[:cut]
+    members = df[23].loc[:cut]
+    full = spike_profile(attr, rel, members, P.attrition_spike_days, P.release_lookback_n)
+    others = spike_profile(attr, rel[:-1], members, P.attrition_spike_days, P.release_lookback_n - 1)
+    assert np.allclose(full[4:], others[4:])

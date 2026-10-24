@@ -17,10 +17,13 @@ def _members_at(members: pd.Series, when: pd.Timestamp) -> float:
 def spike_profile(attr: pd.Series, releases: List[Release], members: pd.Series,
                   window: int, n: int) -> np.ndarray:
     """Mean per-member excess attrition for day offsets 0..window-1 after the
-    last `n` releases. Excess = max(attrition − pre-release 28-day median, 0)."""
+    last `n` releases. Excess = max(attrition − pre-release 28-day median, 0).
+    The mean at each offset is over the releases that observed that day, so
+    unobserved days (past the end of `attr`, or NaN) do not dilute the mean.
+    Returns zeros when no release qualifies."""
     attr = attr.astype(float)
-    prof = np.zeros(window)
-    cnt = 0
+    total = np.zeros(window)
+    count = np.zeros(window)
     for r in [r for r in releases if r.start in attr.index][-n:]:
         pre = attr.loc[r.start - pd.Timedelta(days=28): r.start - pd.Timedelta(days=1)]
         base = float(pre.median()) if len(pre) else 0.0
@@ -28,10 +31,10 @@ def spike_profile(attr: pd.Series, releases: List[Release], members: pd.Series,
         if m <= 0:
             continue
         seg = attr.reindex(pd.date_range(r.start, periods=window, freq="D")).to_numpy(dtype=float)
-        seg = np.where(np.isfinite(seg), seg, base)
-        prof += np.maximum(seg - base, 0.0) / m
-        cnt += 1
-    return prof / cnt if cnt else prof
+        obs = np.isfinite(seg)
+        total[obs] += np.maximum(seg[obs] - base, 0.0) / m
+        count[obs] += 1
+    return np.where(count > 0, total / np.maximum(count, 1), 0.0)
 
 
 def attrition_base_series(attr: pd.Series, releases: List[Release], window: int) -> pd.Series:
