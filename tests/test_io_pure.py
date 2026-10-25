@@ -10,9 +10,9 @@ from forecast.config import ALL_KPIS
 
 def test_database_url_prefers_env_url_and_adds_ssl_for_render(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@dpg-x.oregon-postgres.render.com/db")
-    assert fio.database_url() == "postgresql://u:p@dpg-x.oregon-postgres.render.com/db?sslmode=require"
+    assert fio.database_url() == "postgresql+psycopg2://u:p@dpg-x.oregon-postgres.render.com/db?sslmode=require"
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/db?x=1")
-    assert fio.database_url() == "postgresql://u:p@localhost/db?x=1"
+    assert fio.database_url() == "postgresql+psycopg2://u:p@localhost/db?x=1"
 
 
 def test_database_url_falls_back_to_parts(monkeypatch):
@@ -20,7 +20,7 @@ def test_database_url_falls_back_to_parts(monkeypatch):
     monkeypatch.setenv("DB_HOST", "h"); monkeypatch.setenv("DB_NAME", "n")
     monkeypatch.setenv("DB_USER", "u"); monkeypatch.setenv("DB_PASSWORD", "p")
     monkeypatch.delenv("DB_PORT", raising=False)
-    assert fio.database_url() == "postgresql://u:p@h:5432/n"
+    assert fio.database_url() == "postgresql+psycopg2://u:p@h:5432/n"
     monkeypatch.delenv("DB_HOST")
     with pytest.raises(RuntimeError):
         fio.database_url()
@@ -123,3 +123,8 @@ def test_insert_many_sends_one_statement_per_chunk_and_writes_every_row(monkeypa
     assert len(calls) == 3                                   # 3 + 3 + 1 rows
     assert [c.count("(:a_") for c in calls] == [3, 3, 1]     # multi-row VALUES, not executemany
     assert rows == [(i, str(i)) for i in range(7)]
+
+
+def test_database_url_keeps_explicit_driver(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://u:p@localhost/db")
+    assert fio.database_url() == "postgresql+psycopg2://u:p@localhost/db"

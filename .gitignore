@@ -13,3 +13,8 @@ target/
 
 .user.yml
 package-lock.yml
+# local secrets
+cronDon.env
+
+# local virtualenv
+.venv/

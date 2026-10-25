@@ -26,14 +26,23 @@ def database_url() -> str:
     if url:
         if "render.com" in url and "sslmode=" not in url:
             url += ("&" if "?" in url else "?") + "sslmode=require"
-        return url
+        return _with_psycopg2(url)
     host, name = os.getenv("DB_HOST"), os.getenv("DB_NAME")
     user, pwd = os.getenv("DB_USER"), os.getenv("DB_PASSWORD")
     port = os.getenv("DB_PORT") or "5432"
     if not all([host, name, user, pwd]):
         raise RuntimeError("No database configuration: set DATABASE_URL or DB_HOST/DB_NAME/DB_USER/DB_PASSWORD")
     ssl = "?sslmode=require" if "render.com" in host else ""
-    return f"postgresql://{user}:{pwd}@{host}:{port}/{name}{ssl}"
+    return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{name}{ssl}"
+
+
+def _with_psycopg2(url: str) -> str:
+    """SQLAlchemy 2.1 made psycopg (v3) the default driver for bare postgresql:// URLs;
+    this project installs psycopg2, so name it explicitly."""
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
 
 
 def get_engine(url: Optional[str] = None) -> Engine:

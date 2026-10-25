@@ -9,6 +9,7 @@ It uses incremental loading based on the updatedAt watermark.
 import os
 import sys
 import logging
+import re
 import base64
 import json
 import time
@@ -69,6 +70,20 @@ def get_project_root() -> Path:
     else:
         return Path(__file__).parent.parent
 
+def with_psycopg2_driver(url: str) -> str:
+    """Pin the SQLAlchemy dialect to psycopg2. SQLAlchemy 2.1 changed the default
+    PostgreSQL driver for bare postgresql:// URLs to psycopg (v3), which is not
+    installed here."""
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://"):]
+    return url
+
+def mask_url_password(url: str) -> str:
+    """Replace the password in user:password@host with asterisks for logging."""
+    return re.sub(r"(://[^:/@]+:)[^@]+@", r"\1********@", url)
+
 def get_database_path() -> str:
     """Get the correct database connection string for PostgreSQL or SQLite."""
     # Check for PostgreSQL connection string first
@@ -79,7 +94,7 @@ def get_database_path() -> str:
         if 'postgresql' in database_url and 'render.com' in database_url:
             separator = '&' if '?' in database_url else '?'
             database_url += f"{separator}sslmode=require&connect_timeout=30&application_name=dashdon_ingest"
-        return database_url
+        return with_psycopg2_driver(database_url)
     
     # Check for individual PostgreSQL environment variables
     db_host = os.getenv('DB_HOST')
@@ -92,7 +107,7 @@ def get_database_path() -> str:
         logger.info("Using PostgreSQL connection from individual environment variables")
         # Add SSL and timeout parameters for Render PostgreSQL
         ssl_params = "?sslmode=require&connect_timeout=30&application_name=dashdon_ingest" if 'render.com' in db_host else ""
-        return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}{ssl_params}"
+        return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}{ssl_params}"
     
     # Fallback to SQLite for backward compatibility
     logger.warning("No PostgreSQL configuration found, falling back to SQLite")
@@ -143,7 +158,12 @@ def load_environment():
     logger.info("Environment variables loaded:")
     for key, value in env_vars.items():
         if value:
-            masked_value = '*' * len(value) if 'PASSWORD' in key or 'TOKEN' in key or 'AUTH' in key else value
+            if 'PASSWORD' in key or 'TOKEN' in key or 'AUTH' in key:
+                masked_value = '*' * len(value)
+            elif key == 'DATABASE_URL':
+                masked_value = mask_url_password(value)
+            else:
+                masked_value = value
             logger.info(f"{key}: {masked_value}")
         else:
             logger.warning(f"{key}: Not set")
