@@ -16,9 +16,17 @@ Titles
 
 Large formats
   - excluded from price_bands and from every tier (tier profiles, tier dispersion pools, tier
-    reference curves); profile_for gives them their own label profile (or the plan's comparable
-    label) and never a tier profile; they never get a default next-vintage candidate (they are
-    forecast only for vintages already selling or a plan row's incoming vintage).
+    reference curves); they never get a default next-vintage candidate (they are forecast only
+    for vintages already selling or a plan row's incoming vintage).
+  - profile chain: own label profile, else the plan's comparable label's profile, else the BASE
+    label's profile (base_label = title with the size suffix stripped, e.g. "Carneros Chardonnay
+    1.5L" -> "Carneros Chardonnay"), else none (skipped); never a tier profile.
+  - borrowing the base profile (profile_key = the base label): the base curve shape is used, and
+    the lifetime is anchored on the large format's own history, the same for every vintage
+    (trend 1): first_year(newest vintage with a known first_year) / base first-12 share; else, if
+    the newest released vintage has months_sold >= 3, sold_to_date(newest) / base cumulative
+    share through min(months_sold, 36); else base lifetime x 0.05 (LARGE_FORMAT_FALLBACK_SHARE).
+    A 'new' large-format plan row with cases known still uses cases x 12 x 0.85 (capped at cases x 12).
 
 Release (vintage_table, threshold = 50 bottles per month, all channels; "sale month" = a month
 whose bottles sum to > 0, "first sale" = the first sale month, else the first month with a row)
@@ -93,6 +101,11 @@ def varietal_from_title(title: str) -> Optional[str]:
             if i == 0 or not low[i - 1].isalnum():
                 return name
     return t.split()[-1]
+
+
+def base_label(label: str) -> str:
+    """The standard-format label a large format belongs to (the size suffix stripped)."""
+    return _strip_size(str(label))
 
 
 def is_magnum(title: str) -> bool:
@@ -439,7 +452,8 @@ def profile_for(profiles: pd.DataFrame, label: str, varietal, price, comparable:
     """Fallback chain: the label's own rows, else the comparable label's rows, else tier rows, else
     None. Tier step: tier_key(varietal, price, bands); if that key has no rows, the nearest band of
     the same varietal that has rows (band distance in low < mid < high; ties go to the lower band).
-    Large-format labels (is_large_format) never fall back to a tier. None also for an unknown varietal or missing price."""
+    Large-format labels (is_large_format) never fall back to a tier: after the comparable they try
+    the base label's rows (base_label), else None. None also for an unknown varietal or missing price."""
     if profiles is None or profiles.empty:
         return None
     lab = profiles[profiles["scope"] == "label"]
@@ -449,7 +463,9 @@ def profile_for(profiles: pd.DataFrame, label: str, varietal, price, comparable:
             if len(rows):
                 return rows
     if is_magnum(str(label)):
-        return None
+        base = base_label(label)
+        rows = lab[lab["key"] == base] if base and base != label else lab.iloc[0:0]
+        return rows if len(rows) else None
     tk = _safe_tier(varietal, price, bands)
     if tk is None:
         return None
@@ -489,6 +505,7 @@ def _default_release(label: str, vintage: int, vintages: pd.DataFrame, plan_year
 
 DEFAULT_NEXT_MAX_MONTHS = 24   # newest vintage sold fewer months than this -> its successor is a default candidate
 MIN_OWN_MONTHS = 3   # months sold before a tier-profiled label's own sales anchor its lifetime
+LARGE_FORMAT_FALLBACK_SHARE = 0.05   # large format with too little history: this share of the base label's lifetime
 
 
 def _own_tier_lifetime(label: str, vintages: pd.DataFrame, curve: np.ndarray, tier_lifetime: float) -> float:
@@ -545,7 +562,9 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     the comparable's anchor vintage; new label with no cases = profile lifetime for V (so with a
     comparable: comparable lifetime * comparable trend ** (V - comparable anchor)). The gap is 0
     when the label-scope profile's curve has first-12 share <= 0 (its lifetime is then not
-    first-year anchored). Capped at cases x 12 when cases are known. No profile: skipped with a
+    first-year anchored). A large format using its base label's profile (profile_for's base step)
+    anchors on its own sales through the base curve like a tier-profiled label, with base lifetime x
+    LARGE_FORMAT_FALLBACK_SHARE as the last resort. Capped at cases x 12 when cases are known. No profile: skipped with a
     warning, except a non-magnum new label, which gets a summary row only.
     Release: an unreleased candidate whose release month is <= origin's month is moved to the month
     after origin when it has a plan row or, with no plan row, when it already has sales
@@ -675,6 +694,11 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             life = float(c) * 12.0 * factor
         elif prof is not None and prof["scope"].iloc[0] == "tier":
             life = _own_tier_lifetime(label, vintages, np.array(list(prof["curve"]), dtype=float), p_life)
+        elif prof is not None and is_large_format(str(label)) and prof["key"].iloc[0] == base_label(label) \
+                and prof["key"].iloc[0] != label:
+            # large format borrowing its base label's curve: anchor on its own sales
+            life = _own_tier_lifetime(label, vintages, np.array(list(prof["curve"]), dtype=float),
+                                      p_life * LARGE_FORMAT_FALLBACK_SHARE)
         else:
             life = p_life * p_trend ** gap
         if pd.notna(c):

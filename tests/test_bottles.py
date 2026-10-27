@@ -569,3 +569,49 @@ def test_pearl_small_label_vintages_release_on_first_sale(caplog):
     for vin in (2022, 2023, 2024):
         assert pearl.loc[vin].release_month == pv.loc[vin].release_month
     assert pearl.loc[2025].release_month == pd.Timestamp("2027-03-01")
+
+
+# --- second dry-run: large formats borrow the base label curve -------------------
+
+def test_large_format_borrows_base_label_curve_and_own_anchor():
+    h = make_bottle_history()
+    mag = "Carneros Chardonnay 1.5L"
+    extra = pd.DataFrame(_monthly(mag, 2024, "2026-06-01", [20] * 5, price=110.0, varietal="Chardonnay")
+                         + _monthly("Nowhere Pinot Noir 3.0L", 2024, "2026-06-01", [10] * 5, price=300.0),
+                         columns=h.columns)
+    hs = pd.concat([h, extra], ignore_index=True)
+    v = vintage_table(hs, ORIGIN); prof = fit_profiles(hs, v, P); bands = price_bands(hs)
+    assert not (prof.key == mag).any()                               # no 24 months of its own history
+    assert b.base_label(mag) == "Carneros Chardonnay" and b.base_label("X Pinot Noir - 1.5L") == "X Pinot Noir"
+    got = profile_for(prof, mag, "Chardonnay", 110.0, None, bands)
+    assert got.scope.iloc[0] == "label" and got.key.iloc[0] == "Carneros Chardonnay"
+    assert profile_for(prof, "Nowhere Pinot Noir 3.0L", "Pinot Noir", 300.0, None, bands) is None   # no tier fallback
+    fc, summ = forecast_vintages(prof, v, hs, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    s = summ[summ.label == mag]
+    assert list(s.vintage) == [2024]                                 # no default next vintage for a large format
+    s = s.iloc[0]
+    assert s.profile_key == "Carneros Chardonnay" and s.sold_to_date == 100
+    base = prof[(prof.scope == "label") & (prof.key == "Carneros Chardonnay")]
+    curve = np.array(list(base.curve))
+    assert s.lifetime_p50 == pytest.approx(100 / curve[:, :5].sum())   # own sales / base cumulative share
+    assert s.lifetime_p50 < 0.2 * float(base.lifetime.iloc[0])
+    rows = fc[fc.label == mag]
+    assert len(rows) and rows.month_start.min() == pd.Timestamp("2026-11-01") and (rows.p50 >= 0).all()
+    assert rows.p50.sum() <= s.lifetime_p50 - s.sold_to_date + 1e-6
+    assert not (summ.label == "Nowhere Pinot Noir 3.0L").any()       # no base profile: still skipped
+    # Too little history (< 3 months, no first year): base lifetime x 0.05.
+    short = v[v.label == mag].assign(months_sold=2)
+    assert b._own_tier_lifetime(mag, short, curve, float(base.lifetime.iloc[0]) * b.LARGE_FORMAT_FALLBACK_SHARE) \
+        == pytest.approx(float(base.lifetime.iloc[0]) * 0.05)
+
+
+def test_large_format_without_base_profile_is_skipped(caplog):
+    h = make_bottle_history()
+    extra = pd.DataFrame(_monthly("West Slope Pinot Noir 3.0L", 2024, "2026-06-01", [8] * 5, price=300.0),
+                         columns=h.columns)
+    hs = pd.concat([h, extra], ignore_index=True)
+    v = vintage_table(hs, ORIGIN); prof = fit_profiles(hs, v, P); bands = price_bands(hs)
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, hs, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    assert not (summ.label == "West Slope Pinot Noir 3.0L").any() and not (fc.label == "West Slope Pinot Noir 3.0L").any()
+    assert "no profile for West Slope Pinot Noir 3.0L 2024" in caplog.text
