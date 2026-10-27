@@ -12,6 +12,8 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection, Engine
 
+from .bottles import label_from_title, varietal_from_title, vintage_from_title
+from .clubs import take_rate_default, tier_table
 from .config import ACTIVE_MEMBERS_KPI, ALL_KPIS, ENGINE_VERSION, FORECAST_SCHEMA, KPI_SCHEMA
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
@@ -251,14 +253,20 @@ def write_results(conn: Connection, run_id: int, daily: List[dict], monthly: Lis
         """, accuracy)
 
 
-def finish_run(conn: Connection, run_id: int, status: str, error: Optional[str] = None) -> None:
+def finish_run(conn: Connection, run_id: int, status: str, error: Optional[str] = None,
+               bottle_rows: Optional[int] = None) -> None:
+    """Close the run. `bottle_rows` (bottle_forecast rows written) is stored when given."""
     if status == "success":
         conn.execute(text(f"update {FORECAST_SCHEMA}.forecast_runs set is_latest = false where is_latest"))
+    params = {"status": status, "error": error, "latest": status == "success", "run_id": run_id}
+    extra = ""
+    if bottle_rows is not None:
+        extra, params["bottle_rows"] = ", bottle_rows = :bottle_rows", int(bottle_rows)
     conn.execute(text(f"""
         update {FORECAST_SCHEMA}.forecast_runs
-        set status = :status, finished_at = clock_timestamp(), error = :error, is_latest = :latest
+        set status = :status, finished_at = clock_timestamp(), error = :error, is_latest = :latest{extra}
         where run_id = :run_id
-    """), {"status": status, "error": error, "latest": status == "success", "run_id": run_id})
+    """), params)
 
 
 def write_bookings_snapshot(conn: Connection, snapshot_date: pd.Timestamp, otb: pd.DataFrame) -> None:
@@ -279,11 +287,30 @@ def write_bookings_snapshot(conn: Connection, snapshot_date: pd.Timestamp, otb: 
     """, records)
 
 
-def prune_runs(conn: Connection, keep_days: int = 400) -> None:
+# v2 detail tables: bulky per-run rows only the latest run's are read from; kept for keep_days_detail.
+DETAIL_TABLES = ("forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast",
+                 "bottle_profiles", "bottle_backtest", "bottle_vintage_summary")
+
+
+def prune_detail_statements() -> List[str]:
+    """One delete per v2 detail table: rows of non-latest runs started more than :detail_days ago."""
+    return [f"""
+        delete from {FORECAST_SCHEMA}.{t} d
+        using {FORECAST_SCHEMA}.forecast_runs r
+        where d.run_id = r.run_id and not r.is_latest
+          and r.started_at < now() - make_interval(days => :detail_days)
+    """ for t in DETAIL_TABLES]
+
+
+def prune_runs(conn: Connection, keep_days: int = 400, keep_days_detail: int = 14) -> None:
+    """Delete non-latest runs older than keep_days (cascades to every run-scoped table), then the v2
+    detail rows of non-latest runs older than keep_days_detail (the run row and v1 tables stay)."""
     conn.execute(text(f"""
         delete from {FORECAST_SCHEMA}.forecast_runs
         where started_at < now() - make_interval(days => :days) and not is_latest
     """), {"days": int(keep_days)})
+    for sql in prune_detail_statements():
+        conn.execute(text(sql), {"detail_days": int(keep_days_detail)})
 
 
 # --- Forecast v2: loader / writer contracts ----------------------------------
@@ -335,47 +362,320 @@ def _empty_memberships() -> pd.DataFrame:
     return _empty("memberships")
 
 
+NIL_UUID = "00000000-0000-0000-0000-000000000000"   # stored tier_id for the synthetic 'other' tier (column is uuid not null)
+OTHER_TIER = "other"
+
+
+def _date(v) -> Optional[str]:
+    if v is None or pd.isna(v):
+        return None
+    return pd.Timestamp(v).strftime("%Y-%m-%d")
+
+
+def _int(v) -> Optional[int]:
+    f = _num(v)
+    return None if f is None else int(round(f))
+
+
+def _s(v) -> Optional[str]:
+    return None if v is None or (isinstance(v, float) and math.isnan(v)) or v is pd.NaT else str(v)
+
+
+# --- v2 converters ---------------------------------------------------------------
+
+def period_records(periods: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "kpi_id": int(r.kpi_id), "period": str(r.period), "ahead": int(r.ahead),
+        "period_start": _date(r.period_start), "origin_date": _date(r.origin_date),
+        "actual": _num(r.actual), "forecast": _num(r.forecast), "p10": _num(r.p10), "p90": _num(r.p90),
+    } for r in periods.itertuples(index=False)]
+
+
+def accuracy_period_records(acc: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "kpi_id": int(r.kpi_id), "period": str(r.period), "ahead": int(r.ahead),
+        "wmape": _num(r.wmape), "bias": _num(r.bias), "hit_rate": _num(r.hit_rate), "n": _int(r.n),
+    } for r in acc.itertuples(index=False)]
+
+
+def bottle_records(fc: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "label": str(r.label), "vintage": int(r.vintage), "month_start": _date(r.month_start),
+        "channel": str(r.channel), "p50": _num(r.p50) or 0.0, "p10": _num(r.p10), "p90": _num(r.p90),
+    } for r in fc.itertuples(index=False)]
+
+
+def vintage_summary_records(summ: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "label": str(r.label), "vintage": int(r.vintage), "varietal": _s(r.varietal),
+        "release_month": _date(r.release_month), "sold_to_date": _int(r.sold_to_date),
+        "cases_made": _int(r.cases_made), "lifetime_p50": _num(r.lifetime_p50),
+        "lifetime_p10": _num(r.lifetime_p10), "lifetime_p90": _num(r.lifetime_p90),
+        "profile_key": _s(r.profile_key),
+    } for r in summ.itertuples(index=False)]
+
+
+def profile_records(prof: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "scope": str(r.scope), "key": str(r.key), "channel": str(r.channel),
+        "curve": json.dumps([_num(x) or 0.0 for x in r.curve]),
+        "lifetime": _num(r.lifetime), "trend": _num(r.trend), "log_dispersion": _num(r.log_dispersion),
+        "n_vintages": _int(r.n_vintages),
+    } for r in prof.itertuples(index=False)]
+
+
+def bottle_backtest_records(bt: pd.DataFrame, run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "label": str(r.label), "vintage": int(r.vintage),
+        "first_year_actual": _num(r.first_year_actual), "first_year_forecast": _num(r.first_year_forecast),
+        "p10": _num(r.p10), "p90": _num(r.p90),
+    } for r in bt.itertuples(index=False)]
+
+
+def club_history_records(hist: pd.DataFrame) -> List[dict]:
+    """Tier id 'other' (clubs.OTHER) is stored as the nil uuid, because the column is `uuid not null`;
+    the app treats NIL_UUID as the 'other' tier."""
+    out = []
+    for r in hist.itertuples(index=False):
+        tid = str(r.tier_id)
+        out.append({
+            "release_start": _date(r.release_start), "season": str(r.season),
+            "tier_id": NIL_UUID if tid == OTHER_TIER else tid, "tier_name": _s(r.tier_name),
+            "label": str(r.label), "vintage": None if pd.isna(r.vintage) else int(r.vintage),
+            "qty_per_box": _num(r.qty_per_box), "price": _num(r.price), "orders": _int(r.orders),
+            "members": _int(r.members), "take_rate": _num(r.take_rate), "bottles": _int(r.bottles),
+            "revenue": _num(r.revenue),
+        })
+    return out
+
+
+# --- v2 loaders ------------------------------------------------------------------
+
+def _frame(rows, cols: List[str]) -> pd.DataFrame:
+    return pd.DataFrame([tuple(r) for r in rows], columns=cols)
+
+
+def _parse_titles(df: pd.DataFrame) -> pd.DataFrame:
+    """Add label / vintage / varietal from the raw title, preferring the warehouse vintage/varietal."""
+    titles = df["title"].fillna("").astype(str)
+    df = df.copy()
+    df["label"] = titles.map(label_from_title)
+    parsed = titles.map(vintage_from_title)
+    df["vintage"] = pd.to_numeric(df["vintage"], errors="coerce").where(lambda s: s.notna(), pd.to_numeric(parsed, errors="coerce"))
+    if "varietal" in df:
+        fb = titles.map(varietal_from_title)
+        df["varietal"] = df["varietal"].where(df["varietal"].notna(), fb)
+    return df[df["vintage"].notna() & (df["label"] != "")].assign(vintage=lambda d: d["vintage"].astype(int))
+
+
 def load_club_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
-    return _empty_club_plan()  # WS-B
+    rows = conn.execute(text(f"""
+        select p.season, p.release_date, cast(p.tier_id as text) as tier_id, p.label, p.vintage, p.qty,
+               p.price, t.take_rate, t.members_override
+        from {FORECAST_SCHEMA}.club_release_plan p
+        left join {FORECAST_SCHEMA}.club_release_tier_plan t
+          on t.plan_year = p.plan_year and t.season = p.season and t.tier_id = p.tier_id
+        where p.plan_year = :y
+        order by p.release_date, p.tier_id, p.label, p.vintage
+    """), {"y": int(plan_year)}).fetchall()
+    plan = _frame(rows, EMPTY["club_plan"])
+    if plan.empty:
+        return plan
+    hrows = conn.execute(text(f"""
+        select release_start, season, cast(tier_id as text) as tier_id, label, vintage, price, take_rate
+        from {FORECAST_SCHEMA}.club_release_history
+    """)).fetchall()
+    hist = _frame(hrows, ["release_start", "season", "tier_id", "label", "vintage", "price", "take_rate"])
+    for c in ["qty", "price", "take_rate", "members_override"]:
+        plan[c] = pd.to_numeric(plan[c], errors="coerce")
+    plan["release_date"] = pd.to_datetime(plan["release_date"])
+    latest: Dict[str, float] = {}
+    if not hist.empty:
+        h = (hist[hist["tier_id"] != NIL_UUID].dropna(subset=["price"])
+             .sort_values(["release_start", "tier_id"], kind="stable"))
+        latest = h.groupby("label")["price"].last().astype(float).to_dict()
+    plan["price"] = [p if pd.notna(p) else latest.get(lbl, 0.0) for p, lbl in zip(plan["price"], plan["label"])]
+    plan["take_rate"] = [t if pd.notna(t) else take_rate_default(hist, tid, season)
+                         for t, tid, season in zip(plan["take_rate"], plan["tier_id"], plan["season"])]
+    return plan[EMPTY["club_plan"]]
 
 
 def load_tier_shares(conn: Connection, origin: pd.Timestamp, min_members: int) -> pd.DataFrame:
-    return _empty_tier_shares()  # WS-B
+    return tier_table(load_memberships(conn), origin, min_members)
 
 
 def load_label_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
-    return _empty_label_plan()  # WS-B
+    rows = conn.execute(text(f"""
+        select plan_year, label, status, incoming_vintage, release_month, override_outgoing,
+               override_incoming, price, varietal, comparable_label
+        from {FORECAST_SCHEMA}.label_plan where plan_year = :y order by label
+    """), {"y": int(plan_year)}).fetchall()
+    df = _frame(rows, EMPTY["label_plan"])
+    if not df.empty:
+        df["release_month"] = pd.to_datetime(df["release_month"])
+        for c in ["override_outgoing", "override_incoming", "price"]:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df
 
 
 def load_vintage_plan(conn: Connection) -> pd.DataFrame:
-    return _empty_vintage_plan()  # WS-B
+    rows = conn.execute(text(f"""
+        select label, vintage, cases_made, assumed from {FORECAST_SCHEMA}.bottle_vintage_plan
+        order by label, vintage
+    """)).fetchall()
+    return _frame(rows, EMPTY["vintage_plan"])
+
+
+# paid_at is a timestamp: `<= date` would drop the origin day's sales, so compare to the next midnight.
+BOTTLE_HISTORY_SQL = """
+        select date_trunc('month', i.paid_at)::date as month_start, p.title, p.vintage, p.varietal,
+               i.channel, sum(i.quantity) as bottles, sum(i.product_subtotal) as revenue
+        from public.fct_order_item i
+        join public.stg_product p on p.product_id = i.product_id
+        where i.item_type = 'Wine' and i.paid_at < cast(:origin as date) + interval '1 day'
+        group by 1, 2, 3, 4, 5
+    """
 
 
 def load_bottle_history(conn: Connection, origin: pd.Timestamp) -> pd.DataFrame:
-    return _empty_bottle_history()  # WS-B
+    rows = conn.execute(text(BOTTLE_HISTORY_SQL), {"origin": origin.strftime("%Y-%m-%d")}).fetchall()
+    cols = EMPTY["bottle_history"]
+    if not rows:
+        return _empty("bottle_history")
+    df = _frame(rows, ["month_start", "title", "vintage", "varietal", "channel", "bottles", "revenue"])
+    df["bottles"] = pd.to_numeric(df["bottles"], errors="coerce").fillna(0.0)
+    df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce").fillna(0.0)
+    df = _parse_titles(df)
+    if df.empty:
+        return _empty("bottle_history")
+    df["month_start"] = pd.to_datetime(df["month_start"])
+    df["channel"] = df["channel"].fillna("POS")         # null channel would vanish from the groupby; POS is the in-person default
+    df["varietal"] = df["varietal"].fillna("")          # keep NaN out of the group keys
+    out = (df.groupby(["label", "vintage", "varietal", "month_start", "channel"], as_index=False)
+             .agg(bottles=("bottles", "sum"), revenue=("revenue", "sum")))
+    out["varietal"] = out["varietal"].replace("", None)
+    out["price"] = [r / b if b > 0 else float("nan") for r, b in zip(out["revenue"], out["bottles"])]
+    return out[cols].sort_values(["label", "vintage", "month_start", "channel"]).reset_index(drop=True)
 
 
 def load_club_orders(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    return _empty_club_orders()  # WS-B
+    rows = conn.execute(text("""
+        select o.order_id, o.customer_id, o.created_at, p.title, p.vintage,
+               sum(i.quantity) as bottles, sum(i.product_subtotal) as revenue
+        from public.fct_order o
+        join public.fct_order_item i on i.order_id = o.order_id and i.item_type = 'Wine'
+        join public.stg_product p on p.product_id = i.product_id
+        where o.channel = 'Club' and o.created_at >= :start and o.created_at < :end
+        group by o.order_id, o.customer_id, o.created_at, p.title, p.vintage
+    """), {"start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d")}).fetchall()
+    return club_orders_frame(rows)
+
+
+def club_orders_frame(rows) -> pd.DataFrame:
+    """Post-process load_club_orders rows (order_id, customer_id, created_at, title, vintage, bottles,
+    revenue): drop rows without a customer, parse titles, collapse to order x label x vintage, and
+    drop orders whose total bottles are <= 0 (refund-only orders)."""
+    if not rows:
+        return _empty("club_orders")
+    df = _frame(rows, ["order_id", "customer_id", "created_at", "title", "vintage", "bottles", "revenue"])
+    df = df[df["customer_id"].notna()]                  # unattributable to a member; groupby would drop them silently anyway
+    df = _parse_titles(df)
+    if df.empty:
+        return _empty("club_orders")
+    df["created_at"] = pd.to_datetime(df["created_at"])
+    for c in ["bottles", "revenue"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+    # two products can share label + vintage: collapse to one row per order x label x vintage
+    out = (df.groupby(["order_id", "customer_id", "created_at", "label", "vintage"], as_index=False)
+             .agg(bottles=("bottles", "sum"), revenue=("revenue", "sum")))
+    total = out.groupby("order_id")["bottles"].transform("sum")
+    out = out[total > 0]
+    if out.empty:
+        return _empty("club_orders")
+    return out[EMPTY["club_orders"]].reset_index(drop=True)
 
 
 def load_memberships(conn: Connection) -> pd.DataFrame:
-    return _empty_memberships()  # WS-B
+    rows = conn.execute(text("""
+        select membership_id, customer_id, club_id, _membership_json->'club'->'seo'->>'title' as club_name,
+               status, signup_at, cancel_at, delivery_method
+        from public.dim_club_membership
+    """)).fetchall()
+    df = _frame(rows, EMPTY["memberships"])
+    if not df.empty:
+        df["club_id"] = df["club_id"].map(lambda v: None if v is None or pd.isna(v) else str(v))
+        for c in ["signup_at", "cancel_at"]:
+            df[c] = pd.to_datetime(df[c])
+    return df
 
 
 def load_members_daily(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
-    return pd.Series(dtype=float, index=pd.DatetimeIndex([]))  # WS-B
+    rows = conn.execute(text("""
+        select date_day, total_active_club_membership from public.agg_club_membership_active_daily
+        where date_day >= :start and date_day <= :end order by date_day
+    """), {"start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d")}).fetchall()
+    if not rows:
+        return pd.Series(dtype=float, index=pd.DatetimeIndex([]))
+    idx = pd.DatetimeIndex(pd.to_datetime([r[0] for r in rows]))
+    return pd.Series([_num(r[1]) for r in rows], index=idx, dtype=float)
 
+
+# --- v2 writers ------------------------------------------------------------------
 
 def write_periods(conn: Connection, run_id: int, period_recs: List[dict], acc_recs: List[dict]) -> None:
-    pass  # WS-B
+    if period_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.forecast_backtest_periods
+              (run_id, kpi_id, period, ahead, period_start, origin_date, actual, forecast, p10, p90)
+            values (:run_id, :kpi_id, :period, :ahead, :period_start, :origin_date, :actual, :forecast, :p10, :p90)
+        """, period_recs)
+    if acc_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.forecast_accuracy_periods
+              (run_id, kpi_id, period, ahead, wmape, bias, hit_rate, n)
+            values (:run_id, :kpi_id, :period, :ahead, :wmape, :bias, :hit_rate, :n)
+        """, acc_recs)
 
 
 def write_bottles(conn: Connection, run_id: int, forecast_recs: List[dict], summary_recs: List[dict],
                   profile_recs: List[dict], backtest_recs: List[dict]) -> None:
-    pass  # WS-B
+    if forecast_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.bottle_forecast
+              (run_id, label, vintage, month_start, channel, p50, p10, p90)
+            values (:run_id, :label, :vintage, :month_start, :channel, :p50, :p10, :p90)
+        """, forecast_recs)
+    if summary_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.bottle_vintage_summary
+              (run_id, label, vintage, varietal, release_month, sold_to_date, cases_made,
+               lifetime_p50, lifetime_p10, lifetime_p90, profile_key)
+            values (:run_id, :label, :vintage, :varietal, :release_month, :sold_to_date, :cases_made,
+                    :lifetime_p50, :lifetime_p10, :lifetime_p90, :profile_key)
+        """, summary_recs)
+    if profile_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.bottle_profiles
+              (run_id, scope, key, channel, curve, lifetime, trend, log_dispersion, n_vintages)
+            values (:run_id, :scope, :key, :channel, cast(:curve as jsonb), :lifetime, :trend,
+                    :log_dispersion, :n_vintages)
+        """, profile_recs)
+    if backtest_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.bottle_backtest
+              (run_id, label, vintage, first_year_actual, first_year_forecast, p10, p90)
+            values (:run_id, :label, :vintage, :first_year_actual, :first_year_forecast, :p10, :p90)
+        """, backtest_recs)
 
 
 def write_club_history(conn: Connection, history_recs: List[dict]) -> None:
     """Delete + insert (not run-scoped)."""
-    pass  # WS-B
+    conn.execute(text(f"delete from {FORECAST_SCHEMA}.club_release_history"))
+    if history_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.club_release_history
+              (release_start, season, tier_id, tier_name, label, vintage, qty_per_box, price, orders,
+               members, take_rate, bottles, revenue)
+            values (:release_start, :season, cast(:tier_id as uuid), :tier_name, :label, :vintage, :qty_per_box,
+                    :price, :orders, :members, :take_rate, :bottles, :revenue)
+        """, history_recs)

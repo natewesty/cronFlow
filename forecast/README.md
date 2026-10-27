@@ -29,6 +29,18 @@ Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` loca
 - Wine Club Fees (KPI 5) are placed at the matched release's fee offsets.
 - The run's params JSON records `season` and `planned_revenue` (null when unplanned) for each scheduled release.
 
+## v2 tables and run order
+
+Run-scoped (keyed by `run_id`, pruned with the run): `forecast_backtest_periods` and `forecast_accuracy_periods` (week/month period backtest per KPI and periods ahead), `bottle_forecast` (monthly p50/p10/p90 per label, vintage and channel), `bottle_vintage_summary`, `bottle_profiles`, `bottle_backtest` (first-year retrospective per vintage). These six detail tables are also pruned early: rows of non-latest runs started more than 14 days ago are deleted on every successful run (`prune_runs(keep_days_detail=14)`); the run row and the v1 tables keep the 400-day rule. `forecast_runs.bottle_rows` records the `bottle_forecast` rows written. Not run-scoped: `club_release_history` (rebuilt on live-origin runs that produce history; backfills, dry runs and empty results leave it untouched). App-written plans: `label_plan`, `bottle_vintage_plan`, `club_release_plan`, `club_release_tier_plan`.
+
+Run order: load KPI history, OTB, members, assumptions → load plans (club plan for this year and next, tier shares, label and vintage plans), bottle history and memberships → detect releases → daily forecast → daily backtest (kept as a frame) → bands → monthly → period backtest (from the same frame; empty with `--skip-backtest`) → bottles (vintage table, price bands, vintage backtest, profiles, vintage forecast; skipped with a warning when there is no bottle history) → club history (orders for each release in the last 3 years, one window query per release; skipped with a warning when there are no memberships) → write everything in one transaction. `--dry-run` computes all of it and logs the counts (`periods=… bottles=… club_history=…`) and the month ahead=1 WMAPE for KPIs 4, 6 and 14.
+
+Period p10/p90 bands are in-sample: the ratio percentiles come from the same backtest periods they are applied to.
+
+Each step logs its wall time (`step=load|daily|backtest|monthly|periods|bottles|clubs|write <seconds>s`); the club step also logs `club tiers=… active_in_listed_tiers=… members=…` to compare listed-tier actives with `members_a0`. Timings with the v2 steps: _to be measured on the first production dry run_.
+
+Bottle release rule: a vintage releases in its first month with ≥ 50 bottles. A vintage that never reached 50 releases on its first sale when no vintage of its label ever did (small labels, magnums) or when it is older than the label's newest vintage that did (library tail); otherwise it is unreleased (stray pre-release bottles): no release month, forecast as an incoming vintage whose lifetime already includes the bottles sold, and the default next vintage counts from the newest released one.
+
 ## Tests
 
 ```bash

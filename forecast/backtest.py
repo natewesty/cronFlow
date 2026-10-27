@@ -8,10 +8,17 @@ import pandas as pd
 
 from .config import ACTIVE_MEMBERS_KPI, EngineParams, season_of
 from .engine import forecast_daily
+from .identities import aggregate_period
 from .types import Context, Release, ScheduledRelease
 
 ACCURACY_COLUMNS = ["kpi_id", "horizon_bucket", "wmape", "bias", "ratio_p10", "ratio_p90",
                     "weekly_wmape", "monthly_wmape", "n"]
+
+PERIOD_COLUMNS = ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast",
+                  "p10", "p90"]
+ACCURACY_PERIOD_COLUMNS = ["kpi_id", "period", "ahead", "wmape", "bias", "hit_rate", "n"]
+_PF_COLUMNS = ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast"]
+_MIN_PERIOD_RATIOS = 5
 
 
 def bucket_for(horizon: int, params: EngineParams) -> str:
@@ -93,9 +100,16 @@ def summarize(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
                        "weekly_wmape": float, "monthly_wmape": float})
 
 
+def run_backtest_full(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
+                      origin: pd.Timestamp) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Daily accuracy summary plus the backtest frame it came from (for the period backtest)."""
+    bt = backtest_frame(hist, releases, params, origin)
+    return summarize(bt, params), bt
+
+
 def run_backtest(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
                  origin: pd.Timestamp) -> pd.DataFrame:
-    return summarize(backtest_frame(hist, releases, params, origin), params)
+    return run_backtest_full(hist, releases, params, origin)[0]
 
 
 def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,
@@ -119,3 +133,81 @@ def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,
         p10[k] = np.where(zero, 0.0, np.minimum(a, b))
         p90[k] = np.where(zero, 0.0, np.maximum(a, b))
     return p10, p90
+
+
+def _period_keys(dates: pd.DatetimeIndex, period: str) -> pd.Series:
+    if period == "week":
+        return pd.Series(dates.to_period("W-SUN").start_time, index=dates)
+    return pd.Series(dates.to_period("M").start_time, index=dates)
+
+
+def period_frame(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
+    """Aggregate each origin's forecast and actuals to full weeks (Mon-Sun) and calendar
+    months lying wholly inside that origin's forecast window; one row per kpi/period/ahead
+    from the latest origin."""
+    if bt.empty:
+        return pd.DataFrame(columns=_PF_COLUMNS)
+    limits = {"week": params.period_weeks_ahead, "month": params.period_months_ahead}
+    rows = []
+    for origin, g in bt.groupby("origin"):
+        act = g.pivot(index="date", columns="kpi_id", values="actual").sort_index()
+        fc = g.pivot(index="date", columns="kpi_id", values="forecast").sort_index()
+        have = set(act.index)
+        window = set(pd.date_range(origin + pd.Timedelta(days=1), periods=params.horizon, freq="D"))
+        for period, limit in limits.items():
+            keys = _period_keys(act.index, period)
+            ahead = 0
+            for start in sorted(keys.unique()):
+                days = act.index[keys.to_numpy() == start]
+                if period == "week":
+                    end = start + pd.Timedelta(days=6)
+                else:
+                    end = start + pd.offsets.MonthEnd(0)
+                full = pd.date_range(start, end, freq="D")
+                if not all(d in have and d in window for d in full):
+                    continue
+                ahead += 1
+                if ahead > limit:
+                    break
+                a = aggregate_period(act.loc[days])
+                f = aggregate_period(fc.loc[days])
+                for k in a.index:
+                    rows.append((int(k), period, ahead, pd.Timestamp(start), pd.Timestamp(origin),
+                                 float(a[k]), float(f[k])))
+    out = pd.DataFrame(rows, columns=_PF_COLUMNS)
+    if out.empty:
+        return out
+    out = out.sort_values("origin_date").drop_duplicates(
+        ["kpi_id", "period", "period_start", "ahead"], keep="last")
+    return out.sort_values(["kpi_id", "period", "ahead", "period_start"]).reset_index(drop=True)
+
+
+def summarize_periods(pf: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Period-level ratio bands (p10/p90 of actual/forecast per kpi/period/ahead), hit rate
+    and accuracy."""
+    if pf.empty:
+        return pd.DataFrame(columns=PERIOD_COLUMNS), pd.DataFrame(columns=ACCURACY_PERIOD_COLUMNS)
+    periods, acc = [], []
+    for (k, period, ahead), g in pf.groupby(["kpi_id", "period", "ahead"]):
+        a = g["actual"].to_numpy(dtype=float)
+        f = g["forecast"].to_numpy(dtype=float)
+        ok = (a > 0) & (f > 0)
+        lo = hi = np.nan
+        if ok.sum() >= _MIN_PERIOD_RATIOS:
+            lo, hi = np.percentile(a[ok] / f[ok], [10, 90])
+        b1, b2 = f * lo, f * hi
+        p10, p90 = np.minimum(b1, b2), np.maximum(b1, b2)
+        hit = float(np.mean((a >= p10) & (a <= p90))) if not np.isnan(lo) else np.nan
+        part = g.copy()
+        part["p10"], part["p90"] = p10, p90
+        periods.append(part)
+        w, b = _wmape(a, f), _bias(a, f)
+        acc.append({"kpi_id": int(k), "period": period, "ahead": int(ahead),
+                    "wmape": np.nan if w is None else w, "bias": np.nan if b is None else b,
+                    "hit_rate": hit, "n": int(len(g))})
+    pdf = pd.concat(periods, ignore_index=True)[PERIOD_COLUMNS]
+    return pdf, pd.DataFrame(acc, columns=ACCURACY_PERIOD_COLUMNS)
+
+
+def run_period_backtest(bt: pd.DataFrame, params: EngineParams) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    return summarize_periods(period_frame(bt, params))

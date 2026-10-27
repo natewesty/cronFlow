@@ -37,3 +37,8 @@ def test_v2_tables_present_and_idempotent():
     assert "add column if not exists bottle_rows" in sql
     stmts = [s for s in sql.split(";") if s.strip()]
     assert all("if not exists" in s.lower() or s.strip().lower().startswith("create schema") for s in stmts)
+
+
+def test_bottle_vintage_summary_profile_key_alter():
+    sql = " ".join(SCHEMA.read_text().lower().split())
+    assert "alter table forecast.bottle_vintage_summary add column if not exists profile_key text" in sql

@@ -113,6 +113,7 @@ create table if not exists forecast.bottle_vintage_summary (
   lifetime_p50 numeric, lifetime_p10 numeric, lifetime_p90 numeric,
   primary key (run_id, label, vintage)
 );
+alter table forecast.bottle_vintage_summary add column if not exists profile_key text;
 
 create table if not exists forecast.bottle_profiles (
   run_id bigint not null references forecast.forecast_runs(run_id) on delete cascade,

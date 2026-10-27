@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 
 import pandas as pd
@@ -7,6 +8,7 @@ from forecast import io as fio
 from forecast import run as frun
 from forecast.config import ALL_KPIS, SEASONS, EngineParams
 from tests.synth import make_history
+from tests.synth_bottles import TIER_IDS, make_bottle_history, make_club_orders, make_members_daily, make_memberships
 
 ORIGIN = pd.Timestamp("2026-10-23")
 
@@ -39,16 +41,32 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "load_assumptions", lambda conn: {})
     monkeypatch.setattr(frun.fio, "start_run", lambda conn, origin, horizon, params: state["runs"].append(params) or 42)
     monkeypatch.setattr(frun.fio, "write_results", lambda conn, run_id, d, m, a: state.__setitem__("written", (run_id, d, m, a)))
-    monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None: state["finished"].append((run_id, status, error)))
+    monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None, bottle_rows=None:
+                        state["finished"].append((run_id, status, error))
+                        or state.__setitem__("finished_bottle_rows", bottle_rows))
     monkeypatch.setattr(frun.fio, "write_bookings_snapshot", lambda conn, d, otb: state["snapshots"].append(d))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
-    for name in ["club_plan", "tier_shares", "label_plan", "vintage_plan"]:
+    for name in ["tier_shares", "label_plan", "vintage_plan"]:
         monkeypatch.setattr(frun.fio, f"load_{name}", lambda conn, *a, _n=name: getattr(fio, f"_empty_{_n}")())
-    monkeypatch.setattr(frun.fio, "load_bottle_history", lambda conn, origin: fio._empty_bottle_history())
-    monkeypatch.setattr(frun.fio, "load_club_orders", lambda conn, start, end: fio._empty_club_orders())
-    monkeypatch.setattr(frun.fio, "load_memberships", lambda conn: fio._empty_memberships())
-    monkeypatch.setattr(frun.fio, "write_periods", lambda conn, run_id, p, a: state.setdefault("periods", []).append((run_id, p, a)))
-    monkeypatch.setattr(frun.fio, "write_bottles", lambda conn, run_id, f, s, p, b: state.setdefault("bottles", []).append(run_id))
+    state["club_plan_years"] = []
+    monkeypatch.setattr(frun.fio, "load_club_plan",
+                        lambda conn, y: state["club_plan_years"].append(y) or fio._empty_club_plan())
+    bottles = make_bottle_history()
+    memberships = make_memberships()
+    monkeypatch.setattr(frun.fio, "load_bottle_history",
+                        lambda conn, origin: bottles[bottles.month_start <= origin].reset_index(drop=True))
+    # the window opens the day before the release; synthetic orders land on release day + 1
+    state["order_windows"] = []
+    monkeypatch.setattr(frun.fio, "load_club_orders",
+                        lambda conn, start, end: state["order_windows"].append((start, end))
+                        or make_club_orders(memberships, [start + pd.Timedelta(days=1)]))
+    monkeypatch.setattr(frun.fio, "load_memberships", lambda conn: memberships)
+    monkeypatch.setattr(frun.fio, "load_members_daily",
+                        lambda conn, start, end: make_members_daily(memberships, start, end))
+    monkeypatch.setattr(frun.fio, "write_periods",
+                        lambda conn, run_id, p, a: state.setdefault("periods", []).append((run_id, p, a)))
+    monkeypatch.setattr(frun.fio, "write_bottles",
+                        lambda conn, run_id, f, s, p, b: state.setdefault("bottles", []).append((run_id, f, s, p, b)))
     monkeypatch.setattr(frun.fio, "write_club_history", lambda conn, h: state.setdefault("club_history", []).append(h))
     monkeypatch.setattr(frun, "today_pacific", lambda: ORIGIN + pd.Timedelta(days=1))
     return state
@@ -152,3 +170,119 @@ def test_effective_params_schedule_has_season(fake_io):
     entry = fake_io["runs"][0]["schedule"][0]
     assert entry["season"] in SEASONS
     assert "planned_revenue" in entry
+
+
+def test_run_writes_v2_tables(fake_io, monkeypatch):
+    monkeypatch.setattr(frun.fio, "load_assumptions",
+                        lambda conn: {"engine_params": {"backtest_days": 200, "backtest_step": 7}})
+    s = frun.run(origin=ORIGIN, horizon=120)
+    [(run_id, periods, acc)] = fake_io["periods"]
+    assert run_id == 42 and s.period_rows == len(periods) > 0 and len(acc) > 0
+    assert all(r["run_id"] == 42 for r in periods + acc)
+    assert {r["period"] for r in periods} == {"week", "month"}
+    [(run_id, fc, summ, prof, bt)] = fake_io["bottles"]
+    assert run_id == 42 and s.bottle_rows == len(fc) > 0 and len(prof) > 0 and len(summ) > 0
+    assert all(r["run_id"] == 42 for r in fc + summ + prof + bt)
+    [hist] = fake_io["club_history"]
+    estate = [r for r in hist if r["tier_id"] == TIER_IDS["Estate"]]
+    assert estate and all("run_id" not in r for r in hist)
+    assert fake_io["finished"] == [(42, "success", None)]
+
+
+def test_skip_backtest_skips_periods(fake_io):
+    s = frun.run(origin=ORIGIN, horizon=30, skip_backtest=True)
+    assert s.period_rows == 0
+    [(_, periods, acc)] = fake_io["periods"]
+    assert periods == [] and acc == []
+    assert s.bottle_rows > 0
+
+
+def test_run_loads_two_plan_years(fake_io, monkeypatch, recwarn):
+    # one distinct row per plan year; overridden here only so other run tests keep an empty plan
+    def plan(conn, y):
+        fake_io["club_plan_years"].append(y)
+        return pd.DataFrame([["fall", pd.Timestamp(year=y, month=9, day=2), TIER_IDS["Estate"],
+                              "Home Ranch Pinot Noir", y - 2, 2, 50.0, 0.6, None]], columns=fio.EMPTY["club_plan"])
+    monkeypatch.setattr(frun.fio, "load_club_plan", plan)
+    captured = {}
+    real = frun.forecast_daily
+
+    def spy(hist, origin, dates, ctx):
+        captured["ctx"] = ctx
+        return real(hist, origin, dates, ctx)
+    monkeypatch.setattr(frun, "forecast_daily", spy)
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    assert sorted(fake_io["club_plan_years"]) == [ORIGIN.year, ORIGIN.year + 1]
+    cp = captured["ctx"].club_plan
+    assert sorted(cp.release_date.dt.year) == [ORIGIN.year, ORIGIN.year + 1]
+    assert not cp.duplicated().any()
+
+
+def test_two_plan_years_concat_without_warnings(fake_io, monkeypatch, recwarn):
+    # this year's plan empty, next year's not: concatenating an empty frame warns in pandas 2.x
+    def plan(conn, y):
+        if y == ORIGIN.year:
+            return fio._empty_club_plan()
+        return pd.DataFrame([["fall", pd.Timestamp(year=y, month=9, day=2), TIER_IDS["Estate"],
+                              "Home Ranch Pinot Noir", y - 2, 2, 50.0, 0.6, None]], columns=fio.EMPTY["club_plan"])
+    monkeypatch.setattr(frun.fio, "load_club_plan", plan)
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    assert not [w for w in recwarn if "concat" in str(w.message).lower()]
+
+
+def test_club_order_windows_cover_last_three_years(fake_io):
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    w = fake_io["order_windows"]
+    # fixture releases: 13 two-day releases 2023-09-06 .. 2026-09-02; 2023-09-06 is older than 3 years
+    assert len(w) == 12
+    assert w[0] == (pd.Timestamp("2023-11-14"), pd.Timestamp("2023-11-19"))   # start - 1 day, start + days + 2
+    assert w[-1] == (pd.Timestamp("2026-09-01"), pd.Timestamp("2026-09-06"))
+    assert all(e - s == pd.Timedelta(days=5) for s, e in w)
+    assert all(s > ORIGIN - pd.DateOffset(years=3) - pd.Timedelta(days=1) for s, _ in w)
+
+
+def test_backfill_does_not_write_club_history(fake_io):
+    s = frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
+    assert "club_history" not in fake_io
+    assert s.bottle_rows > 0 and fake_io["finished"][-1][1] == "success"
+
+
+def test_run_skips_bottles_and_clubs_without_data(fake_io, monkeypatch):
+    monkeypatch.setattr(frun.fio, "load_bottle_history", lambda conn, origin: fio._empty_bottle_history())
+    monkeypatch.setattr(frun.fio, "load_memberships", lambda conn: fio._empty_memberships())
+    s = frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    assert s.bottle_rows == 0
+    assert fake_io["bottles"] == [(42, [], [], [], [])]
+    assert "club_history" not in fake_io       # history table is not run-scoped: never wiped by a skip
+    assert fake_io["finished"] == [(42, "success", None)]
+
+
+def test_dry_run_computes_v2_counts(fake_io):
+    s = frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    assert s.bottle_rows > 0
+    assert "periods" not in fake_io and "bottles" not in fake_io and "club_history" not in fake_io
+
+
+def test_run_records_bottle_rows_on_finish(fake_io):
+    s = frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    [(_, fc, _, _, _)] = fake_io["bottles"]
+    assert fake_io["finished_bottle_rows"] == s.bottle_rows == len(fc) > 0
+
+
+def test_empty_club_history_never_wipes_the_table(fake_io, monkeypatch, caplog):
+    monkeypatch.setattr(frun.fio, "load_club_orders", lambda conn, start, end: fio._empty_club_orders())
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    assert "club_history" not in fake_io
+    assert "club history write skipped: no history rows" in caplog.text
+    assert fake_io["finished"] == [(42, "success", None)]
+
+
+def test_run_logs_step_timings_and_club_active_members(fake_io, caplog):
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    steps = [r.getMessage().split()[0] for r in caplog.records if r.getMessage().startswith("step=")]
+    assert steps == ["step=" + n for n in ["load", "daily", "backtest", "monthly", "periods", "bottles", "clubs", "write"]]
+    line = next(r.getMessage() for r in caplog.records if "active_in_listed_tiers=" in r.getMessage())
+    # fixture: Estate 1500 + Premier 4 850 + Grand 4 350 + Premier 6 260 active (Tiny is below 10)
+    assert "tiers=4 active_in_listed_tiers=2960 members=3500.0" in line
