@@ -1,10 +1,14 @@
 import numpy as np
+import pytest
 import pandas as pd
 
 from forecast.config import EngineParams
-from forecast.models.club import (default_schedule, detect_releases, release_component,
-                                  release_magnitude, residual_series)
-from forecast.types import ScheduledRelease
+from forecast.models.club import (default_schedule, mark_planned, plan_ratios,
+                                  planned_release_revenue, detect_releases, match_release,
+                                  release_component, release_magnitude,
+                                  release_magnitude_pooled, residual_series,
+                                  scheduled_release_values)
+from forecast.types import Release, ScheduledRelease
 from tests.synth import make_history, release_starts
 
 P = EngineParams()
@@ -47,23 +51,56 @@ def test_residual_series_removes_release_days():
     assert resid.index.equals(df.index)
 
 
-def test_release_component_places_rpm_times_members_times_share():
-    dates = pd.date_range("2027-01-01", periods=60)
-    members = pd.Series(3500.0, index=dates)
-    sched = [ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")]
-    comp = release_component(sched, 300.0, [0.3, 0.7], members, dates)
-    assert comp[pd.Timestamp("2027-02-24")] == 0.3 * 3500 * 300
-    assert comp[pd.Timestamp("2027-02-25")] == 0.7 * 3500 * 300
-    assert comp.sum() == 3500 * 300
+def test_match_release_prefers_same_season_one_year_back():
+    rel = [Release(start=pd.Timestamp(d), days=2, day_totals=[1, 1]) for d in ("2025-09-03", "2025-11-19", "2026-02-25", "2026-05-06", "2026-09-02")]
+    m = match_release(rel, pd.Timestamp("2027-09-01"))
+    assert m.start == pd.Timestamp("2026-09-02")
+    assert match_release(rel, pd.Timestamp("2027-07-15")) is None
+
+
+def test_match_release_two_years_back_when_last_year_missing():
+    rel = [Release(start=pd.Timestamp("2025-05-07"), days=2, day_totals=[1, 1])]
+    assert match_release(rel, pd.Timestamp("2027-05-05")).start == pd.Timestamp("2025-05-07")
+
+
+def test_matched_magnitude_beats_pooled_on_seasonal_releases():
+    df = make_history(season_mult={"spring": 1.3, "summer": 0.6, "fall": 1.4, "winter": 1.0})
+    origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P)
+    sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    stock = df[23]
+    vals = scheduled_release_values(h[4], rel, h[23], stock, [s], P)
+    actual = df[4].reindex(s.dates).sum()
+    rpm, _ = release_magnitude_pooled(h[4], rel, h[23], P.release_lookback_n)
+    pooled = rpm * stock.loc[s.start]
+    assert abs(vals[s.start][0] - actual) / actual < 0.05
+    assert abs(vals[s.start][0] - actual) < abs(pooled - actual)
+
+
+def test_matched_release_falls_back_to_pooled():
+    df = make_history(start="2026-01-01", end="2026-10-23")   # under a year: no match possible
+    origin = pd.Timestamp("2026-10-23"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P)
+    s = ScheduledRelease(start=pd.Timestamp("2026-11-18"), days=2, label="x", season="winter")
+    vals = scheduled_release_values(h[4], rel, h[23], h[23], [s], P)
+    total, shares = vals[s.start]
+    assert total > 0 and np.isfinite(total) and abs(sum(shares) - 1) < 1e-9
+
+
+def test_release_component_places_values():
+    s = ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")
+    dates = pd.date_range("2027-02-20", periods=10)
+    out = release_component([s], {s.start: (1000.0, [0.3, 0.7])}, dates)
+    assert out.loc["2027-02-24"] == 300 and out.loc["2027-02-25"] == 700 and out.sum() == 1000
 
 
 def test_release_component_partial_overlap():
     dates = pd.date_range("2027-02-25", periods=10)       # starts on release day 2
-    members = pd.Series(3500.0, index=dates)
-    sched = [ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")]
-    comp = release_component(sched, 300.0, [0.3, 0.7], members, dates)
-    assert comp[pd.Timestamp("2027-02-25")] == 0.7 * 3500 * 300
-    assert comp.sum() == 0.7 * 3500 * 300
+    s = ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")
+    comp = release_component([s], {s.start: (1000.0, [0.3, 0.7])}, dates)
+    assert comp[pd.Timestamp("2027-02-25")] == 700
+    assert comp.sum() == 700
 
 
 def test_default_schedule_keeps_release_in_progress_at_origin():
@@ -111,3 +148,131 @@ def test_default_schedule_drops_superseded_release_when_gap_is_357_days():
         assert pd.Timestamp("2026-09-09") not in starts
         assert pd.Timestamp("2027-09-08") not in starts
         assert all(not s.label.startswith("Sep 2025") for s in sched)
+
+
+def _plan(season, year, rows):
+    return pd.DataFrame(rows, columns=["season", "release_date", "tier_id", "label", "vintage", "qty", "price", "take_rate", "members_override"]).assign(season=season, release_date=pd.Timestamp(f"{year}-09-01"))
+
+
+def test_planned_release_revenue_members_times_take_times_box():
+    plan = _plan("fall", 2027, [[None, None, "t1", "A", 2025, 2, 100.0, 0.5, None], [None, None, "t1", "B", 2025, 1, 50.0, 0.5, None], [None, None, "t2", "A", 2025, 4, 100.0, 0.8, 100]])
+    shares = pd.DataFrame({"tier_id": ["t1", "t2"], "tier_name": ["T1", "T2"], "active": [900, 100], "share": [0.9, 0.1]})
+    s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="", season="fall")
+    assert planned_release_revenue(plan, s, 1000.0, shares) == pytest.approx(144_500)
+
+
+def test_planned_revenue_zero_is_ignored():
+    plan = _plan("fall", 2027, [[None, None, "t1", "A", 2025, 0, 100.0, 0.5, None]])
+    s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="", season="fall")
+    assert planned_release_revenue(plan, s, 1000.0, None) is None
+
+
+def test_plan_ratios_scale_matched_total_to_plan():
+    df = make_history(); origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    plan = _plan("fall", s.start.year, [[None, None, "t1", "A", 2024, 1, 1.0, 1.0, 500_000]])
+    ratios = plan_ratios(h[4], rel, h[23], df[23], sched, P, plan, None)
+    vals = scheduled_release_values(h[4], rel, h[23], df[23], [s], P, ratios)
+    assert vals[s.start][0] == pytest.approx(500_000, rel=1e-6)
+    assert set(ratios) == {s.start}
+    mark_planned(sched, plan, 1000.0, None)
+    assert s.planned_revenue == pytest.approx(500_000)
+    assert all(x.planned_revenue is None for x in sched if x is not s)
+
+
+# --- Final fix wave ----------------------------------------------------------
+
+def test_match_release_skips_incomplete_release_at_last_history_date():
+    rel = [Release(start=pd.Timestamp("2025-09-03"), days=2, day_totals=[1, 1]),
+           Release(start=pd.Timestamp("2026-09-02"), days=1, day_totals=[1])]   # truncated at origin
+    last = pd.Timestamp("2026-09-02")
+    assert match_release(rel, pd.Timestamp("2027-09-01"), last=last).start == pd.Timestamp("2025-09-03")
+    # Fees need the whole window in history: a release 5 days old is not a fee match.
+    last = pd.Timestamp("2026-09-07")
+    assert match_release(rel, pd.Timestamp("2027-09-01"), last=last).start == pd.Timestamp("2026-09-02")
+    assert match_release(rel, pd.Timestamp("2027-09-01"), last=last, tail_days=30).start == pd.Timestamp("2025-09-03")
+
+
+def test_zero_members_at_matched_start_falls_back_to_pooled():
+    df = make_history(); origin = pd.Timestamp("2026-08-15")
+    rel = detect_releases(df.loc[:origin, 4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    df.loc[match_release(rel, s.start).start, 23] = 0.0; h = df.loc[:origin]
+    total = scheduled_release_values(h[4], rel, h[23], df[23], [s], P)[s.start][0]
+    actual = df[4].reindex(s.dates).sum()
+    assert np.isfinite(total) and abs(total - actual) / actual < 0.05
+
+
+def test_two_year_fallback_through_scheduled_release_values():
+    df = make_history(); origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    k1 = match_release(rel, s.start)
+    no_k1 = [r for r in rel if r.start != k1.start]
+    k2 = match_release(no_k1, s.start)
+    assert (s.start - k2.start).days == 728
+    total, shares = scheduled_release_values(h[4], no_k1, h[23], df[23], [s], P)[s.start]
+    expected = df[4].reindex(k2.dates).sum() * df.loc[s.start, 23] / df.loc[k2.start, 23]
+    assert total == pytest.approx(expected) and np.allclose(shares, [0.3, 0.7], atol=0.005)
+
+
+def test_plan_rows_exclude_other_year_and_season():
+    cols = ["season", "release_date", "tier_id", "label", "vintage", "qty", "price", "take_rate", "members_override"]
+    plan = pd.DataFrame([["fall", pd.Timestamp("2027-09-01"), "t1", "A", 2025, 1, 10.0, 1.0, 100],
+                         ["fall", pd.Timestamp("2028-09-06"), "t1", "B", 2026, 1, 20.0, 1.0, 100],
+                         ["winter", pd.Timestamp("2027-11-17"), "t1", "C", 2025, 1, 40.0, 1.0, 100]], columns=cols)
+    s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="", season="fall")
+    from forecast.models.club import _plan_rows
+    assert list(_plan_rows(plan, s).label) == ["A"]
+    assert planned_release_revenue(plan, s, 1000.0, None) == pytest.approx(1000.0)
+
+
+def test_plan_applies_only_to_nearest_of_two_same_season_releases():
+    from forecast.engine import forecast_daily
+    from forecast.monthly import monthly_forecast
+    from forecast.types import Context
+    df = make_history(); origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    real = next(x for x in sched if x.start.month == 9)
+    extra = ScheduledRelease(start=real.start + pd.Timedelta(days=22), days=2, label="extra", season="fall")
+    sched2 = sorted(sched + [extra], key=lambda s: s.start)
+    plan = _plan("fall", 2026, [[None, None, "t1", "A", 2024, 1, 1.0, 1.0, 400_000]])
+    base = Context(params=P, releases=rel, schedule=sched2, members_a0=float(h[23].iloc[-1]))
+    planned = Context(params=P, releases=rel, schedule=sched2, members_a0=base.members_a0, club_plan=plan)
+    dates = pd.date_range(origin + pd.Timedelta(days=1), periods=60)
+    _, c0 = forecast_daily(h, origin, dates, base)
+    _, c1 = forecast_daily(h, origin, dates, planned)
+    assert c1[4]["release"].reindex(real.dates).sum() == pytest.approx(400_000)
+    assert c1[4]["release"].reindex(extra.dates).sum() == pytest.approx(c0[4]["release"].reindex(extra.dates).sum())
+    sep = pd.Timestamp("2026-09-01")
+    m0 = monthly_forecast(h, origin, base); m1 = monthly_forecast(h, origin, planned)
+    r0 = m0[(m0.kpi_id == 4) & (m0.month_start == sep)].release.iloc[0]
+    r1 = m1[(m1.kpi_id == 4) & (m1.month_start == sep)].release.iloc[0]
+    assert r1 == pytest.approx(400_000 + r0 / 2)       # both releases match the same 2025 release
+    mark_planned(sched2, plan, 1000.0, None)
+    assert [x.planned_revenue is not None for x in (real, extra)] == [True, False]
+
+
+def test_planned_release_without_history_equals_plan():
+    from forecast.engine import forecast_daily
+    from forecast.monthly import monthly_forecast
+    from forecast.types import Context
+    df = make_history(); origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    s = ScheduledRelease(start=pd.Timestamp("2026-09-02"), days=2, label="", season="fall")
+    plan = _plan("fall", 2026, [[None, None, "t1", "A", 2024, 1, 1.0, 1.0, 500_000]])
+    ratios = plan_ratios(h[4], [], h[23], df[23], [s], P, plan, None)
+    assert ratios == {s.start: 1.0}
+    ctx = Context(params=P, releases=[], schedule=[s], members_a0=float(h[23].iloc[-1]), club_plan=plan)
+    _, comps = forecast_daily(h, origin, pd.date_range(origin + pd.Timedelta(days=1), periods=60), ctx)
+    assert comps[4]["release"].sum() == pytest.approx(500_000)
+    m = monthly_forecast(h, origin, ctx)
+    row = m[(m.kpi_id == 4) & (m.month_start == pd.Timestamp("2026-09-01"))].iloc[0]
+    assert row.release == pytest.approx(500_000) and row.release_planned == True
+
+
+def test_release_component_folds_tail_shares_into_last_scheduled_day():
+    s = ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=1, label="x")
+    dates = pd.date_range("2027-02-20", periods=10)
+    out = release_component([s], {s.start: (1000.0, [0.3, 0.7])}, dates)
+    assert out.loc["2027-02-24"] == pytest.approx(1000) and out.sum() == pytest.approx(1000)

@@ -2,11 +2,12 @@
 and attrition spikes. Used by engine unit tests instead of warehouse data."""
 from __future__ import annotations
 
-from typing import List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from forecast.config import season_of
 from forecast.identities import apply_identities
 
 WEEKLY = np.array([0.7, 0.6, 0.8, 0.9, 1.1, 1.6, 1.3])  # Mon..Sun multipliers
@@ -27,7 +28,8 @@ def release_starts(start: pd.Timestamp, end: pd.Timestamp) -> List[pd.Timestamp]
 
 def make_history(start: str = "2023-07-01", end: str = "2026-10-23", seed: int = 0,
                  annual_growth: float = 0.05, members0: int = 3000,
-                 rpm: float = 300.0) -> pd.DataFrame:
+                 rpm: float = 300.0,
+                 season_mult: Optional[Dict[str, float]] = None) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     idx = pd.date_range(start, end, freq="D")
     n = len(idx)
@@ -78,7 +80,7 @@ def make_history(start: str = "2023-07-01", end: str = "2026-10-23", seed: int =
     members = members0 + np.cumsum(df[24].to_numpy() - df[25].to_numpy())
     df[23] = members.astype(float)
     for r in starts:
-        m = members[pos[r]]
+        m = members[pos[r]] * (season_mult or {}).get(season_of(r), 1.0)
         for j, share in enumerate((0.3, 0.7)):
             d = r + pd.Timedelta(days=j)
             if d not in pos:

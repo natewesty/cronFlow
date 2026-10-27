@@ -21,6 +21,14 @@ Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` loca
 
 `forecast_runs` (one row per run, `is_latest` marks the live one), `forecast_daily` (120 days × 31 KPIs per run), `forecast_monthly` (36 months of components), `forecast_accuracy` (rolling backtest per KPI and horizon bucket), `assumptions` (written by the app: `shipment_schedule`, `events`, `growth_overrides`, `engine_params`), `bookings_snapshot` (daily Tock on-the-books snapshot).
 
+## v2 release model
+
+- Each scheduled club release is matched to a past release within ±30 days of the same date, up to 2 years back, preferring the same season; its size is scaled by membership then vs now.
+- With no match, the pooled mean of the last four releases is the fallback.
+- A saved club plan (tables `club_release_plan` and `club_release_tier_plan`) replaces the KPI 4 release size and scales 13/22/28 by the same ratio, in both the daily and the monthly path. `forecast_monthly.release_planned` marks the months it affects.
+- Wine Club Fees (KPI 5) are placed at the matched release's fee offsets.
+- The run's params JSON records `season` and `planned_revenue` (null when unplanned) for each scheduled release.
+
 ## Tests
 
 ```bash

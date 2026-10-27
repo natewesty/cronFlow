@@ -5,7 +5,7 @@ import pytest
 
 from forecast import io as fio
 from forecast import run as frun
-from forecast.config import ALL_KPIS, EngineParams
+from forecast.config import ALL_KPIS, SEASONS, EngineParams
 from tests.synth import make_history
 
 ORIGIN = pd.Timestamp("2026-10-23")
@@ -145,3 +145,10 @@ def test_run_passes_plans_into_context(fake_io, monkeypatch):
     ctx = captured["ctx"]
     assert ctx.club_plan is not None and ctx.club_plan.empty and ctx.tier_shares is not None
     assert frun.plan_year(ORIGIN) == 2027
+
+
+def test_effective_params_schedule_has_season(fake_io):
+    frun.run(origin=ORIGIN, horizon=30, skip_backtest=True)
+    entry = fake_io["runs"][0]["schedule"][0]
+    assert entry["season"] in SEASONS
+    assert "planned_revenue" in entry

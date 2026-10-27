@@ -95,3 +95,18 @@ def test_apply_bands_zero_forecast_gets_zero_band_even_without_ratio():
     p10, p90 = apply_bands(point, acc, P)
     assert (p10[5] == 0).all() and (p90[5] == 0).all()
     assert (p10[1] == 80).all()
+
+
+def test_backtest_schedule_carries_season(monkeypatch):
+    import forecast.backtest as bm
+    from forecast.config import SEASONS
+    seen = []
+    real = bm.forecast_daily
+
+    def spy(hist, o, dates, ctx):
+        seen.extend(ctx.schedule)
+        return real(hist, o, dates, ctx)
+    monkeypatch.setattr(bm, "forecast_daily", spy)
+    df = make_history(); rel = detect_releases(df[4], P)
+    backtest_frame(df, rel, P, ORIGIN)
+    assert seen and all(x.season in SEASONS for x in seen)

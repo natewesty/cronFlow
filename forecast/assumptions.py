@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import pandas as pd
 
-from .config import EngineParams
+from .config import EngineParams, season_of
 from .types import ScheduledRelease
 
 log = logging.getLogger("forecast")
@@ -26,8 +26,19 @@ def parse_schedule(value) -> Optional[List[ScheduledRelease]]:
             continue
         if pd.isna(start) or days < 1:
             continue
-        out.append(ScheduledRelease(start=start, days=days, label=str(item.get("label") or "")))
+        out.append(ScheduledRelease(start=start, days=days, label=str(item.get("label") or ""),
+                                 season=season_of(start)))
     return sorted(out, key=lambda s: s.start) or None
+
+
+def merge_schedule(assumed: Optional[List[ScheduledRelease]],
+                   default: List[ScheduledRelease]) -> List[ScheduledRelease]:
+    """Assumption entries win for their (season, year); default entries for any other
+    (season, year) are kept. Sorted by start."""
+    assumed = list(assumed or [])
+    taken = {(season_of(s.start), s.start.year) for s in assumed}
+    kept = [s for s in default if (season_of(s.start), s.start.year) not in taken]
+    return sorted(assumed + kept, key=lambda s: s.start)
 
 
 def parse_events(value) -> List[dict]:

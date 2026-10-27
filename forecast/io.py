@@ -119,6 +119,7 @@ def monthly_records(monthly: pd.DataFrame, run_id: int) -> List[dict]:
             "is_actual": bool(r.is_actual), "organic": _num(r.organic),
             "organic_neutral": _num(r.organic_neutral), "release": _num(r.release),
             "event": _num(r.event), "fitted_growth": _num(r.fitted_growth), "p50": _num(r.p50) or 0.0,
+            "release_planned": bool(r.release_planned),
         })
     return out
 
@@ -239,8 +240,8 @@ def write_results(conn: Connection, run_id: int, daily: List[dict], monthly: Lis
     if monthly:
         _insert_many(conn, f"""
             insert into {FORECAST_SCHEMA}.forecast_monthly
-              (run_id, kpi_id, entity_id, month_start, is_actual, organic, organic_neutral, release, event, fitted_growth, p50)
-            values (:run_id, :kpi_id, :entity_id, :month_start, :is_actual, :organic, :organic_neutral, :release, :event, :fitted_growth, :p50)
+              (run_id, kpi_id, entity_id, month_start, is_actual, organic, organic_neutral, release, event, fitted_growth, p50, release_planned)
+            values (:run_id, :kpi_id, :entity_id, :month_start, :is_actual, :organic, :organic_neutral, :release, :event, :fitted_growth, :p50, :release_planned)
         """, monthly)
     if accuracy:
         _insert_many(conn, f"""

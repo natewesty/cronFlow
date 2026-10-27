@@ -63,11 +63,11 @@ def test_daily_records_shape():
 def test_monthly_and_accuracy_records_convert_nan_to_none():
     monthly = pd.DataFrame([{"month_start": pd.Timestamp("2027-01-01"), "kpi_id": 3, "is_actual": False,
                              "organic": np.nan, "organic_neutral": np.nan, "release": np.nan,
-                             "event": np.nan, "fitted_growth": np.nan, "p50": 12.5}])
+                             "event": np.nan, "fitted_growth": np.nan, "p50": 12.5, "release_planned": False}])
     m = fio.monthly_records(monthly, run_id=3)
     assert m[0] == {"run_id": 3, "kpi_id": 3, "entity_id": 0, "month_start": "2027-01-01",
                     "is_actual": False, "organic": None, "organic_neutral": None, "release": None,
-                    "event": None, "fitted_growth": None, "p50": 12.5}
+                    "event": None, "fitted_growth": None, "p50": 12.5, "release_planned": False}
     acc = pd.DataFrame([{"kpi_id": 9, "horizon_bucket": "1-7", "wmape": np.nan, "bias": np.nan,
                          "ratio_p10": np.nan, "ratio_p90": np.nan, "weekly_wmape": np.nan,
                          "monthly_wmape": np.nan, "n": 56}])
@@ -134,3 +134,8 @@ def test_v2_loader_stubs_return_typed_empty_frames():
     for name in ["club_plan", "tier_shares", "label_plan", "vintage_plan", "bottle_history", "club_orders", "memberships"]:
         assert list(fio.EMPTY[name]) == list(getattr(fio, f"_empty_{name}")().columns)
     assert fio._empty_club_plan().empty
+
+
+def test_monthly_records_include_release_planned():
+    recs = fio.monthly_records(pd.DataFrame([{"month_start": pd.Timestamp("2027-01-01"), "kpi_id": 4, "is_actual": False, "organic": 1, "organic_neutral": 1, "release": 2, "event": 0, "fitted_growth": 1, "p50": 3, "release_planned": True}]), run_id=1)
+    assert recs[0]["release_planned"] is True
