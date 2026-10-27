@@ -171,3 +171,22 @@ create table if not exists forecast.club_release_tier_plan (
   updated_at timestamptz not null default now(), updated_by text,
   primary key (plan_year, season, tier_id)
 );
+
+-- ===== Forecast v3: champion models, calendar-aware backtest, period MAE =====
+create table if not exists forecast.forecast_models (
+  run_id bigint not null references forecast.forecast_runs(run_id) on delete cascade,
+  kpi_id int not null,
+  model text not null,            -- 'swm' | 'level' | 'blend'
+  w_swm numeric not null,
+  calibration numeric not null,   -- live multiplier m, 1.0 = none
+  wmape numeric,                  -- final-backtest month-ahead wMAPE (what the page shows)
+  wmape_default numeric,          -- the swm-only frame's month-ahead wMAPE
+  wmape_selection numeric,        -- leave-one-out grid score of the chosen cell
+  n int not null,
+  candidates jsonb not null,
+  primary key (run_id, kpi_id)
+);
+
+alter table forecast.forecast_backtest_periods add column if not exists calendar boolean not null default false;
+
+alter table forecast.forecast_accuracy_periods add column if not exists mae numeric;

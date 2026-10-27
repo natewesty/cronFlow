@@ -150,9 +150,13 @@ def test_period_and_accuracy_period_records():
     rec = fio.period_records(per, 7)
     assert len(rec) == 1 and rec[0]["run_id"] == 7 and rec[0]["period_start"] == "2026-09-07"
     assert rec[0]["origin_date"] == "2026-08-30" and rec[0]["forecast"] is None
+    assert rec[0]["calendar"] is False
+    assert fio.period_records(per.assign(calendar=True), 7)[0]["calendar"] is True
+    assert fio.period_records(per.drop(columns="calendar"), 7)[0]["calendar"] is False
     acc = pd.DataFrame([[1, "month", 1, 0.2, np.nan, 0.5, 4, 3.0]], columns=ACCURACY_PERIOD_COLUMNS)
     r = fio.accuracy_period_records(acc, 7)[0]
     assert r["bias"] is None and r["n"] == 4 and r["hit_rate"] == 0.5
+    assert r["mae"] == 3.0
 
 
 def test_bottle_records():
@@ -208,9 +212,9 @@ class _RecordingConn:
 
 def test_prune_runs_deletes_v2_detail_of_old_non_latest_runs():
     stmts = fio.prune_detail_statements()
-    assert len(stmts) == len(fio.DETAIL_TABLES) == 6
+    assert len(stmts) == len(fio.DETAIL_TABLES) == 7
     assert set(fio.DETAIL_TABLES) == {"forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast",
-                                      "bottle_profiles", "bottle_backtest", "bottle_vintage_summary"}
+                                      "bottle_profiles", "bottle_backtest", "bottle_vintage_summary", "forecast_models"}
     for table, sql in zip(fio.DETAIL_TABLES, stmts):
         flat = " ".join(sql.split())
         assert flat.startswith(f"delete from forecast.{table} d using forecast.forecast_runs r")
@@ -218,7 +222,7 @@ def test_prune_runs_deletes_v2_detail_of_old_non_latest_runs():
         assert "r.started_at < now() - make_interval(days => :detail_days)" in flat
     conn = _RecordingConn()
     fio.prune_runs(conn)
-    assert len(conn.calls) == 7
+    assert len(conn.calls) == 8
     assert "delete from forecast.forecast_runs" in conn.calls[0][0] and conn.calls[0][1] == {"days": 400}
     assert all(p == {"detail_days": 14} for _, p in conn.calls[1:])
     conn = _RecordingConn()
@@ -253,3 +257,45 @@ def test_club_orders_frame_drops_refund_only_orders():
     assert sorted(df.order_id.unique()) == ["o1", "o4"]
     assert len(df[df.order_id == "o4"]) == 2 and df[df.order_id == "o4"].bottles.sum() == 2
     assert fio.club_orders_frame(rows[2:4]).empty and list(fio.club_orders_frame([]).columns) == fio.EMPTY["club_orders"]
+
+
+def test_model_records_shape_and_json_roundtrip():
+    from forecast.types import Champion
+    c = Champion(w_swm=0.25, calibration=0.95, model="blend", wmape=0.3, wmape_default=0.5,
+                 wmape_selection=0.33, n=11, candidates=[{"w": 0.25, "cal": False, "wmape": 0.33}])
+    recs = fio.model_records({8: c, 1: Champion.default()}, 5)
+    assert [r["kpi_id"] for r in recs] == [1, 8]
+    r = recs[1]
+    assert set(r) == {"run_id", "kpi_id", "model", "w_swm", "calibration", "wmape", "wmape_default",
+                      "wmape_selection", "n", "candidates"}
+    assert r["run_id"] == 5 and r["model"] == "blend" and r["w_swm"] == 0.25 and r["n"] == 11
+    assert isinstance(r["candidates"], str) and json.loads(r["candidates"]) == c.candidates
+    assert recs[0]["wmape"] is None and json.loads(recs[0]["candidates"]) == []
+
+
+def test_write_models_and_snapshot_loader_empty():
+    from forecast.types import Champion
+
+    class Conn:
+        def __init__(self, rows=()):
+            self.calls, self.rows = [], rows
+
+        def execute(self, stmt, params=None):
+            self.calls.append((" ".join(str(stmt).split()), params))
+            return self
+
+        def fetchall(self):
+            return list(self.rows)
+
+    conn = Conn()
+    fio.write_models(conn, 5, fio.model_records({8: Champion.default()}, 5))
+    assert "insert into forecast.forecast_models" in conn.calls[0][0]
+    assert conn.calls[0][1]["kpi_id_0"] == 8
+    fio.write_models(conn, 5, [])
+    assert len(conn.calls) == 1
+    df = fio.load_bookings_snapshots(Conn(), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-02-01"))
+    assert list(df.columns) == ["snapshot_date", "reservation_date", "attribution", "reservations", "guests", "fees"]
+    assert df.empty
+    df = fio.load_bookings_snapshots(
+        Conn([("2026-01-02", "2026-01-10", "Tasting", 2, 5, 100.0)]), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-02-01"))
+    assert df.iloc[0]["snapshot_date"] == pd.Timestamp("2026-01-02") and df.iloc[0]["guests"] == 5.0
