@@ -54,3 +54,22 @@ def test_active_on_null_cancel_non_active_is_inactive():
                       "status": ["Active", "Paused"], "signup_at": pd.to_datetime(["2020-01-01"] * 2),
                       "cancel_at": pd.NaT, "delivery_method": "Ship"})
     assert list(active_on(m, pd.Timestamp("2026-01-01")).membership_id) == [1]
+
+
+def test_tier_table_groups_by_id_with_latest_name_and_null_names():
+    m = make_memberships(); origin = pd.Timestamp("2026-09-02")
+    base = tier_table(m, origin, 10).set_index("tier_id")
+    est_id = base.index[base.tier_name == "Estate"][0]
+    m = m.copy()
+    est = m.index[m.club_id == est_id]
+    latest = m.loc[est, "signup_at"].idxmax()
+    m.loc[latest, "club_name"] = "Estate Club"            # renamed: the newest signup carries the new name
+    m.loc[est[:5], "club_name"] = None                    # null names never split or drop the tier
+    p6 = m.club_id == base.index[base.tier_name == "Premier 6"][0]
+    m.loc[p6, "club_name"] = None                         # every name null: falls back to the id
+    t = tier_table(m, origin, 10).set_index("tier_id")
+    assert len(t) == len(base) and t.active.to_dict() == base.active.to_dict()
+    assert t.loc[est_id, "tier_name"] == "Estate Club"
+    p6_id = base.index[base.tier_name == "Premier 6"][0]
+    assert t.loc[p6_id, "tier_name"] == str(p6_id)
+    assert t.share.sum() == pytest.approx(1.0)

@@ -252,14 +252,20 @@ def write_results(conn: Connection, run_id: int, daily: List[dict], monthly: Lis
         """, accuracy)
 
 
-def finish_run(conn: Connection, run_id: int, status: str, error: Optional[str] = None) -> None:
+def finish_run(conn: Connection, run_id: int, status: str, error: Optional[str] = None,
+               bottle_rows: Optional[int] = None) -> None:
+    """Close the run. `bottle_rows` (bottle_forecast rows written) is stored when given."""
     if status == "success":
         conn.execute(text(f"update {FORECAST_SCHEMA}.forecast_runs set is_latest = false where is_latest"))
+    params = {"status": status, "error": error, "latest": status == "success", "run_id": run_id}
+    extra = ""
+    if bottle_rows is not None:
+        extra, params["bottle_rows"] = ", bottle_rows = :bottle_rows", int(bottle_rows)
     conn.execute(text(f"""
         update {FORECAST_SCHEMA}.forecast_runs
-        set status = :status, finished_at = clock_timestamp(), error = :error, is_latest = :latest
+        set status = :status, finished_at = clock_timestamp(), error = :error, is_latest = :latest{extra}
         where run_id = :run_id
-    """), {"status": status, "error": error, "latest": status == "success", "run_id": run_id})
+    """), params)
 
 
 def write_bookings_snapshot(conn: Connection, snapshot_date: pd.Timestamp, otb: pd.DataFrame) -> None:
@@ -280,11 +286,30 @@ def write_bookings_snapshot(conn: Connection, snapshot_date: pd.Timestamp, otb: 
     """, records)
 
 
-def prune_runs(conn: Connection, keep_days: int = 400) -> None:
+# v2 detail tables: bulky per-run rows only the latest run's are read from; kept for keep_days_detail.
+DETAIL_TABLES = ("forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast",
+                 "bottle_profiles", "bottle_backtest", "bottle_vintage_summary")
+
+
+def prune_detail_statements() -> List[str]:
+    """One delete per v2 detail table: rows of non-latest runs started more than :detail_days ago."""
+    return [f"""
+        delete from {FORECAST_SCHEMA}.{t} d
+        using {FORECAST_SCHEMA}.forecast_runs r
+        where d.run_id = r.run_id and not r.is_latest
+          and r.started_at < now() - make_interval(days => :detail_days)
+    """ for t in DETAIL_TABLES]
+
+
+def prune_runs(conn: Connection, keep_days: int = 400, keep_days_detail: int = 14) -> None:
+    """Delete non-latest runs older than keep_days (cascades to every run-scoped table), then the v2
+    detail rows of non-latest runs older than keep_days_detail (the run row and v1 tables stay)."""
     conn.execute(text(f"""
         delete from {FORECAST_SCHEMA}.forecast_runs
         where started_at < now() - make_interval(days => :days) and not is_latest
     """), {"days": int(keep_days)})
+    for sql in prune_detail_statements():
+        conn.execute(text(sql), {"detail_days": int(keep_days_detail)})
 
 
 # --- Forecast v2: loader / writer contracts ----------------------------------
@@ -542,6 +567,13 @@ def load_club_orders(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -
         where o.channel = 'Club' and o.created_at >= :start and o.created_at < :end
         group by o.order_id, o.customer_id, o.created_at, p.title, p.vintage
     """), {"start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d")}).fetchall()
+    return club_orders_frame(rows)
+
+
+def club_orders_frame(rows) -> pd.DataFrame:
+    """Post-process load_club_orders rows (order_id, customer_id, created_at, title, vintage, bottles,
+    revenue): drop rows without a customer, parse titles, collapse to order x label x vintage, and
+    drop orders whose total bottles are <= 0 (refund-only orders)."""
     if not rows:
         return _empty("club_orders")
     df = _frame(rows, ["order_id", "customer_id", "created_at", "title", "vintage", "bottles", "revenue"])
@@ -555,7 +587,11 @@ def load_club_orders(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -
     # two products can share label + vintage: collapse to one row per order x label x vintage
     out = (df.groupby(["order_id", "customer_id", "created_at", "label", "vintage"], as_index=False)
              .agg(bottles=("bottles", "sum"), revenue=("revenue", "sum")))
-    return out[EMPTY["club_orders"]]
+    total = out.groupby("order_id")["bottles"].transform("sum")
+    out = out[total > 0]
+    if out.empty:
+        return _empty("club_orders")
+    return out[EMPTY["club_orders"]].reset_index(drop=True)
 
 
 def load_memberships(conn: Connection) -> pd.DataFrame:

@@ -71,3 +71,32 @@ def test_v2_writers_and_club_plan_default_take_rate():
             assert plan.loc[0, "price"] == pytest.approx(40.0)        # label's last known price
         finally:
             trans.rollback()
+
+
+def test_prune_runs_drops_old_v2_detail_but_keeps_latest_and_recent():
+    engine = fio.get_engine(URL)
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            fio.ensure_schema(conn)
+            fc = pd.DataFrame([["Lux", 2022, pd.Timestamp("2026-11-01"), "Club", 3.0, 2.0, 5.0]],
+                              columns=["label", "vintage", "month_start", "channel", "p50", "p10", "p90"])
+            ids = []
+            for _ in range(3):
+                rid = fio.start_run(conn, pd.Timestamp("2026-10-23"), 3, {})
+                fio.write_bottles(conn, rid, fio.bottle_records(fc, rid), [], [], [])
+                fio.finish_run(conn, rid, "success", bottle_rows=1)
+                ids.append(rid)
+            old, recent, latest = ids
+            # old and latest both started 20 days ago; only `latest` is the live run
+            conn.execute(text("update forecast.forecast_runs set started_at = now() - interval '20 days' "
+                              "where run_id in (:a, :b)"), {"a": old, "b": latest})
+            fio.prune_runs(conn)
+            n = {r: conn.execute(text("select count(*) from forecast.bottle_forecast where run_id = :r"),
+                                 {"r": r}).scalar() for r in ids}
+            assert n == {old: 0, recent: 1, latest: 1}
+            runs = conn.execute(text("select run_id, bottle_rows from forecast.forecast_runs where run_id in (:a, :b, :c)"),
+                                {"a": old, "b": recent, "c": latest}).fetchall()
+            assert sorted(runs) == sorted((r, 1) for r in ids)        # run rows stay (400-day rule)
+        finally:
+            trans.rollback()

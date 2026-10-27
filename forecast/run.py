@@ -38,6 +38,18 @@ class RunSummary:
     bottle_rows: int = 0
 
 
+def _step_timer():
+    """step(name) logs 'step=<name> <seconds since the previous step (or the timer's creation)>'."""
+    from time import perf_counter
+    last = [perf_counter()]
+
+    def step(name: str) -> None:
+        now = perf_counter()
+        log.info("step=%s %.2fs", name, now - last[0])
+        last[0] = now
+    return step
+
+
 def plan_year(origin: pd.Timestamp) -> int:
     """The planning year the bottle and club plans are read for."""
     return int(origin.year) + 1
@@ -50,6 +62,7 @@ def today_pacific() -> pd.Timestamp:
 
 def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dry_run: bool = False,
         skip_backtest: bool = False, url: Optional[str] = None) -> RunSummary:
+    step = _step_timer()
     engine = fio.get_engine(url)
     with engine.begin() as conn:
         fio.ensure_schema(conn)
@@ -77,6 +90,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         vintage_plan = fio.load_vintage_plan(conn)
         hist_b = fio.load_bottle_history(conn, origin)
         memberships = fio.load_memberships(conn)
+    step("load")
     horizon = int(horizon or params.horizon)
     releases = detect_releases(hist[4], params)
     schedule = parse_schedule(assumptions.get("shipment_schedule")) or default_schedule(releases, origin)
@@ -103,17 +117,21 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
 
     try:
         point, comps = forecast_daily(hist, origin, dates, ctx)
+        step("daily")
         if skip_backtest:
             accuracy, bt_frame = pd.DataFrame(columns=fbt.ACCURACY_COLUMNS), None
         else:
             accuracy, bt_frame = fbt.run_backtest_full(hist, releases, params, origin)
+        step("backtest")
         p10, p90 = fbt.apply_bands(point, accuracy, params)
         monthly = monthly_forecast(hist, origin, ctx, daily_point=point)
+        step("monthly")
         if bt_frame is None:
             periods = pd.DataFrame(columns=fbt.PERIOD_COLUMNS)
             acc_periods = pd.DataFrame(columns=fbt.ACCURACY_PERIOD_COLUMNS)
         else:
             periods, acc_periods = fbt.run_period_backtest(bt_frame, params)
+        step("periods")
         bottle_fc = bottle_summ = profiles = bt_v = None
         if hist_b.empty:
             log.warning("bottles skipped: no bottle history through %s", origin.date())
@@ -124,6 +142,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             profiles = fit_profiles(hist_b, vintages, params, dispersion=bt_v)
             bottle_fc, bottle_summ = forecast_vintages(profiles, vintages, hist_b, ctx.label_plan, ctx.vintage_plan,
                                                        origin, plan_year(origin), params, bands)
+        step("bottles")
         club_history = None
         if memberships.empty:
             log.warning("club history skipped: no memberships")
@@ -137,7 +156,11 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
                 members_daily = (fio.load_members_daily(conn, recent[0].start - pd.Timedelta(days=1), origin)
                                  if recent else None)
             tiers = tier_table(memberships, origin, params.tier_min_members)
+            # compare with members_a0 on a dry run: the club tiers should account for most members
+            log.info("club tiers=%s active_in_listed_tiers=%s members=%s",
+                     len(tiers), int(tiers.active.sum()) if len(tiers) else 0, a0)
             club_history = release_history(orders_by_release, memberships, members_daily, tiers, params)
+        step("clubs")
 
         next28 = float(point[14].iloc[:28].sum())
         for k in ALL_KPIS:
@@ -178,7 +201,9 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             fio.write_bottles(conn, run_id, bottle_recs, summ_recs, profile_recs, bt_v_recs)
             # not run-scoped: a skipped computation must not wipe it, and a backfill must not
             # replace today's history with the origin's view (same reasoning as the bookings snapshot)
-            if club_history is not None and origin == live:
+            if club_history is not None and origin == live and not club_recs:
+                log.warning("club history write skipped: no history rows; the existing table is kept")
+            elif club_history is not None and origin == live:
                 fio.write_club_history(conn, club_recs)
             elif club_history is not None:
                 log.info("club history write skipped: backfill origin %s", origin.date())
@@ -187,8 +212,9 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             else:
                 log.info("bookings snapshot skipped: backfill origin %s; the OTB table reflects today, not the origin",
                          origin.date())
-            fio.finish_run(conn, run_id, "success")
+            fio.finish_run(conn, run_id, "success", bottle_rows=len(bottle_recs))
             fio.prune_runs(conn)
+        step("write")
     except Exception as exc:  # noqa: BLE001 - we want to record any failure
         if run_id is not None:
             with engine.begin() as conn:

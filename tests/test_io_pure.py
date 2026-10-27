@@ -191,3 +191,60 @@ def test_club_history_records_nil_uuid_for_other():
 
 def test_bottle_history_sql_includes_origin_day():
     assert "interval '1 day'" in fio.BOTTLE_HISTORY_SQL and "<= :origin" not in fio.BOTTLE_HISTORY_SQL
+
+
+class _RecordingConn:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, stmt, params=None):
+        self.calls.append((" ".join(str(stmt).split()), params))
+
+
+def test_prune_runs_deletes_v2_detail_of_old_non_latest_runs():
+    stmts = fio.prune_detail_statements()
+    assert len(stmts) == len(fio.DETAIL_TABLES) == 6
+    assert set(fio.DETAIL_TABLES) == {"forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast",
+                                      "bottle_profiles", "bottle_backtest", "bottle_vintage_summary"}
+    for table, sql in zip(fio.DETAIL_TABLES, stmts):
+        flat = " ".join(sql.split())
+        assert flat.startswith(f"delete from forecast.{table} d using forecast.forecast_runs r")
+        assert "d.run_id = r.run_id and not r.is_latest" in flat
+        assert "r.started_at < now() - make_interval(days => :detail_days)" in flat
+    conn = _RecordingConn()
+    fio.prune_runs(conn)
+    assert len(conn.calls) == 7
+    assert "delete from forecast.forecast_runs" in conn.calls[0][0] and conn.calls[0][1] == {"days": 400}
+    assert all(p == {"detail_days": 14} for _, p in conn.calls[1:])
+    conn = _RecordingConn()
+    fio.prune_runs(conn, keep_days_detail=3)
+    assert all(p == {"detail_days": 3} for _, p in conn.calls[1:])
+
+
+def test_finish_run_writes_bottle_rows_when_given():
+    conn = _RecordingConn()
+    fio.finish_run(conn, 7, "success", bottle_rows=123)
+    sql, params = conn.calls[-1]
+    assert sql.startswith("update forecast.forecast_runs set status = :status")
+    assert "is_latest = :latest, bottle_rows = :bottle_rows where run_id = :run_id" in sql
+    assert params == {"status": "success", "error": None, "latest": True, "run_id": 7, "bottle_rows": 123}
+    conn = _RecordingConn()
+    fio.finish_run(conn, 7, "failed", "boom")
+    sql, params = conn.calls[-1]
+    assert "bottle_rows" not in sql and "bottle_rows" not in params and not params["latest"]
+
+
+def test_club_orders_frame_drops_refund_only_orders():
+    ts = pd.Timestamp("2026-09-03 10:00")
+    rows = [("o1", "c1", ts, "2023 Home Ranch Pinot Noir", 2023, 2, 120.0),
+            ("o1", "c1", ts, "2022 Carneros Chardonnay", 2022, 1, 48.0),
+            ("o2", "c2", ts, "2023 Home Ranch Pinot Noir", 2023, -2, -120.0),     # refund only
+            ("o3", "c3", ts, "2023 Home Ranch Pinot Noir", 2023, 0, 0.0),         # nets to zero
+            ("o4", "c4", ts, "2023 Home Ranch Pinot Noir", 2023, 3, 180.0),
+            ("o4", "c4", ts, "2022 Carneros Chardonnay", 2022, -1, -48.0),        # partial refund kept
+            ("o5", None, ts, "2023 Home Ranch Pinot Noir", 2023, 2, 120.0)]
+    df = fio.club_orders_frame(rows)
+    assert list(df.columns) == fio.EMPTY["club_orders"]
+    assert sorted(df.order_id.unique()) == ["o1", "o4"]
+    assert len(df[df.order_id == "o4"]) == 2 and df[df.order_id == "o4"].bottles.sum() == 2
+    assert fio.club_orders_frame(rows[2:4]).empty and list(fio.club_orders_frame([]).columns) == fio.EMPTY["club_orders"]

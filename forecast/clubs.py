@@ -24,16 +24,21 @@ def active_on(memberships: pd.DataFrame, date) -> pd.DataFrame:
 
 
 def tier_table(memberships: pd.DataFrame, origin, min_members: int) -> pd.DataFrame:
-    """Tiers with at least `min_members` active at origin; share of the listed active total."""
+    """Tiers (grouped by club_id) with at least `min_members` active at origin; share of the listed
+    active total. tier_name = the most recent non-null club_name for the id by signup_at among
+    memberships signed up on/before origin, else the id as a string (a null name never drops a club)."""
     cols = ["tier_id", "tier_name", "active", "share"]
     act = active_on(memberships, origin)
     if act.empty:
         return pd.DataFrame(columns=cols)
-    g = act.groupby(["club_id", "club_name"]).size().reset_index(name="active")
+    g = act.groupby("club_id").size().reset_index(name="active")
     g = g[g.active >= min_members]
     if g.empty:
         return pd.DataFrame(columns=cols)
-    g = g.rename(columns={"club_id": "tier_id", "club_name": "tier_name"})
+    named = memberships[(memberships.signup_at <= pd.Timestamp(origin)) & memberships.club_name.notna()]
+    names = named.sort_values("signup_at", kind="stable").groupby("club_id").club_name.last()
+    g = g.rename(columns={"club_id": "tier_id"})
+    g["tier_name"] = [names.get(t, str(t)) for t in g.tier_id]
     g["share"] = g.active / g.active.sum()
     return g.sort_values("active", ascending=False).reset_index(drop=True)[cols]
 

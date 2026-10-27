@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 
 import pandas as pd
@@ -40,7 +41,9 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "load_assumptions", lambda conn: {})
     monkeypatch.setattr(frun.fio, "start_run", lambda conn, origin, horizon, params: state["runs"].append(params) or 42)
     monkeypatch.setattr(frun.fio, "write_results", lambda conn, run_id, d, m, a: state.__setitem__("written", (run_id, d, m, a)))
-    monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None: state["finished"].append((run_id, status, error)))
+    monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None, bottle_rows=None:
+                        state["finished"].append((run_id, status, error))
+                        or state.__setitem__("finished_bottle_rows", bottle_rows))
     monkeypatch.setattr(frun.fio, "write_bookings_snapshot", lambda conn, d, otb: state["snapshots"].append(d))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
     for name in ["tier_shares", "label_plan", "vintage_plan"]:
@@ -251,3 +254,28 @@ def test_dry_run_computes_v2_counts(fake_io):
     s = frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
     assert s.bottle_rows > 0
     assert "periods" not in fake_io and "bottles" not in fake_io and "club_history" not in fake_io
+
+
+def test_run_records_bottle_rows_on_finish(fake_io):
+    s = frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    [(_, fc, _, _, _)] = fake_io["bottles"]
+    assert fake_io["finished_bottle_rows"] == s.bottle_rows == len(fc) > 0
+
+
+def test_empty_club_history_never_wipes_the_table(fake_io, monkeypatch, caplog):
+    monkeypatch.setattr(frun.fio, "load_club_orders", lambda conn, start, end: fio._empty_club_orders())
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    assert "club_history" not in fake_io
+    assert "club history write skipped: no history rows" in caplog.text
+    assert fake_io["finished"] == [(42, "success", None)]
+
+
+def test_run_logs_step_timings_and_club_active_members(fake_io, caplog):
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    steps = [r.getMessage().split()[0] for r in caplog.records if r.getMessage().startswith("step=")]
+    assert steps == ["step=" + n for n in ["load", "daily", "backtest", "monthly", "periods", "bottles", "clubs", "write"]]
+    line = next(r.getMessage() for r in caplog.records if "active_in_listed_tiers=" in r.getMessage())
+    # fixture: Estate 1500 + Premier 4 850 + Grand 4 350 + Premier 6 260 active (Tiny is below 10)
+    assert "tiers=4 active_in_listed_tiers=2960 members=3500.0" in line
