@@ -380,6 +380,33 @@ def _default_release(label: str, vintage: int, vintages: pd.DataFrame, plan_year
     return pd.Timestamp(year=int(year), month=month, day=1)
 
 
+MIN_OWN_MONTHS = 3   # months sold before a tier-profiled label's own sales anchor its lifetime
+
+
+def _own_tier_lifetime(label: str, vintages: pd.DataFrame, curve: np.ndarray, tier_lifetime: float) -> float:
+    """Lifetime of a label with sales history that uses a tier profile, anchored on its own sales
+    through the tier curve (channels x n, summed over channels):
+      - some vintage has a known first_year: first_year(anchor) / tier first-12 share, anchor =
+        newest such vintage (if that share > 0);
+      - else the newest vintage has months_sold >= 3: sold_to_date(newest) / tier cumulative share
+        through min(months_sold, n) (if that share > 0);
+      - else the tier lifetime.
+    Trend is 1.0 (no two first years to compare), so every vintage of the label gets this value."""
+    own = vintages[vintages["label"] == label].sort_values("vintage")
+    if own.empty:
+        return tier_lifetime
+    anchor = _anchor_vintage(vintages, label)
+    f12 = float(curve[:, :12].sum())
+    if anchor is not None and f12 > 0:
+        return float(own.loc[own["vintage"] == anchor, "first_year"].iloc[0]) / f12
+    newest = own.iloc[-1]
+    ms = int(newest["months_sold"])
+    cum = float(curve[:, :min(ms, curve.shape[1])].sum())
+    if ms >= MIN_OWN_MONTHS and cum > 0:
+        return float(newest["sold_to_date"]) / cum
+    return tier_lifetime
+
+
 def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.DataFrame,
                       label_plan: pd.DataFrame, vintage_plan: pd.DataFrame, origin: pd.Timestamp,
                       plan_year: int, params: EngineParams,
@@ -390,7 +417,10 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     (default newest on record + 1 for continue, plan_year - 2 for new).
     Profile lifetime for vintage V: label-scope profile = lifetime * trend ** (V - anchor), anchor =
     newest vintage of the profile's key label with a known first_year in `vintages` (gap 0 if none;
-    negative gaps allowed); tier profile = lifetime (trend 1).
+    negative gaps allowed); tier profile = lifetime (trend 1), except that a label with rows in
+    `vintages` anchors on its own sales through the tier curve (_own_tier_lifetime).
+    Tier choice in profile_for: exact tier_key, else the nearest band of the varietal (ties to the
+    lower band); profile_key reports the tier key actually used.
     Lifetime: existing label = profile lifetime for V; new label (status 'new') with cases known =
     cases x 12 x 0.85, the 0.85 replaced by min(1, comparable profile lifetime / (comparable cases x
     12)) when the profile used is the comparable label's own and vintage_plan has cases > 0 for
@@ -469,6 +499,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
                 if pd.notna(cc) and cc > 0:
                     factor = min(1.0, p_life / (cc * 12.0))
             life = float(c) * 12.0 * factor
+        elif prof is not None and prof["scope"].iloc[0] == "tier":
+            life = _own_tier_lifetime(label, vintages, np.array(list(prof["curve"]), dtype=float), p_life)
         else:
             life = p_life * p_trend ** gap
         if pd.notna(c):

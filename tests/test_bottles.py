@@ -202,6 +202,8 @@ def test_forecast_vintages_columns_window_and_bands():
     # Hypersonic (no label profile, high band empty) falls back to the nearest band.
     hy = summ[summ.label == "Hypersonic Pinot Noir"]
     assert set(hy.profile_key) == {"Pinot Noir|mid"}
+    # ...but its lifetime anchors on its own 2023 first year, not on Home Ranch's size.
+    assert abs(hy[hy.vintage == 2023].lifetime_p50.iloc[0] / lifetime_bottles("Hypersonic Pinot Noir", 2023) - 1) < 0.10
     # Trend compounds per vintage from the anchor (2023): 2024 = lifetime * trend, 2022 = lifetime / trend.
     hr = prof[(prof.scope == "label") & (prof.key == "Home Ranch Pinot Noir")].iloc[0]
     hr24 = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2024)].iloc[0]
@@ -241,3 +243,22 @@ def test_existing_label_incoming_without_profile_is_skipped(caplog):
         fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
     assert not ((summ.label == "Hypersonic Pinot Noir") & (summ.vintage == 2025)).any()
     assert "Hypersonic Pinot Noir" in caplog.text
+
+
+def test_tier_profiled_label_lifetime_anchors_on_own_sales():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    lp = pd.DataFrame([[2027, "Hypersonic Pinot Noir", "continue", None, None, None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+    fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    inc = summ[(summ.label == "Hypersonic Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+    assert inc.profile_key == "Pinot Noir|mid"
+    assert abs(inc.lifetime_p50 / lifetime_bottles("Hypersonic Pinot Noir", 2025) - 1) < 0.25
+    # No first year anywhere: falls to sold_to_date(newest) / tier cumulative share (>= 3 months), else tier lifetime.
+    tier = prof[(prof.scope == "tier") & (prof.key == "Pinot Noir|mid")]
+    curve = np.array(list(tier.curve))
+    vy = v[v.label == "Hypersonic Pinot Noir"].assign(first_year=np.nan)
+    newest = vy.sort_values("vintage").iloc[-1]
+    expect = newest.sold_to_date / curve[:, :int(newest.months_sold)].sum()
+    assert b._own_tier_lifetime("Hypersonic Pinot Noir", vy, curve, 999.0) == pytest.approx(expect)
+    assert b._own_tier_lifetime("Hypersonic Pinot Noir", vy.assign(months_sold=2), curve, 999.0) == 999.0
+    assert b._own_tier_lifetime("Nobody", vy, curve, 999.0) == 999.0
