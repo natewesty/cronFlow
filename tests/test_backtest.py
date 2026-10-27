@@ -172,7 +172,7 @@ def test_backtest_with_champions_keeps_identities():
     H = make_history(); releases = detect_releases(H[4], P)
     ch = {1: Champion(w_swm=0.0), 4: Champion(w_swm=0.5, calibration=1.05)}
     bt = backtest_frame(H, releases, P, ORIGIN, champions=ch)
-    wide = bt.pivot_table(index=["origin", "date"], columns="kpi_id", values="forecast")
+    wide = bt.pivot(index=["origin", "date"], columns="kpi_id", values="forecast")
     assert np.allclose(wide[3], wide[1] + wide[2]) and np.allclose(wide[6], wide[4] + wide[5])
 
 
@@ -213,3 +213,24 @@ def test_summarize_periods_excludes_both_zero_months_and_has_mae():
 def test_uniform_champions_covers_selectable_only():
     u = uniform_champions(0.0)
     assert set(u) == set(SELECTABLE_KPIS) and all(c.w_swm == 0.0 for c in u.values())
+
+
+def test_hit_rate_ignores_both_zero_periods():
+    pos = pd.DataFrame({"actual": [100.0, 100, 100, 100, 100, 100], "forecast": [100.0, 100, 100, 100, 100, 50]})
+    zeros = pd.DataFrame({"actual": [0.0] * 4, "forecast": [0.0] * 4})
+    g = pd.concat([pos, zeros], ignore_index=True)
+    pf = g.assign(kpi_id=5, period="month", ahead=1, calendar=False, origin_date=pd.Timestamp("2025-12-31"),
+                  period_start=pd.date_range("2026-01-01", periods=len(g), freq="MS"))
+    _, acc = summarize_periods(pf)
+    _, acc_pos = summarize_periods(pf.iloc[:6])
+    assert acc.iloc[0].n == 6
+    assert np.isclose(acc.iloc[0].hit_rate, acc_pos.iloc[0].hit_rate)
+
+
+def test_snapshot_dates_as_date_objects_still_match():
+    H = make_history(); releases = detect_releases(H[4], P)
+    o = ORIGIN - pd.Timedelta(days=14)
+    snap = _snap(o)
+    snap["snapshot_date"] = [d.date() for d in snap["snapshot_date"]]
+    bt = backtest_frame(H, releases, P, ORIGIN, snapshots=snap)
+    assert bt.calendar[bt.origin == o].all() and not bt.calendar[bt.origin != o].any()

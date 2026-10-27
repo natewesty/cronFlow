@@ -223,13 +223,14 @@ def summarize_periods(pf: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             lo, hi = np.percentile(a[ok] / f[ok], [10, 90])
         b1, b2 = f * lo, f * hi
         p10, p90 = np.minimum(b1, b2), np.maximum(b1, b2)
-        hit = float(np.mean((a >= p10) & (a <= p90))) if not np.isnan(lo) else np.nan
         part = g.copy()
         part["p10"], part["p90"] = p10, p90
         periods.append(part)
         # A period where nothing happened and nothing was forecast is not a hit.
         keep = ~((a == 0) & (f == 0))
         ak, fk = a[keep], f[keep]
+        hit = (float(np.mean((ak >= p10[keep]) & (ak <= p90[keep])))
+               if keep.any() and not np.isnan(lo) else np.nan)
         w, b = _wmape(ak, fk), _bias(ak, fk)
         acc.append({"kpi_id": int(k), "period": period, "ahead": int(ahead),
                     "wmape": np.nan if w is None else w, "bias": np.nan if b is None else b,
