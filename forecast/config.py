@@ -9,7 +9,7 @@ import pandas as pd
 
 KPI_SCHEMA = os.getenv("KPI_SCHEMA", "public_nate_sandbox")
 FORECAST_SCHEMA = "forecast"
-ENGINE_VERSION = "2.0.0"
+ENGINE_VERSION = "3.0.0"
 RELEASE_MATCH_WINDOW_DAYS = 30
 SEASONS = ("spring", "summer", "fall", "winter")
 BOTTLE_CHANNELS = ("Club", "POS", "Web", "Inbound")
@@ -20,6 +20,7 @@ CLUB_KPIS: List[int] = [4, 13, 22, 28]
 EVENT_KPIS: List[int] = [9, 10, 12, 19]
 FEE_KPIS: List[int] = [5]
 RATE_KPIS: List[int] = [29]
+SELECTABLE_KPIS: List[int] = sorted(SEASONAL_KPIS + CLUB_KPIS + RATE_KPIS)
 NEW_MEMBERS_KPI = 24
 ATTRITION_KPI = 25
 ACTIVE_MEMBERS_KPI = 23
@@ -110,6 +111,12 @@ class EngineParams:
     bottle_curve_months: int = 36
     tier_min_members: int = 10
     release_match_years: int = 2
+    champion_margin: float = 0.005
+    champion_min_months: int = 6
+    champion_weights: List[float] = field(
+        default_factory=lambda: [0.0, 0.25, 0.5, 0.75, 1.0])
+    calibration_shrink: float = 0.5
+    calibration_max: float = 0.3
 
     @classmethod
     def from_overrides(cls, overrides: Optional[dict]) -> "EngineParams":
@@ -119,10 +126,16 @@ class EngineParams:
             clean["trend_clip"] = tuple(clean["trend_clip"])
         if "horizon_buckets" in clean:
             clean["horizon_buckets"] = [tuple(b) for b in clean["horizon_buckets"]]
-        return cls(**clean)
+        if "champion_weights" in clean:
+            clean["champion_weights"] = [float(w) for w in clean["champion_weights"]]
+        params = cls(**clean)
+        if 1.0 not in params.champion_weights:
+            params.champion_weights = list(params.champion_weights) + [1.0]
+        return params
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["trend_clip"] = list(self.trend_clip)
         d["horizon_buckets"] = [list(b) for b in self.horizon_buckets]
+        d["champion_weights"] = [float(w) for w in self.champion_weights]
         return d

@@ -42,3 +42,14 @@ def test_v2_tables_present_and_idempotent():
 def test_bottle_vintage_summary_profile_key_alter():
     sql = " ".join(SCHEMA.read_text().lower().split())
     assert "alter table forecast.bottle_vintage_summary add column if not exists profile_key text" in sql
+
+
+def test_v3_schema_statements():
+    sql = SCHEMA.read_text()
+    assert "create table if not exists forecast.forecast_models" in sql
+    assert "candidates jsonb not null" in sql
+    assert ("alter table forecast.forecast_backtest_periods "
+            "add column if not exists calendar boolean not null default false") in sql
+    assert "alter table forecast.forecast_accuracy_periods add column if not exists mae numeric" in sql
+    from forecast import io as fio
+    assert "forecast_models" in fio.DETAIL_TABLES

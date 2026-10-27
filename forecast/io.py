@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from .bottles import label_from_title, varietal_from_title, vintage_from_title
 from .clubs import take_rate_default, tier_table
+from .types import Champion
 from .config import ACTIVE_MEMBERS_KPI, ALL_KPIS, ENGINE_VERSION, FORECAST_SCHEMA, KPI_SCHEMA
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
@@ -289,7 +290,7 @@ def write_bookings_snapshot(conn: Connection, snapshot_date: pd.Timestamp, otb: 
 
 # v2 detail tables: bulky per-run rows only the latest run's are read from; kept for keep_days_detail.
 DETAIL_TABLES = ("forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast",
-                 "bottle_profiles", "bottle_backtest", "bottle_vintage_summary")
+                 "bottle_profiles", "bottle_backtest", "bottle_vintage_summary", "forecast_models")
 
 
 def prune_detail_statements() -> List[str]:
@@ -383,11 +384,16 @@ def _s(v) -> Optional[str]:
 
 # --- v2 converters ---------------------------------------------------------------
 
+def _flag(v) -> bool:
+    return bool(v) if v == v and v is not None else False
+
+
 def period_records(periods: pd.DataFrame, run_id: int) -> List[dict]:
     return [{
         "run_id": run_id, "kpi_id": int(r.kpi_id), "period": str(r.period), "ahead": int(r.ahead),
         "period_start": _date(r.period_start), "origin_date": _date(r.origin_date),
         "actual": _num(r.actual), "forecast": _num(r.forecast), "p10": _num(r.p10), "p90": _num(r.p90),
+        "calendar": _flag(getattr(r, "calendar", False)),
     } for r in periods.itertuples(index=False)]
 
 
@@ -395,6 +401,7 @@ def accuracy_period_records(acc: pd.DataFrame, run_id: int) -> List[dict]:
     return [{
         "run_id": run_id, "kpi_id": int(r.kpi_id), "period": str(r.period), "ahead": int(r.ahead),
         "wmape": _num(r.wmape), "bias": _num(r.bias), "hit_rate": _num(r.hit_rate), "n": _int(r.n),
+        "mae": _num(r.mae),
     } for r in acc.itertuples(index=False)]
 
 
@@ -626,15 +633,55 @@ def write_periods(conn: Connection, run_id: int, period_recs: List[dict], acc_re
     if period_recs:
         _insert_many(conn, f"""
             insert into {FORECAST_SCHEMA}.forecast_backtest_periods
-              (run_id, kpi_id, period, ahead, period_start, origin_date, actual, forecast, p10, p90)
-            values (:run_id, :kpi_id, :period, :ahead, :period_start, :origin_date, :actual, :forecast, :p10, :p90)
+              (run_id, kpi_id, period, ahead, period_start, origin_date, actual, forecast, p10, p90, calendar)
+            values (:run_id, :kpi_id, :period, :ahead, :period_start, :origin_date, :actual, :forecast, :p10, :p90, :calendar)
         """, period_recs)
     if acc_recs:
         _insert_many(conn, f"""
             insert into {FORECAST_SCHEMA}.forecast_accuracy_periods
-              (run_id, kpi_id, period, ahead, wmape, bias, hit_rate, n)
-            values (:run_id, :kpi_id, :period, :ahead, :wmape, :bias, :hit_rate, :n)
+              (run_id, kpi_id, period, ahead, wmape, bias, hit_rate, n, mae)
+            values (:run_id, :kpi_id, :period, :ahead, :wmape, :bias, :hit_rate, :n, :mae)
         """, acc_recs)
+
+
+def model_records(champions: Dict[int, Champion], run_id: int) -> List[dict]:
+    return [{
+        "run_id": run_id, "kpi_id": int(k), "model": str(c.model), "w_swm": float(c.w_swm),
+        "calibration": float(c.calibration), "wmape": _num(c.wmape),
+        "wmape_default": _num(c.wmape_default), "wmape_selection": _num(c.wmape_selection),
+        "n": int(c.n), "candidates": json.dumps(c.candidates, allow_nan=False),
+    } for k, c in sorted(champions.items())]
+
+
+def write_models(conn: Connection, run_id: int, recs: List[dict]) -> None:
+    if recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.forecast_models
+              (run_id, kpi_id, model, w_swm, calibration, wmape, wmape_default, wmape_selection, n, candidates)
+            values (:run_id, :kpi_id, :model, :w_swm, :calibration, :wmape, :wmape_default, :wmape_selection, :n,
+                    cast(:candidates as jsonb))
+        """, recs)
+
+
+SNAPSHOT_COLUMNS = ["snapshot_date", "reservation_date", "attribution", "reservations", "guests", "fees"]
+
+
+def load_bookings_snapshots(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+    """Stored on-the-books snapshots with snapshot_date in [start, end]."""
+    rows = conn.execute(text(f"""
+        select snapshot_date, reservation_date, attribution, reservations, guests, fees
+        from {FORECAST_SCHEMA}.bookings_snapshot
+        where snapshot_date between :start and :end
+        order by snapshot_date, reservation_date, attribution
+    """), {"start": pd.Timestamp(start).strftime("%Y-%m-%d"),
+           "end": pd.Timestamp(end).strftime("%Y-%m-%d")}).fetchall()
+    df = pd.DataFrame([tuple(r) for r in rows], columns=SNAPSHOT_COLUMNS)
+    if not df.empty:
+        df["snapshot_date"] = pd.to_datetime(df["snapshot_date"])
+        df["reservation_date"] = pd.to_datetime(df["reservation_date"])
+        for c in ["reservations", "guests", "fees"]:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+    return df
 
 
 def write_bottles(conn: Connection, run_id: int, forecast_recs: List[dict], summary_recs: List[dict],

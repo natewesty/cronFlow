@@ -3,8 +3,9 @@ import pandas as pd
 
 from forecast.backtest import (ACCURACY_COLUMNS, ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS,
                                period_frame, run_period_backtest, summarize_periods, apply_bands, backtest_frame, bucket_for,
-                               run_backtest, run_backtest_full, summarize)
-from forecast.config import EngineParams
+                               run_backtest, run_backtest_full, summarize, uniform_champions)
+from forecast.types import Champion
+from forecast.config import SELECTABLE_KPIS, EngineParams
 from forecast.models.club import detect_releases
 from tests.synth import make_history
 
@@ -159,3 +160,77 @@ def test_ratio_kpi_periods_use_aggregate_period():
     pf = period_frame(backtest_frame(df, rel, P, ORIGIN), P)
     r17 = pf[(pf.kpi_id == 17) & (pf.period == "month")].iloc[0]
     assert 2 < r17.actual < 6   # a ratio, not a sum of daily ratios
+
+
+def _snap(o):
+    return pd.DataFrame({"snapshot_date": [o + pd.Timedelta(days=1)] * 3,
+                         "reservation_date": pd.date_range(o + pd.Timedelta(days=1), periods=3),
+                         "attribution": "Walk-in", "reservations": 10_000, "guests": 40_000, "fees": 9e6})
+
+
+def test_backtest_with_champions_keeps_identities():
+    H = make_history(); releases = detect_releases(H[4], P)
+    ch = {1: Champion(w_swm=0.0), 4: Champion(w_swm=0.5, calibration=1.05)}
+    bt = backtest_frame(H, releases, P, ORIGIN, champions=ch)
+    wide = bt.pivot(index=["origin", "date"], columns="kpi_id", values="forecast")
+    assert np.allclose(wide[3], wide[1] + wide[2]) and np.allclose(wide[6], wide[4] + wide[5])
+
+
+def test_snapshot_otb_applies_to_matching_origin_only():
+    H = make_history(); releases = detect_releases(H[4], P)
+    o = ORIGIN - pd.Timedelta(days=14)
+    snap = _snap(o)
+    plain = backtest_frame(H, releases, P, ORIGIN)
+    with_snap = backtest_frame(H, releases, P, ORIGIN, snapshots=snap)
+    k = 15
+    a = plain[plain.kpi_id == k].set_index(["origin", "date"]).forecast
+    b = with_snap[with_snap.kpi_id == k].set_index(["origin", "date"]).forecast
+    diff = (a != b).groupby(level="origin").any()
+    assert diff[o] and not diff.drop(o).any()
+    assert with_snap.calendar[with_snap.origin == o].all() and not with_snap.calendar[with_snap.origin != o].any()
+    assert not plain.calendar.any()
+
+
+def test_period_frame_carries_calendar_flag():
+    H = make_history(); releases = detect_releases(H[4], P)
+    o = ORIGIN - pd.Timedelta(days=14)
+    pf = period_frame(backtest_frame(H, releases, P, ORIGIN, snapshots=_snap(o)), P)
+    assert list(pf.columns) == ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast", "calendar"]
+    assert pf.calendar[pf.origin_date == o].all() and not pf.calendar[pf.origin_date != o].any()
+    assert (pf.origin_date == o).any()
+
+
+def test_summarize_periods_excludes_both_zero_months_and_has_mae():
+    pf = pd.DataFrame({"kpi_id": 5, "period": "month", "ahead": 1,
+                       "period_start": pd.date_range("2026-01-01", periods=6, freq="MS"), "origin_date": pd.Timestamp("2025-12-31"),
+                       "actual": [0, 0, 100, 0, 0, 50], "forecast": [0, 0, 120, 0, 0, 50], "calendar": False})
+    periods, acc = summarize_periods(pf)
+    row = acc.iloc[0]
+    assert row.n == 2 and np.isclose(row.wmape, 20 / 150) and np.isclose(row.mae, 10.0)
+    assert len(periods) == 6 and list(acc.columns) == ACCURACY_PERIOD_COLUMNS
+
+
+def test_uniform_champions_covers_selectable_only():
+    u = uniform_champions(0.0)
+    assert set(u) == set(SELECTABLE_KPIS) and all(c.w_swm == 0.0 for c in u.values())
+
+
+def test_hit_rate_ignores_both_zero_periods():
+    pos = pd.DataFrame({"actual": [100.0, 100, 100, 100, 100, 100], "forecast": [100.0, 100, 100, 100, 100, 50]})
+    zeros = pd.DataFrame({"actual": [0.0] * 4, "forecast": [0.0] * 4})
+    g = pd.concat([pos, zeros], ignore_index=True)
+    pf = g.assign(kpi_id=5, period="month", ahead=1, calendar=False, origin_date=pd.Timestamp("2025-12-31"),
+                  period_start=pd.date_range("2026-01-01", periods=len(g), freq="MS"))
+    _, acc = summarize_periods(pf)
+    _, acc_pos = summarize_periods(pf.iloc[:6])
+    assert acc.iloc[0].n == 6
+    assert np.isclose(acc.iloc[0].hit_rate, acc_pos.iloc[0].hit_rate)
+
+
+def test_snapshot_dates_as_date_objects_still_match():
+    H = make_history(); releases = detect_releases(H[4], P)
+    o = ORIGIN - pd.Timedelta(days=14)
+    snap = _snap(o)
+    snap["snapshot_date"] = [d.date() for d in snap["snapshot_date"]]
+    bt = backtest_frame(H, releases, P, ORIGIN, snapshots=snap)
+    assert bt.calendar[bt.origin == o].all() and not bt.calendar[bt.origin != o].any()

@@ -15,6 +15,7 @@ from .models.events import cap_series, event_component
 from .models.fees import fee_component
 from .models.membership import (attrition_base_series, project_stock, spike_component,
                                 spike_profile)
+from .models.organic import organic_forecast
 from .models.otb import otb_series
 from .models.seasonal import apply_floor, swm_forecast
 from .types import Context, ScheduledRelease
@@ -34,7 +35,7 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
 
     # --- Seasonal flows and the directly-forecast rate KPI -------------------
     for k in SEASONAL_KPIS + RATE_KPIS:
-        fc = swm_forecast(h[k], origin, dates, p)
+        fc = organic_forecast(k, h[k], origin, dates, p, ctx.champions)
         if k not in RATE_KPIS:
             fc = apply_floor(fc, k, h[k])
         point[k] = fc
@@ -95,7 +96,7 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
     planned = plan_totals(stock, ctx.schedule, ctx.club_plan, ctx.tier_shares)
     for k in CLUB_KPIS:
         resid = residual_series(h[k], ctx.releases)
-        fc = apply_floor(swm_forecast(resid, origin, dates, p), k, resid)
+        fc = apply_floor(organic_forecast(k, resid, origin, dates, p, ctx.champions), k, resid)
         vals = scheduled_release_values(h[k], ctx.releases, members_hist, stock, ctx.schedule, p, ratios,
                                         planned if k == 4 else None)
         rel = release_component(ctx.schedule, vals, dates)

@@ -1,23 +1,24 @@
 """Rolling-origin backtest and interval bands (spec §4.10)."""
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from .config import ACTIVE_MEMBERS_KPI, EngineParams, season_of
+from .config import ACTIVE_MEMBERS_KPI, SELECTABLE_KPIS, EngineParams, season_of
 from .engine import forecast_daily
 from .identities import aggregate_period
-from .types import Context, Release, ScheduledRelease
+from .types import Champion, Context, Release, ScheduledRelease
 
 ACCURACY_COLUMNS = ["kpi_id", "horizon_bucket", "wmape", "bias", "ratio_p10", "ratio_p90",
                     "weekly_wmape", "monthly_wmape", "n"]
 
 PERIOD_COLUMNS = ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast",
-                  "p10", "p90"]
-ACCURACY_PERIOD_COLUMNS = ["kpi_id", "period", "ahead", "wmape", "bias", "hit_rate", "n"]
-_PF_COLUMNS = ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast"]
+                  "p10", "p90", "calendar"]
+ACCURACY_PERIOD_COLUMNS = ["kpi_id", "period", "ahead", "wmape", "bias", "hit_rate", "n", "mae"]
+_PF_COLUMNS = ["kpi_id", "period", "ahead", "period_start", "origin_date", "actual", "forecast", "calendar"]
+_BT_COLUMNS = ["origin", "kpi_id", "date", "horizon", "actual", "forecast", "calendar"]
 _MIN_PERIOD_RATIOS = 5
 
 
@@ -39,9 +40,26 @@ def _bias(a: np.ndarray, f: np.ndarray) -> Optional[float]:
     return float((f - a).sum() / den) if den > 0 else None
 
 
+def uniform_champions(w: float) -> Dict[int, Champion]:
+    """Every selectable KPI at the same SWM weight."""
+    return {k: Champion(w_swm=float(w)) for k in SELECTABLE_KPIS}
+
+
+def _origin_otb(snapshots: Optional[pd.DataFrame], o: pd.Timestamp) -> Optional[pd.DataFrame]:
+    """Booking snapshot taken the morning after origin o, as that origin's on-the-books."""
+    if snapshots is None or snapshots.empty:
+        return None
+    rows = snapshots[pd.to_datetime(snapshots["snapshot_date"]) == o + pd.Timedelta(days=1)]
+    if rows.empty:
+        return None
+    return rows.drop(columns=["snapshot_date"]).reset_index(drop=True)
+
+
 def backtest_frame(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
-                   origin: pd.Timestamp) -> pd.DataFrame:
-    """Forecast from every past origin (step days apart) and pair with actuals."""
+                   origin: pd.Timestamp, champions: Optional[Dict[int, Champion]] = None,
+                   snapshots: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    """Forecast from every past origin (step days apart) and pair with actuals.
+    `calendar` marks origins that had a booking snapshot."""
     origins = []
     o = origin - pd.Timedelta(days=params.backtest_step)
     earliest = origin - pd.Timedelta(days=params.backtest_days)
@@ -56,7 +74,9 @@ def backtest_frame(hist: pd.DataFrame, releases: List[Release], params: EnginePa
         future = [ScheduledRelease(start=r.start, days=r.days, label="hist", season=season_of(r.start)) for r in releases
                   if r.start + pd.Timedelta(days=r.days - 1) > o]
         a0 = float(hist.loc[o, ACTIVE_MEMBERS_KPI]) if ACTIVE_MEMBERS_KPI in hist and o in hist.index else 0.0
-        ctx = Context(params=params, releases=past, schedule=future, events=[], otb=None, members_a0=a0)
+        otb = _origin_otb(snapshots, o)
+        ctx = Context(params=params, releases=past, schedule=future, events=[], otb=otb, members_a0=a0,
+                      champions=champions or {})
         point, _ = forecast_daily(hist, o, dates, ctx)
         actual = hist.reindex(dates)
         for k in point.columns:
@@ -64,9 +84,10 @@ def backtest_frame(hist: pd.DataFrame, releases: List[Release], params: EnginePa
                 "origin": o, "kpi_id": int(k), "date": dates, "horizon": np.arange(1, n + 1),
                 "actual": actual[k].to_numpy(dtype=float) if k in actual else np.nan,
                 "forecast": point[k].to_numpy(dtype=float),
+                "calendar": otb is not None,
             }))
     if not frames:
-        return pd.DataFrame(columns=["origin", "kpi_id", "date", "horizon", "actual", "forecast"])
+        return pd.DataFrame(columns=_BT_COLUMNS)
     bt = pd.concat(frames, ignore_index=True)
     return bt.dropna(subset=["actual"]).reset_index(drop=True)
 
@@ -101,15 +122,17 @@ def summarize(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
 
 
 def run_backtest_full(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
-                      origin: pd.Timestamp) -> Tuple[pd.DataFrame, pd.DataFrame]:
+                      origin: pd.Timestamp, champions: Optional[Dict[int, Champion]] = None,
+                      snapshots: Optional[pd.DataFrame] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Daily accuracy summary plus the backtest frame it came from (for the period backtest)."""
-    bt = backtest_frame(hist, releases, params, origin)
+    bt = backtest_frame(hist, releases, params, origin, champions, snapshots)
     return summarize(bt, params), bt
 
 
 def run_backtest(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
-                 origin: pd.Timestamp) -> pd.DataFrame:
-    return run_backtest_full(hist, releases, params, origin)[0]
+                 origin: pd.Timestamp, champions: Optional[Dict[int, Champion]] = None,
+                 snapshots: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    return run_backtest_full(hist, releases, params, origin, champions, snapshots)[0]
 
 
 def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,
@@ -153,6 +176,7 @@ def period_frame(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
         act = g.pivot(index="date", columns="kpi_id", values="actual").sort_index()
         fc = g.pivot(index="date", columns="kpi_id", values="forecast").sort_index()
         have = set(act.index)
+        cal = bool(g["calendar"].iloc[0]) if "calendar" in g else False
         window = set(pd.date_range(origin + pd.Timedelta(days=1), periods=params.horizon, freq="D"))
         for period, limit in limits.items():
             keys = _period_keys(act.index, period)
@@ -173,7 +197,7 @@ def period_frame(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
                 f = aggregate_period(fc.loc[days])
                 for k in a.index:
                     rows.append((int(k), period, ahead, pd.Timestamp(start), pd.Timestamp(origin),
-                                 float(a[k]), float(f[k])))
+                                 float(a[k]), float(f[k]), cal))
     out = pd.DataFrame(rows, columns=_PF_COLUMNS)
     if out.empty:
         return out
@@ -188,6 +212,8 @@ def summarize_periods(pf: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if pf.empty:
         return pd.DataFrame(columns=PERIOD_COLUMNS), pd.DataFrame(columns=ACCURACY_PERIOD_COLUMNS)
     periods, acc = [], []
+    if "calendar" not in pf:
+        pf = pf.assign(calendar=False)
     for (k, period, ahead), g in pf.groupby(["kpi_id", "period", "ahead"]):
         a = g["actual"].to_numpy(dtype=float)
         f = g["forecast"].to_numpy(dtype=float)
@@ -197,14 +223,19 @@ def summarize_periods(pf: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
             lo, hi = np.percentile(a[ok] / f[ok], [10, 90])
         b1, b2 = f * lo, f * hi
         p10, p90 = np.minimum(b1, b2), np.maximum(b1, b2)
-        hit = float(np.mean((a >= p10) & (a <= p90))) if not np.isnan(lo) else np.nan
         part = g.copy()
         part["p10"], part["p90"] = p10, p90
         periods.append(part)
-        w, b = _wmape(a, f), _bias(a, f)
+        # A period where nothing happened and nothing was forecast is not a hit.
+        keep = ~((a == 0) & (f == 0))
+        ak, fk = a[keep], f[keep]
+        hit = (float(np.mean((ak >= p10[keep]) & (ak <= p90[keep])))
+               if keep.any() and not np.isnan(lo) else np.nan)
+        w, b = _wmape(ak, fk), _bias(ak, fk)
         acc.append({"kpi_id": int(k), "period": period, "ahead": int(ahead),
                     "wmape": np.nan if w is None else w, "bias": np.nan if b is None else b,
-                    "hit_rate": hit, "n": int(len(g))})
+                    "hit_rate": hit, "n": int(keep.sum()),
+                    "mae": float(np.abs(ak - fk).mean()) if keep.any() else np.nan})
     pdf = pd.concat(periods, ignore_index=True)[PERIOD_COLUMNS]
     return pdf, pd.DataFrame(acc, columns=ACCURACY_PERIOD_COLUMNS)
 
