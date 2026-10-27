@@ -187,3 +187,7 @@ def test_club_history_records_nil_uuid_for_other():
     assert len(recs) == 2
     assert recs[0]["tier_id"] == tid and recs[0]["release_start"] == "2026-04-01" and recs[0]["vintage"] == 2022
     assert recs[1]["tier_id"] == fio.NIL_UUID and recs[1]["vintage"] is None and recs[1]["take_rate"] is None
+
+
+def test_bottle_history_sql_includes_origin_day():
+    assert "interval '1 day'" in fio.BOTTLE_HISTORY_SQL and "<= :origin" not in fio.BOTTLE_HISTORY_SQL

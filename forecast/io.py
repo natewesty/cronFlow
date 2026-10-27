@@ -465,7 +465,8 @@ def load_club_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
     plan["release_date"] = pd.to_datetime(plan["release_date"])
     latest: Dict[str, float] = {}
     if not hist.empty:
-        h = hist.dropna(subset=["price"]).sort_values("release_start")
+        h = (hist[hist["tier_id"] != NIL_UUID].dropna(subset=["price"])
+             .sort_values(["release_start", "tier_id"], kind="stable"))
         latest = h.groupby("label")["price"].last().astype(float).to_dict()
     plan["price"] = [p if pd.notna(p) else latest.get(lbl, 0.0) for p, lbl in zip(plan["price"], plan["label"])]
     plan["take_rate"] = [t if pd.notna(t) else take_rate_default(hist, tid, season)
@@ -499,15 +500,19 @@ def load_vintage_plan(conn: Connection) -> pd.DataFrame:
     return _frame(rows, EMPTY["vintage_plan"])
 
 
-def load_bottle_history(conn: Connection, origin: pd.Timestamp) -> pd.DataFrame:
-    rows = conn.execute(text("""
+# paid_at is a timestamp: `<= date` would drop the origin day's sales, so compare to the next midnight.
+BOTTLE_HISTORY_SQL = """
         select date_trunc('month', i.paid_at)::date as month_start, p.title, p.vintage, p.varietal,
                i.channel, sum(i.quantity) as bottles, sum(i.product_subtotal) as revenue
         from public.fct_order_item i
         join public.stg_product p on p.product_id = i.product_id
-        where i.item_type = 'Wine' and i.paid_at <= :origin
+        where i.item_type = 'Wine' and i.paid_at < cast(:origin as date) + interval '1 day'
         group by 1, 2, 3, 4, 5
-    """), {"origin": origin.strftime("%Y-%m-%d")}).fetchall()
+    """
+
+
+def load_bottle_history(conn: Connection, origin: pd.Timestamp) -> pd.DataFrame:
+    rows = conn.execute(text(BOTTLE_HISTORY_SQL), {"origin": origin.strftime("%Y-%m-%d")}).fetchall()
     cols = EMPTY["bottle_history"]
     if not rows:
         return _empty("bottle_history")
@@ -518,6 +523,7 @@ def load_bottle_history(conn: Connection, origin: pd.Timestamp) -> pd.DataFrame:
     if df.empty:
         return _empty("bottle_history")
     df["month_start"] = pd.to_datetime(df["month_start"])
+    df["channel"] = df["channel"].fillna("POS")         # null channel would vanish from the groupby; POS is the in-person default
     df["varietal"] = df["varietal"].fillna("")          # keep NaN out of the group keys
     out = (df.groupby(["label", "vintage", "varietal", "month_start", "channel"], as_index=False)
              .agg(bottles=("bottles", "sum"), revenue=("revenue", "sum")))
@@ -539,7 +545,10 @@ def load_club_orders(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -
     if not rows:
         return _empty("club_orders")
     df = _frame(rows, ["order_id", "customer_id", "created_at", "title", "vintage", "bottles", "revenue"])
+    df = df[df["customer_id"].notna()]                  # unattributable to a member; groupby would drop them silently anyway
     df = _parse_titles(df)
+    if df.empty:
+        return _empty("club_orders")
     df["created_at"] = pd.to_datetime(df["created_at"])
     for c in ["bottles", "revenue"]:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
@@ -557,7 +566,7 @@ def load_memberships(conn: Connection) -> pd.DataFrame:
     """)).fetchall()
     df = _frame(rows, EMPTY["memberships"])
     if not df.empty:
-        df["club_id"] = df["club_id"].astype(str)
+        df["club_id"] = df["club_id"].map(lambda v: None if v is None or pd.isna(v) else str(v))
         for c in ["signup_at", "cancel_at"]:
             df[c] = pd.to_datetime(df[c])
     return df
