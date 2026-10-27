@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import pandas as pd
 
-from .config import EngineParams
+from .config import EngineParams, season_of
 from .types import ScheduledRelease
 
 log = logging.getLogger("forecast")
@@ -26,7 +26,8 @@ def parse_schedule(value) -> Optional[List[ScheduledRelease]]:
             continue
         if pd.isna(start) or days < 1:
             continue
-        out.append(ScheduledRelease(start=start, days=days, label=str(item.get("label") or "")))
+        out.append(ScheduledRelease(start=start, days=days, label=str(item.get("label") or ""),
+                                 season=season_of(start)))
     return sorted(out, key=lambda s: s.start) or None
 
 

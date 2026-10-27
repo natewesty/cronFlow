@@ -1,12 +1,12 @@
 """Club release detection, scheduling and magnitude (spec §4.4)."""
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from ..config import EngineParams
+from ..config import RELEASE_MATCH_WINDOW_DAYS, EngineParams, season_of
 from ..types import Release, ScheduledRelease
 
 
@@ -51,7 +51,7 @@ def default_schedule(releases: List[Release], origin: pd.Timestamp, years: int =
         o = later[-1]
         if o.start + pd.Timedelta(days=o.days - 1) >= origin and o.start <= origin:
             seen.add(o.start)
-            out.append(ScheduledRelease(start=o.start, days=max(o.days, r.days), label=f"{o.start:%b %Y}"))
+            out.append(ScheduledRelease(start=o.start, days=max(o.days, r.days), label=f"{o.start:%b %Y}", season=season_of(o.start)))
     recent = kept
     for k in range(1, years + 1):
         for r in recent:
@@ -62,7 +62,7 @@ def default_schedule(releases: List[Release], origin: pd.Timestamp, years: int =
                 continue
             if start + pd.Timedelta(days=r.days - 1) > origin:
                 seen.add(start)
-                out.append(ScheduledRelease(start=start, days=r.days, label=f"{r.start:%b %Y} +{k}y"))
+                out.append(ScheduledRelease(start=start, days=r.days, label=f"{r.start:%b %Y} +{k}y", season=season_of(start)))
     return sorted(out, key=lambda s: s.start)
 
 
@@ -73,7 +73,7 @@ def _members_at(members: pd.Series, when: pd.Timestamp) -> float:
     return float(members.iloc[0]) if len(members) else 0.0
 
 
-def release_magnitude(y: pd.Series, releases: List[Release], members: pd.Series,
+def release_magnitude_pooled(y: pd.Series, releases: List[Release], members: pd.Series,
                       n: int) -> Tuple[float, List[float]]:
     """Mean revenue-per-member over the last `n` releases and the mean per-day share."""
     if not len(y):
@@ -113,15 +113,70 @@ def residual_series(y: pd.Series, releases: List[Release], pad: int = 14) -> pd.
     return y
 
 
-def release_component(schedule: List[ScheduledRelease], rpm: float, shares: List[float],
-                      projected_members: pd.Series, dates: pd.DatetimeIndex) -> pd.Series:
-    """rpm × members(at release start) × day share, placed on scheduled days inside `dates`."""
+release_magnitude = release_magnitude_pooled   # alias until monthly.py moves off it (Task 5)
+
+
+def match_release(releases: List[Release], start: pd.Timestamp, years: int = 2,
+                  window_days: int = 30) -> Optional[Release]:
+    """The release k years (364k days) before `start`, smallest k first; within a k,
+    same-season candidates beat others, then the nearest date."""
+    for k in range(1, years + 1):
+        target = start - pd.Timedelta(days=364 * k)
+        cands = [r for r in releases if abs((r.start - target).days) <= window_days]
+        if cands:
+            season = season_of(start)
+            return min(cands, key=lambda r: (season_of(r.start) != season,
+                                             abs((r.start - target).days)))
+    return None
+
+
+def release_value(y: pd.Series, r: Release) -> float:
+    return float(y.reindex(r.dates).fillna(0).sum())
+
+
+def release_shares(y: pd.Series, r: Release) -> List[float]:
+    vals = y.reindex(r.dates).fillna(0).to_numpy(dtype=float)
+    tot = float(vals.sum())
+    if tot <= 0:
+        return [1.0]
+    return [float(v / tot) for v in vals]
+
+
+def scheduled_release_values(y: pd.Series, releases: List[Release], members_hist: pd.Series,
+                             projected_stock: pd.Series, schedule: List[ScheduledRelease],
+                             params: EngineParams,
+                             ratios: Optional[Dict[pd.Timestamp, float]] = None
+                             ) -> Dict[pd.Timestamp, Tuple[float, List[float]]]:
+    """Total and day shares per scheduled release: the matched earlier release scaled by
+    membership, else the pooled revenue-per-member fallback."""
+    out: Dict[pd.Timestamp, Tuple[float, List[float]]] = {}
+    for s in schedule:
+        r = match_release(releases, s.start, params.release_match_years, RELEASE_MATCH_WINDOW_DAYS)
+        if r is not None:
+            total = (release_value(y, r) * _members_at(projected_stock, s.start)
+                     / max(_members_at(members_hist, r.start), 1))
+            shares = release_shares(y, r)
+        else:
+            rpm, shares = release_magnitude_pooled(y, releases, members_hist, params.release_lookback_n)
+            total = rpm * _members_at(projected_stock, s.start)
+        if ratios:
+            total *= ratios.get(s.start, 1.0)
+        out[s.start] = (float(total), shares)
+    return out
+
+
+def release_component(schedule: List[ScheduledRelease],
+                      values: Dict[pd.Timestamp, Tuple[float, List[float]]],
+                      dates: pd.DatetimeIndex) -> pd.Series:
+    """total × day share, placed on scheduled days inside `dates`."""
     out = pd.Series(0.0, index=pd.DatetimeIndex(dates))
     for s in schedule:
-        m = _members_at(projected_members, s.start)
+        if s.start not in values:
+            continue
+        total, shares = values[s.start]
         for j in range(s.days):
             d = s.start + pd.Timedelta(days=j)
             share = shares[j] if j < len(shares) else 0.0
             if d in out.index:
-                out[d] += rpm * m * share
+                out[d] += total * share
     return out

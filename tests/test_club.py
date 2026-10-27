@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 
 from forecast.config import EngineParams
-from forecast.models.club import (default_schedule, detect_releases, release_component,
-                                  release_magnitude, residual_series)
-from forecast.types import ScheduledRelease
+from forecast.models.club import (default_schedule, detect_releases, match_release,
+                                  release_component, release_magnitude,
+                                  release_magnitude_pooled, residual_series,
+                                  scheduled_release_values)
+from forecast.types import Release, ScheduledRelease
 from tests.synth import make_history, release_starts
 
 P = EngineParams()
@@ -47,23 +49,56 @@ def test_residual_series_removes_release_days():
     assert resid.index.equals(df.index)
 
 
-def test_release_component_places_rpm_times_members_times_share():
-    dates = pd.date_range("2027-01-01", periods=60)
-    members = pd.Series(3500.0, index=dates)
-    sched = [ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")]
-    comp = release_component(sched, 300.0, [0.3, 0.7], members, dates)
-    assert comp[pd.Timestamp("2027-02-24")] == 0.3 * 3500 * 300
-    assert comp[pd.Timestamp("2027-02-25")] == 0.7 * 3500 * 300
-    assert comp.sum() == 3500 * 300
+def test_match_release_prefers_same_season_one_year_back():
+    rel = [Release(start=pd.Timestamp(d), days=2, day_totals=[1, 1]) for d in ("2025-09-03", "2025-11-19", "2026-02-25", "2026-05-06", "2026-09-02")]
+    m = match_release(rel, pd.Timestamp("2027-09-01"))
+    assert m.start == pd.Timestamp("2026-09-02")
+    assert match_release(rel, pd.Timestamp("2027-07-15")) is None
+
+
+def test_match_release_two_years_back_when_last_year_missing():
+    rel = [Release(start=pd.Timestamp("2025-05-07"), days=2, day_totals=[1, 1])]
+    assert match_release(rel, pd.Timestamp("2027-05-05")).start == pd.Timestamp("2025-05-07")
+
+
+def test_matched_magnitude_beats_pooled_on_seasonal_releases():
+    df = make_history(season_mult={"spring": 1.3, "summer": 0.6, "fall": 1.4, "winter": 1.0})
+    origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P)
+    sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    stock = df[23]
+    vals = scheduled_release_values(h[4], rel, h[23], stock, [s], P)
+    actual = df[4].reindex(s.dates).sum()
+    rpm, _ = release_magnitude_pooled(h[4], rel, h[23], P.release_lookback_n)
+    pooled = rpm * stock.loc[s.start]
+    assert abs(vals[s.start][0] - actual) / actual < 0.05
+    assert abs(vals[s.start][0] - actual) < abs(pooled - actual)
+
+
+def test_matched_release_falls_back_to_pooled():
+    df = make_history(start="2026-01-01", end="2026-10-23")   # under a year: no match possible
+    origin = pd.Timestamp("2026-10-23"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P)
+    s = ScheduledRelease(start=pd.Timestamp("2026-11-18"), days=2, label="x", season="winter")
+    vals = scheduled_release_values(h[4], rel, h[23], h[23], [s], P)
+    total, shares = vals[s.start]
+    assert total > 0 and np.isfinite(total) and abs(sum(shares) - 1) < 1e-9
+
+
+def test_release_component_places_values():
+    s = ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")
+    dates = pd.date_range("2027-02-20", periods=10)
+    out = release_component([s], {s.start: (1000.0, [0.3, 0.7])}, dates)
+    assert out.loc["2027-02-24"] == 300 and out.loc["2027-02-25"] == 700 and out.sum() == 1000
 
 
 def test_release_component_partial_overlap():
     dates = pd.date_range("2027-02-25", periods=10)       # starts on release day 2
-    members = pd.Series(3500.0, index=dates)
-    sched = [ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")]
-    comp = release_component(sched, 300.0, [0.3, 0.7], members, dates)
-    assert comp[pd.Timestamp("2027-02-25")] == 0.7 * 3500 * 300
-    assert comp.sum() == 0.7 * 3500 * 300
+    s = ScheduledRelease(start=pd.Timestamp("2027-02-24"), days=2, label="x")
+    comp = release_component([s], {s.start: (1000.0, [0.3, 0.7])}, dates)
+    assert comp[pd.Timestamp("2027-02-25")] == 700
+    assert comp.sum() == 700
 
 
 def test_default_schedule_keeps_release_in_progress_at_origin():
