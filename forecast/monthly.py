@@ -73,22 +73,27 @@ def _fitted(mh: pd.Series, fitted: Dict[pd.Timestamp, float], month: pd.Timestam
 
 def _level_month(mh: pd.Series, month: pd.Timestamp, params) -> float:
     """Recent-level monthly base (spec 5.3): mean of the last three complete months (the
-    base window) times a shrunk seasonal index, the year-ago change from the base window
-    to the target month: mh[month - 12 months] over the mean of the base months' year-ago
-    values. The index is 1.0 when any of those four months is missing or the denominator
-    is not > 0."""
+    base window) times a shrunk seasonal index, the change from the base window to the
+    target month measured k years back: mh[month - 12k months] over the mean of the base
+    months' values 12k months back, with the smallest k in {1, 2} for which all four months
+    exist (so months 13-24 past the base keep their seasonality). The index is 1.0 when
+    neither lag works or the denominator is not > 0."""
     if not len(mh):
         return 0.0
     base_months = mh.index[-3:]
     base = float(mh.iloc[-3:].mean())
-    year = pd.DateOffset(years=1)
-    ly = mh.get(month - year, np.nan)
-    prior = [mh.get(b - year, np.nan) for b in base_months]
     idx = 1.0
-    if len(prior) == 3 and np.isfinite(ly) and all(np.isfinite(v) for v in prior):
-        den = float(np.mean(prior))
-        if den > 0:
-            idx = 1.0 + params.lambda_shrink * (float(np.clip(ly / den, 0.4, 2.5)) - 1.0)
+    if len(base_months) == 3:
+        for k in (1, 2):
+            lag = pd.DateOffset(years=k)
+            ly = mh.get(month - lag, np.nan)
+            prior = [mh.get(b - lag, np.nan) for b in base_months]
+            if not (np.isfinite(ly) and all(np.isfinite(v) for v in prior)):
+                continue
+            den = float(np.mean(prior))
+            if den > 0:
+                idx = 1.0 + params.lambda_shrink * (float(np.clip(ly / den, 0.4, 2.5)) - 1.0)
+            break
     return base * idx
 
 

@@ -154,7 +154,8 @@ def test_level_month_reproduces_pure_seasonal_series():
     mh = pd.Series([PROFILE[d.month - 1] for d in months], index=months)
     p = EngineParams(lambda_shrink=1.0)                                 # unshrunk index: exact seasonal change
     champ = Champion(w_swm=0.0, model="level")
-    for month in pd.date_range("2026-10-01", periods=12, freq="MS"):
+    # first year from the year-ago lag, second year (no year-ago month yet) from two years back
+    for month in pd.date_range("2026-10-01", periods=24, freq="MS"):
         got = organic_month(1, mh, {}, month, p, 1.0, champ)
         truth = PROFILE[month.month - 1]
         assert abs(got - truth) / truth < 0.05, (month, got, truth)
@@ -169,6 +170,19 @@ def test_level_month_index_is_one_when_a_year_ago_month_is_missing():
     months = pd.date_range("2025-10-01", "2026-09-01", freq="MS")      # one year: base year-ago months absent
     mh = pd.Series([PROFILE[d.month - 1] for d in months], index=months)
     assert _level_month(mh, pd.Timestamp("2027-01-01"), P) == pytest.approx((150.0 + 155.0 + 145.0) / 3)
+    assert _level_month(mh, pd.Timestamp("2028-01-01"), P) == pytest.approx((150.0 + 155.0 + 145.0) / 3)
+
+
+def test_level_month_second_year_uses_two_year_lag_with_same_lag_base():
+    from forecast.monthly import _level_month
+    months = pd.date_range("2023-10-01", "2026-09-01", freq="MS")
+    # trend between years: the two-year lag must be scaled by the base two years back, not one
+    mh = pd.Series([PROFILE[d.month - 1] * (1.0 + 0.1 * (d.year - 2023)) for d in months], index=months)
+    p = EngineParams(lambda_shrink=1.0)
+    base = float(mh.iloc[-3:].mean())
+    got = _level_month(mh, pd.Timestamp("2028-01-01"), p)
+    lag2 = mh[pd.Timestamp("2026-01-01")] / mh[pd.Timestamp("2024-07-01"):pd.Timestamp("2024-09-01")].mean()
+    assert got == pytest.approx(base * lag2)
 
 
 def test_level_champion_monthly_mirrors_daily_level():
