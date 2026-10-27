@@ -22,3 +22,18 @@ def test_types_construct():
     s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="Sep +1y")
     ctx = Context(params=EngineParams(), releases=[r], schedule=[s], events=[], otb=None, members_a0=3588.0)
     assert ctx.schedule[0].days == 2 and ctx.releases[0].total == 1400000.0
+
+
+V2_TABLES = ["forecast_backtest_periods", "forecast_accuracy_periods", "bottle_forecast", "bottle_vintage_summary",
+             "bottle_profiles", "bottle_backtest", "bottle_vintage_plan", "label_plan",
+             "club_release_history", "club_release_plan", "club_release_tier_plan"]
+
+
+def test_v2_tables_present_and_idempotent():
+    sql = SCHEMA.read_text()
+    for t in V2_TABLES:
+        assert f"create table if not exists forecast.{t}" in sql
+    assert "add column if not exists release_planned" in sql
+    assert "add column if not exists bottle_rows" in sql
+    stmts = [s for s in sql.split(";") if s.strip()]
+    assert all("if not exists" in s.lower() or s.strip().lower().startswith("create schema") for s in stmts)
