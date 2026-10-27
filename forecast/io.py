@@ -384,12 +384,16 @@ def _s(v) -> Optional[str]:
 
 # --- v2 converters ---------------------------------------------------------------
 
+def _flag(v) -> bool:
+    return bool(v) if v == v and v is not None else False
+
+
 def period_records(periods: pd.DataFrame, run_id: int) -> List[dict]:
     return [{
         "run_id": run_id, "kpi_id": int(r.kpi_id), "period": str(r.period), "ahead": int(r.ahead),
         "period_start": _date(r.period_start), "origin_date": _date(r.origin_date),
         "actual": _num(r.actual), "forecast": _num(r.forecast), "p10": _num(r.p10), "p90": _num(r.p90),
-        "calendar": bool(getattr(r, "calendar", False)),
+        "calendar": _flag(getattr(r, "calendar", False)),
     } for r in periods.itertuples(index=False)]
 
 
@@ -645,7 +649,7 @@ def model_records(champions: Dict[int, Champion], run_id: int) -> List[dict]:
         "run_id": run_id, "kpi_id": int(k), "model": str(c.model), "w_swm": float(c.w_swm),
         "calibration": float(c.calibration), "wmape": _num(c.wmape),
         "wmape_default": _num(c.wmape_default), "wmape_selection": _num(c.wmape_selection),
-        "n": int(c.n), "candidates": json.dumps(c.candidates),
+        "n": int(c.n), "candidates": json.dumps(c.candidates, allow_nan=False),
     } for k, c in sorted(champions.items())]
 
 

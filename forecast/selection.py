@@ -13,6 +13,13 @@ _POINT_COLUMNS = ["kpi_id", "period_start", "actual", "forecast"]
 _EPS = 1e-12
 
 
+def _raw_month_ahead(pf: pd.DataFrame) -> pd.DataFrame:
+    if pf is None or pf.empty:
+        return pd.DataFrame(columns=_POINT_COLUMNS)
+    m = pf[(pf["period"] == "month") & (pf["ahead"] == 1)]
+    return m[_POINT_COLUMNS].reset_index(drop=True)
+
+
 def month_ahead_points(pf: pd.DataFrame) -> pd.DataFrame:
     """Month-ahead=1 period rows, with months where actual and forecast are both zero dropped."""
     if pf is None or pf.empty:
@@ -63,13 +70,22 @@ def _live_c(a: np.ndarray, f: np.ndarray):
 
 def select_champions(pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
                      params: EngineParams) -> Dict[int, Champion]:
-    ps, pl = month_ahead_points(pf_swm), month_ahead_points(pf_level)
+    """Pick each selectable KPI's champion from the two month-ahead=1 frames.
+
+    The frames are joined on period_start first; only months where the actual and both
+    forecasts are zero are then dropped, as are rows with a non-finite actual or forecast.
+    The default (w=1, uncalibrated) is replaced only by a challenger at least champion_margin
+    better, with at least champion_min_months months. Ties among challengers go to the cell
+    nearest the default: higher w first, then uncalibrated before calibrated."""
+    ps, pl = _raw_month_ahead(pf_swm), _raw_month_ahead(pf_level)
     out: Dict[int, Champion] = {}
     for k in SELECTABLE_KPIS:
         s, l = ps[ps["kpi_id"] == k], pl[pl["kpi_id"] == k]
         if s.empty or l.empty:
             continue
         j = s.merge(l, on="period_start", suffixes=("_swm", "_level")).sort_values("period_start")
+        j = j[np.isfinite(j[["actual_swm", "forecast_swm", "forecast_level"]].astype(float)).all(axis=1)]
+        j = j[~((j["actual_swm"] == 0) & (j["forecast_swm"] == 0) & (j["forecast_level"] == 0))]
         a = j["actual_swm"].to_numpy(dtype=float)
         fs = j["forecast_swm"].to_numpy(dtype=float)
         fl = j["forecast_level"].to_numpy(dtype=float)
@@ -83,7 +99,7 @@ def select_champions(pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
         chosen = None
         if default is not None and n >= params.champion_min_months:
             best = None
-            for g in grid:
+            for g in sorted(grid, key=lambda g: (-g["w"], g["cal"])):
                 if g["w"] == 1.0 and not g["cal"]:
                     continue
                 if g["cal"]:

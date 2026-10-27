@@ -128,7 +128,10 @@ class EngineParams:
             clean["horizon_buckets"] = [tuple(b) for b in clean["horizon_buckets"]]
         if "champion_weights" in clean:
             clean["champion_weights"] = [float(w) for w in clean["champion_weights"]]
-        return cls(**clean)
+        params = cls(**clean)
+        if 1.0 not in params.champion_weights:
+            params.champion_weights = list(params.champion_weights) + [1.0]
+        return params
 
     def to_dict(self) -> dict:
         d = asdict(self)

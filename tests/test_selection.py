@@ -91,3 +91,41 @@ def test_grid_has_ten_cells_and_non_selectable_ignored():
     assert grid_scores(np.zeros(3), np.ones(3), np.ones(3), P) == []
     both = pd.concat([frame(8, A, A), frame(24, A, A)])
     assert set(select_champions(both, both, P)) == {8}
+
+
+def test_zero_actual_month_kept_when_models_disagree():
+    a = [100.0] * 6 + [0.0] * 2
+    sw = [110.0] * 6 + [0.0] * 2
+    lv = [104.0] * 6 + [300.0] * 2
+    r = select_champions(frame(8, a, sw), frame(8, a, lv), P)[8]
+    assert r.model == "swm" and r.n == 8 and r.wmape_default == pytest.approx(0.1)
+    cell = next(g for g in r.candidates if g["w"] == 0.0 and not g["cal"])
+    assert cell["wmape"] == pytest.approx(1.04)
+
+
+def _margin_case(level_err):
+    p = EngineParams(calibration_max=0.0, champion_weights=[0.0, 1.0])
+    sw = [110.0, 90.0] * 5 + [110.0]
+    lv = [100.0 + level_err, 100.0 - level_err] * 5 + [100.0 + level_err]
+    return select_champions(frame(8, A, sw), frame(8, A, lv), p)[8]
+
+
+def test_challenger_exactly_margin_better_is_adopted():
+    r = _margin_case(9.5)
+    assert r.model == "level" and r.w_swm == 0.0
+
+
+def test_equal_score_keeps_default():
+    r = _margin_case(10.0)
+    assert r.model == "swm" and r.w_swm == 1.0
+
+
+def test_nan_rows_are_dropped():
+    sw = [110.0] * 11
+    lv = [100.0] * 10 + [float("nan")]
+    r = select_champions(frame(8, A, sw), frame(8, A, lv), P)[8]
+    assert r.n == 10
+
+
+def test_champion_weights_always_include_default():
+    assert 1.0 in EngineParams.from_overrides({"champion_weights": [0.0, 0.5]}).champion_weights
