@@ -145,12 +145,12 @@ def test_monthly_records_include_release_planned():
 
 def test_period_and_accuracy_period_records():
     from forecast.backtest import ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS
-    per = pd.DataFrame([[1, "week", 2, pd.Timestamp("2026-09-07"), pd.Timestamp("2026-08-30"), 5.0, np.nan, 1.0, 9.0]],
+    per = pd.DataFrame([[1, "week", 2, pd.Timestamp("2026-09-07"), pd.Timestamp("2026-08-30"), 5.0, np.nan, 1.0, 9.0, False]],
                        columns=PERIOD_COLUMNS)
     rec = fio.period_records(per, 7)
     assert len(rec) == 1 and rec[0]["run_id"] == 7 and rec[0]["period_start"] == "2026-09-07"
     assert rec[0]["origin_date"] == "2026-08-30" and rec[0]["forecast"] is None
-    acc = pd.DataFrame([[1, "month", 1, 0.2, np.nan, 0.5, 4]], columns=ACCURACY_PERIOD_COLUMNS)
+    acc = pd.DataFrame([[1, "month", 1, 0.2, np.nan, 0.5, 4, 3.0]], columns=ACCURACY_PERIOD_COLUMNS)
     r = fio.accuracy_period_records(acc, 7)[0]
     assert r["bias"] is None and r["n"] == 4 and r["hit_rate"] == 0.5
 
