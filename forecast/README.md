@@ -39,7 +39,7 @@ Period p10/p90 bands are in-sample: the ratio percentiles come from the same bac
 
 Each step logs its wall time (`step=load|select|daily|backtest|monthly|periods|bottles|clubs|write <seconds>s`); the club step also logs `club tiers=… active_in_listed_tiers=… members=…` to compare listed-tier actives with `members_a0`.
 
-Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.8–5.5 s, daily 0.06 s, backtest 2.3–2.8 s, monthly 0.15 s, periods 0.5 s, bottles 0.35 s, clubs 4.4–4.7 s (12 window queries); total ≈ 13–14 s. Output: 7,068 period rows, ≈ 12,300 bottle rows, 230 club-history rows, 9 tiers.
+Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.9 s, select 5.2 s (two selection backtests + grid + headline guard), daily 0.05 s, backtest 2.4 s (final, on champions), monthly 0.2 s, periods 0.5 s, bottles 0.4 s, clubs 4.3 s; total ≈ 18 s. Champions changed on 6 of 14 selectable KPIs (4, 22, 30 blends; 8 blend 0.25; 28 level; 7 calibrated swm); the headline guard reverted KPI 2's blend to protect Average Tasting Fee (20).
 
 Acceptance (2026-10-27): month ahead=1 WMAPE kpi 4 = 0.085, kpi 6 = 0.088 (target ≤ 0.15), kpi 14 = 0.114 (previous engine 0.185). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
 
@@ -65,7 +65,7 @@ KPI 28 "Total Orders" and KPI 29 "Average Order Value" come from `daily_order_me
 
 Timings (2026-10-27 production dry run, origin 2026-10-26): load 5.2 s, select 5.2 s (two selection backtests + grid), daily 0.05 s, backtest 2.4 s (final, on champions), monthly 0.2 s, periods 0.5 s, bottles 0.4 s, clubs 4.8 s; total ≈ 19 s. Champions changed on 8 of 14 selectable KPIs (2, 4, 22, 30 blends; 8 blend 0.25; 28 level; 7 and 13 calibrated swm). These figures predate the club-calibration refusal, the headline guard and the monthly level-index fix (2026-10-27 final review): KPI 13 can no longer take a calibrated cell, and the guard may revert KPI 2.
 
-Acceptance (2026-10-27, final-backtest month-ahead wMAPE, v2 run 7 → v3): KPI 14 0.114 → 0.111, KPI 3 0.118 → 0.112, KPI 4 0.085 → 0.080, KPI 6 0.088 → 0.083, KPI 2 0.163 → 0.139, KPI 8 0.497 → 0.316, KPI 22 0.083 → 0.073, KPI 28 0.192 → 0.135, KPI 30 0.086 → 0.072; no selectable KPI worse than run 7; event KPIs unchanged. Known side effect at the time: derived ratio KPIs 20 (0.131 → 0.158) and 21 moved with KPI 2's champion; the headline guard added afterwards covers 20 (not the hidden 21).
+Acceptance (2026-10-27, final-backtest month-ahead wMAPE, v2 run 7 → v3): KPI 14 0.114 → 0.108, KPI 4 0.085 → 0.080, KPI 6 0.088 → 0.083, KPI 7 0.361 → 0.326, KPI 8 0.497 → 0.316, KPI 22 0.083 → 0.073, KPI 28 0.192 → 0.135, KPI 30 0.086 → 0.072; KPI 3 and 20 unchanged (0.118, 0.131); no selectable KPI worse than run 7; event KPIs unchanged. Hidden ratio KPI 21 moves 0.112 → 0.122 with KPI 30's champion (not guarded).
 
 ## Known limitations
 
