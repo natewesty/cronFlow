@@ -627,3 +627,20 @@ def test_large_format_without_base_profile_is_skipped(caplog):
         fc, summ = forecast_vintages(prof, v, hs, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
     assert not (summ.label == "West Slope Pinot Noir 3.0L").any() and not (fc.label == "West Slope Pinot Noir 3.0L").any()
     assert "no profile for West Slope Pinot Noir 3.0L 2024" in caplog.text
+
+
+def test_profiles_and_forecast_carry_five_channels():
+    hist = make_bottle_history(seed=1)
+    assert set(hist["channel"]) == {"Club", "POS", "Event", "Web", "Inbound"}
+    origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin)
+    bands = price_bands(hist)
+    bt = b.backtest_vintages(hist, vintages, EngineParams())
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=bt)
+    per_key = prof.groupby(["scope", "key"])["channel"].apply(list)
+    assert all(v == ["Club", "POS", "Event", "Web", "Inbound"] for v in per_key)
+    fc, _ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands)
+    assert set(fc["channel"]) == {"Club", "POS", "Event", "Web", "Inbound"}
+    # a label's curve still sums to 1 over channels and months
+    one = prof[(prof.scope == "label")].groupby("key").first().index[0]
+    assert abs(sum(sum(c) for c in prof[(prof.scope == "label") & (prof.key == one)]["curve"]) - 1.0) < 1e-6
