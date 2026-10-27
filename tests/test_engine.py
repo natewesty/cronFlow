@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import pandas as pd
 
@@ -119,3 +120,22 @@ def test_release_in_progress_at_origin_is_forecast_on_day_two():
     point, _ = forecast_daily(df, origin, dates, ctx)
     actual = df.loc[origin + pd.Timedelta(days=1), 4]
     assert abs(point.loc[origin + pd.Timedelta(days=1), 4] - actual) / actual < 0.15
+
+
+def test_club_release_uses_matched_release_and_plan():
+    df = make_history(season_mult={"fall": 1.4, "summer": 0.6, "spring": 1.0, "winter": 1.0})
+    origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    dates = pd.date_range(origin + pd.Timedelta(days=1), periods=60)
+    ctx = Context(params=P, releases=rel, schedule=sched, members_a0=float(h[23].iloc[-1]))
+    point, comps = forecast_daily(h, origin, dates, ctx)
+    actual = df[4].reindex(s.dates).sum()
+    assert abs(comps[4]["release"].reindex(s.dates).sum() - actual) / actual < 0.06
+    plan = pd.DataFrame([["fall", pd.Timestamp(f"{s.start.year}-09-01"), "t1", "A", 2024, 1, 1.0, 1.0, 400_000]],
+                        columns=["season", "release_date", "tier_id", "label", "vintage", "qty", "price", "take_rate", "members_override"])
+    ctx2 = Context(params=P, releases=rel, schedule=sched, members_a0=ctx.members_a0, club_plan=plan)
+    point2, comps2 = forecast_daily(h, origin, dates, ctx2)
+    assert comps2[4]["release"].reindex(s.dates).sum() == pytest.approx(400_000, rel=1e-6)
+    r = 400_000 / comps[4]["release"].reindex(s.dates).sum()
+    assert comps2[13]["release"].reindex(s.dates).sum() == pytest.approx(comps[13]["release"].reindex(s.dates).sum() * r, rel=1e-6)

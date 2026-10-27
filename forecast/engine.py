@@ -7,10 +7,12 @@ import numpy as np
 import pandas as pd
 
 from .config import (ACTIVE_MEMBERS_KPI, ATTRITION_KPI, CLUB_KPIS, EVENT_CALENDAR_FIELD,
-                     EVENT_KPIS, NEW_MEMBERS_KPI, OTB_KPIS, RATE_KPIS, SEASONAL_KPIS)
+                     EVENT_KPIS, FEE_KPIS, NEW_MEMBERS_KPI, OTB_KPIS, RATE_KPIS, SEASONAL_KPIS)
 from .identities import apply_identities
-from .models.club import release_component, release_magnitude, residual_series
+from .models.club import (plan_ratios, plan_totals, release_component, residual_series,
+                          scheduled_release_values)
 from .models.events import cap_series, event_component
+from .models.fees import fee_component
 from .models.membership import (attrition_base_series, project_stock, spike_component,
                                 spike_profile)
 from .models.otb import otb_series
@@ -81,12 +83,22 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
     comps[ATTRITION_KPI] = pd.DataFrame({"organic": base_attr, "spike": spike})
     comps[ACTIVE_MEMBERS_KPI] = pd.DataFrame({"organic": stock})
 
+    # --- Club fees: release-offset event -------------------------------------
+    for k in FEE_KPIS:
+        fc = fee_component(h[k], ctx.releases, ctx.schedule, members_hist, stock, dates, p, origin=origin)
+        point[k] = fc
+        comps[k] = pd.DataFrame({"organic": pd.Series(0.0, index=dates), "release": fc})
+
     # --- Club-sensitive flows ----------------------------------------------
+    ratios = plan_ratios(h[4], ctx.releases, members_hist, stock, ctx.schedule, p,
+                         ctx.club_plan, ctx.tier_shares)
+    planned = plan_totals(stock, ctx.schedule, ctx.club_plan, ctx.tier_shares)
     for k in CLUB_KPIS:
         resid = residual_series(h[k], ctx.releases)
         fc = apply_floor(swm_forecast(resid, origin, dates, p), k, resid)
-        rpm, shares = release_magnitude(h[k], ctx.releases, members_hist, p.release_lookback_n)
-        rel = release_component(ctx.schedule, rpm, shares, stock, dates)
+        vals = scheduled_release_values(h[k], ctx.releases, members_hist, stock, ctx.schedule, p, ratios,
+                                        planned if k == 4 else None)
+        rel = release_component(ctx.schedule, vals, dates)
         point[k] = fc + rel
         comps[k] = pd.DataFrame({"organic": fc, "release": rel})
 

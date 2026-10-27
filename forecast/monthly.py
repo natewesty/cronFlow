@@ -7,10 +7,11 @@ import numpy as np
 import pandas as pd
 
 from .config import (ACTIVE_MEMBERS_KPI, ALL_KPIS, ATTRITION_KPI, CLUB_KPIS, DERIVED_KPIS,
-                     EVENT_CALENDAR_FIELD, EVENT_KPIS, MODELED_KPIS, NEW_MEMBERS_KPI,
+                     EVENT_CALENDAR_FIELD, EVENT_KPIS, FEE_KPIS, MODELED_KPIS, NEW_MEMBERS_KPI,
                      RATE_KPIS)
 from .identities import apply_identities
-from .models.club import release_magnitude, residual_series
+from .models.club import plan_ratios, plan_totals, residual_series, scheduled_release_values
+from .models.fees import fee_component
 from .models.events import cap_series
 from .models.membership import attrition_base_series, spike_profile
 from .types import Context
@@ -19,7 +20,7 @@ AOV_KPI = 29
 ORDERS_KPI = 28
 
 MONTHLY_COLUMNS = ["month_start", "kpi_id", "is_actual", "organic", "organic_neutral",
-                   "release", "event", "fitted_growth", "p50"]
+                   "release", "event", "fitted_growth", "p50", "release_planned"]
 
 
 def _resample(s: pd.Series, k: int, orders: Optional[pd.Series] = None) -> pd.Series:
@@ -96,15 +97,40 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
     raw_mh = {k: _resample(h[k].astype(float).loc[:last_complete], k, orders) for k in MODELED_KPIS}
     growth = {k: _growth(mh[k], p) for k in MODELED_KPIS}
 
-    # Release magnitudes per club KPI and the attrition spike mass per release.
-    magnitudes = {k: release_magnitude(h[k], ctx.releases, members_hist, p.release_lookback_n)[0]
-                  for k in CLUB_KPIS}
+    # Attrition spike mass per release.
     spike_mass = float(spike_profile(h[ATTRITION_KPI], ctx.releases, members_hist,
                                      p.attrition_spike_days, p.release_lookback_n).sum())
 
     def releases_in(month: pd.Timestamp):
         end = month + pd.DateOffset(months=1)
         return [s for s in ctx.schedule if month <= s.start < end and s.start > origin]
+
+    plan_cache: Dict[pd.Timestamp, tuple] = {}
+
+    def release_plan(s, stock_now: float) -> tuple:
+        """(plan ratio, planned KPI 4 revenue) for one release, both None when unplanned;
+        computed once per release."""
+        if s.start not in plan_cache:
+            stock_s = pd.Series([stock_now], index=[s.start])
+            r = plan_ratios(h[4], ctx.releases, members_hist, stock_s, [s], p,
+                            ctx.club_plan, ctx.tier_shares, peers=ctx.schedule)
+            t = plan_totals(stock_s, [s], ctx.club_plan, ctx.tier_shares, peers=ctx.schedule)
+            plan_cache[s.start] = (r.get(s.start), t.get(s.start))
+        return plan_cache[s.start]
+
+    def release_ratio(s, stock_now: float) -> Optional[float]:
+        return release_plan(s, stock_now)[0]
+
+    def club_release(k: int, month: pd.Timestamp, stock_now: float) -> float:
+        tot = 0.0
+        for s in releases_in(month):
+            ratio, rev = release_plan(s, stock_now)
+            ratios = {s.start: ratio} if ratio is not None else None
+            planned = {s.start: rev} if (k == 4 and rev is not None) else None
+            tot += scheduled_release_values(h[k], ctx.releases, members_hist,
+                                            pd.Series([stock_now], index=[s.start]), [s], p,
+                                            ratios, planned)[s.start][0]
+        return tot
 
     def hist_release_total(k: int, month: pd.Timestamp) -> float:
         end = month + pd.DateOffset(months=1)
@@ -140,6 +166,7 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
         is_current = month == cur_month
         p50_by_kpi: Dict[int, float] = {}
         month_rows = []
+        planned = (not is_actual) and any(release_ratio(s, stock) is not None for s in releases_in(month))
         # Membership first (stock feeds club releases).
         if is_actual:
             new_m = float(raw_mh[NEW_MEMBERS_KPI].get(month, 0.0))
@@ -147,7 +174,7 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
             stock_m = float(raw_mh[ACTIVE_MEMBERS_KPI].get(month, stock))
         else:
             for k in MODELED_KPIS:
-                if k != ACTIVE_MEMBERS_KPI:
+                if k != ACTIVE_MEMBERS_KPI and k not in FEE_KPIS:
                     fitted[k][month] = _fitted(mh[k], fitted[k], month, p.w1, p.w2, growth[k])
             new_m = fitted[NEW_MEMBERS_KPI][month]
             attr_base = fitted[ATTRITION_KPI][month]
@@ -180,10 +207,20 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
             elif k == ACTIVE_MEMBERS_KPI:
                 organic = organic_n = p50 = stock_m
                 release = event = 0.0
+            elif k in FEE_KPIS:
+                month_days = pd.date_range(month, month + pd.DateOffset(months=1) - pd.Timedelta(days=1))
+                if is_current:
+                    month_days = month_days[month_days > origin]
+                release = float(fee_component(h[k], ctx.releases, ctx.schedule, members_hist,
+                                              pd.Series([stock], index=[month]), month_days, p,
+                                              origin=origin).sum())
+                organic = organic_n = 0.0
+                event = 0.0
+                p50 = release + (float(h.loc[cur_month:origin, k].sum()) if is_current else 0.0)
             else:
                 organic = fitted[k][month]
                 organic_n = organic / growth[k]
-                release = sum(magnitudes[k] * stock for _ in releases_in(month)) if k in CLUB_KPIS else 0.0
+                release = club_release(k, month, stock) if k in CLUB_KPIS else 0.0
                 event = events_in(month, EVENT_CALENDAR_FIELD[k]) if k in EVENT_CALENDAR_FIELD else 0.0
                 if is_current:
                     # Releases/events scheduled after origin inside this month count in full;
@@ -202,7 +239,7 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                     organic = organic_n = p50 if k in RATE_KPIS else p50 - release - event
                 else:
                     p50 = organic + release + event
-            if is_current and k != ACTIVE_MEMBERS_KPI:
+            if is_current and k != ACTIVE_MEMBERS_KPI and k not in FEE_KPIS:
                 # Current-month organic already carries fitted growth; strip it so the
                 # app does not apply growth to MTD actuals a second time.
                 organic_n = organic / growth[k]
@@ -210,8 +247,9 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
             month_rows.append({"month_start": month, "kpi_id": k, "is_actual": is_actual,
                                "organic": organic, "organic_neutral": organic_n, "release": release,
                                "event": event,
-                               "fitted_growth": 1.0 if k == ACTIVE_MEMBERS_KPI else growth[k],
-                               "p50": p50})
+                               "fitted_growth": 1.0 if (k == ACTIVE_MEMBERS_KPI or k in FEE_KPIS) else growth[k],
+                               "p50": p50,
+                               "release_planned": bool(planned and k in CLUB_KPIS)})
         stock = stock_m
         # Derived KPIs from identities on this month's p50 values.
         wide = pd.DataFrame([p50_by_kpi], index=[month])
@@ -219,7 +257,8 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
         for k in DERIVED_KPIS:
             month_rows.append({"month_start": month, "kpi_id": k, "is_actual": is_actual,
                                "organic": np.nan, "organic_neutral": np.nan, "release": np.nan,
-                               "event": np.nan, "fitted_growth": np.nan, "p50": float(derived[k])})
+                               "event": np.nan, "fitted_growth": np.nan, "p50": float(derived[k]),
+                               "release_planned": False})
         rows.extend(month_rows)
 
     out = pd.DataFrame(rows, columns=MONTHLY_COLUMNS)
