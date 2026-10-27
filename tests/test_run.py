@@ -325,3 +325,14 @@ def test_dry_run_logs_champion_summary(fake_io, monkeypatch, caplog):
         frun.run(origin=ORIGIN, horizon=5, dry_run=True)
     assert any(r.getMessage().startswith("champions: ") and f"of {len(SELECTABLE_KPIS)} KPIs changed" in r.getMessage()
               for r in caplog.records)
+
+
+def test_log_champions_names_reverted_kpis(caplog):
+    from forecast.types import Champion
+    reverted = Champion.default()
+    reverted.reverted_for = 20
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        changed = frun._log_champions({2: reverted, 8: Champion(w_swm=0.25, model="blend")})
+    assert changed == 1
+    assert "champion kpi=2 reverted for kpi=20" in caplog.text
+    assert "champion kpi=8 model=blend" in caplog.text

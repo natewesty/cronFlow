@@ -1,12 +1,13 @@
 """Per-KPI champion selection on the rolling month-ahead backtest (spec 5.2)."""
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from .config import SELECTABLE_KPIS, EngineParams
+from .config import (CLUB_KPIS, HEADLINE_GUARD_KPIS, RATIO_IDENTITIES, SELECTABLE_KPIS,
+                     SUM_IDENTITIES, EngineParams)
 from .types import Champion
 
 _POINT_COLUMNS = ["kpi_id", "period_start", "actual", "forecast"]
@@ -76,7 +77,10 @@ def select_champions(pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
     forecasts are zero are then dropped, as are rows with a non-finite actual or forecast.
     The default (w=1, uncalibrated) is replaced only by a challenger at least champion_margin
     better, with at least champion_min_months months. Ties among challengers go to the cell
-    nearest the default: higher w first, then uncalibrated before calibrated."""
+    nearest the default: higher w first, then uncalibrated before calibrated. Calibrated
+    cells are scored but never adopted for club KPIs (the live chain calibrates their
+    organic residual only). Finally the headline guard reverts champions that make a
+    derived headline KPI worse (headline_guard)."""
     ps, pl = _raw_month_ahead(pf_swm), _raw_month_ahead(pf_level)
     out: Dict[int, Champion] = {}
     for k in SELECTABLE_KPIS:
@@ -103,6 +107,8 @@ def select_champions(pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
                 if g["w"] == 1.0 and not g["cal"]:
                     continue
                 if g["cal"]:
+                    if k in CLUB_KPIS:
+                        continue
                     c = _live_c(a, g["w"] * fs + (1.0 - g["w"]) * fl)
                     if c is None or abs(c - 1.0) > params.calibration_max:
                         continue
@@ -118,4 +124,122 @@ def select_champions(pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
                 c = _live_c(a, w * fs + (1.0 - w) * fl)
                 champ.calibration = 1.0 / (1.0 + params.calibration_shrink * (c - 1.0))
         out[k] = champ
-    return out
+    return headline_guard(out, pf_swm, pf_level, params)
+
+
+def _wide(points: pd.DataFrame, value: str) -> pd.DataFrame:
+    if points.empty:
+        return pd.DataFrame()
+    return points.pivot_table(index="period_start", columns="kpi_id", values=value, aggfunc="last")
+
+
+def _guard_parts(g: int) -> Tuple[List[int], Optional[List[int]], float]:
+    """(numerator parts, denominator parts or None for a sum, scale) of a guarded KPI."""
+    if g in SUM_IDENTITIES:
+        return list(SUM_IDENTITIES[g]), None, 1.0
+    if g in RATIO_IDENTITIES:
+        nums, dens, scale = RATIO_IDENTITIES[g]
+        return list(nums), list(dens), float(scale)
+    return [g], None, 1.0
+
+
+class _GuardFrames:
+    """Aligned month-ahead=1 period values: actuals and swm forecasts of every KPI from the
+    swm frame, level forecasts of the selectable KPIs from the level frame."""
+
+    def __init__(self, pf_swm: pd.DataFrame, pf_level: pd.DataFrame):
+        ps, pl = _raw_month_ahead(pf_swm), _raw_month_ahead(pf_level)
+        self.actual = _wide(ps, "actual")
+        self.f_swm = _wide(ps, "forecast")
+        self.f_level = _wide(pl, "forecast").reindex(self.actual.index)
+
+    def forecast(self, k: int, champions: Dict[int, Champion]) -> np.ndarray:
+        """k's period forecasts under `champions`: m * (w*swm + (1-w)*level) for a selectable
+        KPI with a champion; the swm frame's values otherwise (identical in both frames)."""
+        if k not in self.f_swm:
+            return np.zeros(len(self.actual))
+        fs = self.f_swm[k].to_numpy(dtype=float)
+        c = champions.get(k) if k in SELECTABLE_KPIS else None
+        if c is None or c.is_default:
+            return fs
+        w = float(c.w_swm)
+        if w >= 1.0:
+            base = fs
+        else:
+            fl = (self.f_level[k] if k in self.f_level else pd.Series(np.nan, index=self.actual.index))
+            base = w * fs + (1.0 - w) * fl.to_numpy(dtype=float)
+        return base * float(c.calibration)
+
+    def _actual(self, k: int) -> np.ndarray:
+        if k not in self.actual:
+            return np.zeros(len(self.actual))
+        return self.actual[k].to_numpy(dtype=float)
+
+    def _value(self, g: int, get) -> np.ndarray:
+        nums, dens, scale = _guard_parts(g)
+        n = sum((get(p) for p in nums), np.zeros(len(self.actual)))
+        if dens is None:
+            return n
+        d = sum((get(p) for p in dens), np.zeros(len(self.actual)))
+        out = np.zeros(len(self.actual))
+        ok = d != 0
+        out[ok] = n[ok] / d[ok] * scale
+        return np.where(np.isfinite(n) & np.isfinite(d), out, np.nan)
+
+    def wmapes(self, g: int, a_champs: Dict[int, Champion],
+               b_champs: Dict[int, Champion]) -> Tuple[Optional[float], Optional[float]]:
+        """Month-ahead wMAPE of guarded KPI g under two champion maps, on the same months:
+        finite everywhere, and not zero in the actual and both forecasts."""
+        if self.actual.empty:
+            return None, None
+        a = self._value(g, self._actual)
+        fa = self._value(g, lambda k: self.forecast(k, a_champs))
+        fb = self._value(g, lambda k: self.forecast(k, b_champs))
+        keep = np.isfinite(a) & np.isfinite(fa) & np.isfinite(fb) & ~((a == 0) & (fa == 0) & (fb == 0))
+        if not keep.any() or np.abs(a[keep]).sum() == 0:
+            return None, None
+        return _score(a[keep], fa[keep]), _score(a[keep], fb[keep])
+
+
+def _reverted(c: Champion, g: int) -> Champion:
+    r = Champion.default()
+    r.n, r.candidates, r.wmape_default, r.reverted_for = c.n, c.candidates, c.wmape_default, g
+    r.wmape_selection = c.wmape_default
+    return r
+
+
+def headline_guard(champions: Dict[int, Champion], pf_swm: pd.DataFrame, pf_level: pd.DataFrame,
+                   params: EngineParams) -> Dict[int, Champion]:
+    """Revert champions that make a headline derived KPI worse (spec 5.3, ruling 2026-10-27).
+
+    Each KPI in HEADLINE_GUARD_KPIS is scored on its month-ahead=1 period values rebuilt from
+    its parts (a sum, or sum of numerators over sum of denominators times scale per period)
+    under the chosen champions and under the defaults. While one is worse than the default
+    by more than champion_margin, the selectable part with a non-default champion whose
+    reversion improves that KPI most is reverted, and everything is re-scored."""
+    out = dict(champions)
+    frames = _GuardFrames(pf_swm, pf_level)
+    defaults: Dict[int, Champion] = {}
+    while True:
+        reverted = False
+        for g in HEADLINE_GUARD_KPIS:
+            chosen, dflt = frames.wmapes(g, out, defaults)
+            if chosen is None or dflt is None or chosen - dflt <= params.champion_margin + _EPS:
+                continue
+            nums, dens, _ = _guard_parts(g)
+            parts = [p for p in dict.fromkeys(nums + (dens or []))
+                     if p in SELECTABLE_KPIS and p in out and not out[p].is_default]
+            best, best_score = None, None
+            for p in parts:
+                trial = dict(out)
+                trial[p] = Champion.default()
+                score, _ = frames.wmapes(g, trial, defaults)
+                if score is not None and (best_score is None or score < best_score):
+                    best, best_score = p, score
+            if best is None:
+                continue
+            out[best] = _reverted(out[best], g)
+            reverted = True
+            break
+        if not reverted:
+            return out

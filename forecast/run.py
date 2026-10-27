@@ -64,6 +64,8 @@ def _fill_champion_wmape(champions: Dict[int, Champion], acc_periods: pd.DataFra
 def _log_champions(champions: Dict[int, Champion]) -> int:
     changed = 0
     for k, c in sorted(champions.items()):
+        if c.reverted_for is not None:
+            log.info("champion kpi=%s reverted for kpi=%s", k, c.reverted_for)
         if c.model == "swm" and c.calibration == 1.0:
             continue
         changed += 1

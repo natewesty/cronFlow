@@ -42,7 +42,7 @@ def _bias(a: np.ndarray, f: np.ndarray) -> Optional[float]:
 
 def uniform_champions(w: float) -> Dict[int, Champion]:
     """Every selectable KPI at the same SWM weight."""
-    return {k: Champion(w_swm=float(w)) for k in SELECTABLE_KPIS}
+    return {k: Champion(w_swm=float(w), model=Champion.name_for(float(w))) for k in SELECTABLE_KPIS}
 
 
 def _origin_otb(snapshots: Optional[pd.DataFrame], o: pd.Timestamp) -> Optional[pd.DataFrame]:

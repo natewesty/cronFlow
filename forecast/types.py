@@ -50,10 +50,15 @@ class Champion:
     wmape_selection: Optional[float] = None
     n: int = 0
     candidates: List[dict] = field(default_factory=list)
+    reverted_for: Optional[int] = None   # headline KPI whose guard reverted this champion
 
     @classmethod
     def default(cls) -> "Champion":
         return cls(w_swm=1.0)
+
+    @property
+    def is_default(self) -> bool:
+        return self.w_swm >= 1.0 and self.calibration == 1.0
 
     @staticmethod
     def name_for(w: float) -> str:

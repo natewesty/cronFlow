@@ -42,6 +42,9 @@ RATIO_IDENTITIES: Dict[int, Tuple[List[int], List[int], float]] = {
     21: ([30], [18], 100.0),
     27: ([18], [24], 100.0),
 }
+# Headline KPIs re-scored after per-KPI selection (spec 5.3 headline guard). A KPI with an
+# identity above is scored from its parts; one without (31) is its own single part.
+HEADLINE_GUARD_KPIS: List[int] = [3, 6, 14, 20, 31]
 DERIVED_KPIS: List[int] = sorted(list(SUM_IDENTITIES) + list(DIFF_IDENTITIES) + list(RATIO_IDENTITIES))
 ALL_KPIS: List[int] = sorted(MODELED_KPIS + DERIVED_KPIS)
 
@@ -127,7 +130,9 @@ class EngineParams:
         if "horizon_buckets" in clean:
             clean["horizon_buckets"] = [tuple(b) for b in clean["horizon_buckets"]]
         if "champion_weights" in clean:
-            clean["champion_weights"] = [float(w) for w in clean["champion_weights"]]
+            # a blend weight outside [0, 1] extrapolates; clip, then drop duplicates in order
+            clipped = [min(1.0, max(0.0, float(w))) for w in clean["champion_weights"]]
+            clean["champion_weights"] = list(dict.fromkeys(clipped))
         params = cls(**clean)
         if 1.0 not in params.champion_weights:
             params.champion_weights = list(params.champion_weights) + [1.0]

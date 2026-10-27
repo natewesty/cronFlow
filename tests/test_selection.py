@@ -129,3 +129,75 @@ def test_nan_rows_are_dropped():
 
 def test_champion_weights_always_include_default():
     assert 1.0 in EngineParams.from_overrides({"champion_weights": [0.0, 0.5]}).champion_weights
+
+
+def test_club_kpi_never_adopts_calibration():
+    # only the calibrated cells beat the default (same data as test_calibration_adopted_and_bounded)
+    lv = [300.0] * 11
+    r = select_champions(frame(4, A, [120.0] * 11), frame(4, A, lv), P)[4]
+    assert r.w_swm == 1.0 and r.model == "swm" and r.calibration == 1.0
+    assert r.wmape_selection == pytest.approx(0.2) and r.wmape_default == pytest.approx(0.2)
+    cal = next(g for g in r.candidates if g["w"] == 1.0 and g["cal"])
+    assert cal["wmape"] < 0.2 - P.champion_margin       # still scored, just never adopted
+    assert len(r.candidates) == 10
+
+
+def test_club_kpi_can_still_take_an_uncalibrated_challenger():
+    sw = [110.0, 90.0] * 5 + [110.0]
+    lv = [105.0, 95.0] * 5 + [105.0]
+    r = select_champions(frame(4, A, sw), frame(4, A, lv), P)[4]
+    assert r.model == "level" and r.calibration == 1.0
+
+
+def _guard_frames(f16_swm):
+    """KPI 20 = (2 + 5 + 10) / 16 (config.RATIO_IDENTITIES). KPI 2's level forecast beats
+    its swm forecast on 2 alone; 16 has no challenger; 5 and 10 are not selectable."""
+    from forecast.config import RATIO_IDENTITIES
+    assert RATIO_IDENTITIES[20] == ([2, 5, 10], [16], 1.0)
+    a2, a5, a10, a16 = [100.0] * 11, [5.0] * 11, [0.0] * 11, [10.0] * 11
+    sw2 = [110.0, 90.0] * 5 + [110.0]                    # wmape 0.10
+    lv2 = [103.0, 97.0] * 5 + [103.0]                    # wmape 0.03
+    f5 = [5.5, 4.5] * 5 + [5.5]                          # with sw2 and f16 the swm ratio is exact
+    swm = pd.concat([frame(2, a2, sw2), frame(5, a5, f5), frame(10, a10, a10), frame(16, a16, f16_swm)])
+    level = pd.concat([frame(2, a2, lv2), frame(5, a5, f5), frame(10, a10, a10), frame(16, a16, f16_swm)])
+    return swm, level
+
+
+def test_headline_guard_reverts_component_that_hurts_ratio():
+    from forecast.selection import _GuardFrames
+    swm, level = _guard_frames([11.0, 9.0] * 5 + [11.0])  # (110 + 5.5) / 11 = (90 + 4.5) / 9 = 10.5: exact
+    from forecast.types import Champion
+    r = select_champions(swm, level, P)
+    # without the guard KPI 2 would take level (0.03 vs 0.10); KPI 20 would go from 0 to ~0.067
+    lvl = {2: Champion(w_swm=0.0, model="level")}
+    chosen, dflt = _GuardFrames(swm, level).wmapes(20, lvl, {})
+    assert dflt == pytest.approx(0.0, abs=1e-12) and chosen > P.champion_margin
+    c2 = r[2]
+    assert c2.model == "swm" and c2.w_swm == 1.0 and c2.calibration == 1.0 and c2.reverted_for == 20
+    assert c2.wmape_default == pytest.approx(0.10) and c2.wmape_selection == pytest.approx(0.10)
+    assert c2.n == 11 and len(c2.candidates) == 10
+    assert min(g["wmape"] for g in c2.candidates) == pytest.approx(0.03)
+    assert r[16].model == "swm" and r[16].reverted_for is None
+
+
+def test_headline_guard_keeps_champion_that_helps_ratio():
+    swm, level = _guard_frames([10.0] * 11)               # 16 exact: the better KPI 2 helps 20 too
+    r = select_champions(swm, level, P)
+    assert r[2].model == "level" and r[2].w_swm == 0.0 and r[2].reverted_for is None
+    assert r[2].wmape_selection == pytest.approx(0.03)
+
+
+def test_headline_guard_picks_the_most_helpful_reversion():
+    from forecast.selection import headline_guard
+    from forecast.types import Champion
+    swm, level = _guard_frames([11.0, 9.0] * 5 + [11.0])
+    # both parts of 20 off their defaults: 2 on level (hurts 20), 16 on swm x 1.001 (barely matters)
+    champs = {2: Champion(w_swm=0.0, model="level"), 16: Champion(w_swm=1.0, calibration=1.001)}
+    out = headline_guard(champs, swm, level, P)
+    assert out[2].reverted_for == 20 and out[2].is_default
+    assert out[16].calibration == 1.001 and out[16].reverted_for is None
+
+
+def test_champion_weights_are_clipped_to_unit_interval():
+    p = EngineParams.from_overrides({"champion_weights": [-0.5, 0.5, 1.5, 1.0]})
+    assert p.champion_weights == [0.0, 0.5, 1.0]

@@ -213,6 +213,9 @@ def test_summarize_periods_excludes_both_zero_months_and_has_mae():
 def test_uniform_champions_covers_selectable_only():
     u = uniform_champions(0.0)
     assert set(u) == set(SELECTABLE_KPIS) and all(c.w_swm == 0.0 for c in u.values())
+    assert all(c.model == "level" for c in u.values())
+    assert {c.model for c in uniform_champions(0.5).values()} == {"blend"}
+    assert {c.model for c in uniform_champions(1.0).values()} == {"swm"}
 
 
 def test_hit_rate_ignores_both_zero_periods():
