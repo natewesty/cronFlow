@@ -43,9 +43,9 @@ def test_v2_writers_and_club_plan_default_take_rate():
         try:
             fio.ensure_schema(conn)
             run_id = fio.start_run(conn, pd.Timestamp("2026-10-23"), 3, {})
-            per = pd.DataFrame([[1, "week", 1, pd.Timestamp("2026-09-07"), pd.Timestamp("2026-09-01"), 5.0, 4.0, 3.0, 6.0]],
-                               columns=PERIOD_COLUMNS)
-            acc = pd.DataFrame([[1, "week", 1, 0.2, 0.0, 0.5, 4]], columns=ACCURACY_PERIOD_COLUMNS)
+            per = pd.DataFrame([[1, "week", 1, pd.Timestamp("2026-09-07"), pd.Timestamp("2026-09-01"), 5.0, 4.0, 3.0, 6.0,
+                                 False]], columns=PERIOD_COLUMNS)
+            acc = pd.DataFrame([[1, "week", 1, 0.2, 0.0, 0.5, 4, 1.0]], columns=ACCURACY_PERIOD_COLUMNS)
             fio.write_periods(conn, run_id, fio.period_records(per, run_id), fio.accuracy_period_records(acc, run_id))
             fc = pd.DataFrame([["Lux", 2022, pd.Timestamp("2026-11-01"), "Club", 3.0, 2.0, 5.0]],
                               columns=["label", "vintage", "month_start", "channel", "p50", "p10", "p90"])
@@ -98,5 +98,38 @@ def test_prune_runs_drops_old_v2_detail_but_keeps_latest_and_recent():
             runs = conn.execute(text("select run_id, bottle_rows from forecast.forecast_runs where run_id in (:a, :b, :c)"),
                                 {"a": old, "b": recent, "c": latest}).fetchall()
             assert sorted(runs) == sorted((r, 1) for r in ids)        # run rows stay (400-day rule)
+        finally:
+            trans.rollback()
+
+
+def test_v3_models_and_period_columns_round_trip():
+    from forecast.backtest import ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS
+    from forecast.types import Champion
+    engine = fio.get_engine(URL)
+    with engine.connect() as conn:
+        trans = conn.begin()
+        try:
+            fio.ensure_schema(conn)
+            run_id = fio.start_run(conn, pd.Timestamp("2026-10-23"), 3, {})
+            champ = Champion(w_swm=0.25, calibration=0.95, model="blend", wmape=0.3, wmape_default=0.5,
+                             wmape_selection=0.33, n=11, candidates=[{"w": 0.25, "cal": True, "wmape": 0.33}])
+            fio.write_models(conn, run_id, fio.model_records({8: champ}, run_id))
+            per = pd.DataFrame([[8, "month", 1, pd.Timestamp("2026-09-01"), pd.Timestamp("2026-08-31"),
+                                 100.0, 90.0, 80.0, 110.0, True]], columns=PERIOD_COLUMNS)
+            acc = pd.DataFrame([[8, "month", 1, 0.1, -0.1, 1.0, 1, 10.0]], columns=ACCURACY_PERIOD_COLUMNS)
+            fio.write_periods(conn, run_id, fio.period_records(per, run_id), fio.accuracy_period_records(acc, run_id))
+            row = conn.execute(text("select kpi_id, model, w_swm, calibration, wmape, wmape_default, wmape_selection, "
+                                    "n, candidates from forecast.forecast_models where run_id = :r"),
+                               {"r": run_id}).fetchall()
+            assert len(row) == 1
+            k, model, w, cal, wm, wd, ws, n, cands = row[0]
+            assert (k, model, n) == (8, "blend", 11)
+            assert [float(v) for v in (w, cal, wm, wd, ws)] == pytest.approx([0.25, 0.95, 0.3, 0.5, 0.33])
+            assert cands == [{"w": 0.25, "cal": True, "wmape": 0.33}]
+            cal_flag = conn.execute(text("select calendar from forecast.forecast_backtest_periods where run_id = :r"),
+                                    {"r": run_id}).scalar()
+            mae = conn.execute(text("select mae from forecast.forecast_accuracy_periods where run_id = :r"),
+                               {"r": run_id}).scalar()
+            assert cal_flag is True and float(mae) == pytest.approx(10.0)
         finally:
             trans.rollback()

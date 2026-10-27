@@ -2,11 +2,13 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from forecast.config import ALL_KPIS, EngineParams
+from dataclasses import replace
+
+from forecast.config import ALL_KPIS, SELECTABLE_KPIS, SUM_IDENTITIES, EngineParams
 from forecast.engine import forecast_daily
 from forecast.identities import apply_identities
 from forecast.models.club import default_schedule, detect_releases, release_magnitude
-from forecast.types import Context, Release, ScheduledRelease
+from forecast.types import Champion, Context, Release, ScheduledRelease
 from tests.synth import make_history
 
 P = EngineParams()
@@ -139,3 +141,22 @@ def test_club_release_uses_matched_release_and_plan():
     assert comps2[4]["release"].reindex(s.dates).sum() == pytest.approx(400_000, rel=1e-6)
     r = 400_000 / comps[4]["release"].reindex(s.dates).sum()
     assert comps2[13]["release"].reindex(s.dates).sum() == pytest.approx(comps[13]["release"].reindex(s.dates).sum() * r, rel=1e-6)
+
+
+def test_champions_empty_matches_default_champions():
+    df = make_history()
+    ctx_a = _ctx(df)
+    ctx_b = replace(ctx_a, champions={k: Champion.default() for k in SELECTABLE_KPIS})
+    a, _ = forecast_daily(df, ORIGIN, DATES, ctx_a)
+    b, _ = forecast_daily(df, ORIGIN, DATES, ctx_b)
+    pd.testing.assert_frame_equal(a, b)
+
+
+def test_level_champion_changes_only_its_kpi_and_its_sums():
+    df = make_history()
+    ctx = replace(_ctx(df), champions={1: Champion(w_swm=0.0)})
+    a, _ = forecast_daily(df, ORIGIN, DATES, _ctx(df))
+    b, _ = forecast_daily(df, ORIGIN, DATES, ctx)
+    assert not np.allclose(a[1], b[1]) and np.allclose(a[16], b[16]) and np.allclose(a[2], b[2])
+    assert np.allclose(b[3], b[1] + b[2])
+    assert np.allclose(b[14], b[SUM_IDENTITIES[14]].sum(axis=1))

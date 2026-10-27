@@ -8,13 +8,13 @@ import pandas as pd
 
 from .config import (ACTIVE_MEMBERS_KPI, ALL_KPIS, ATTRITION_KPI, CLUB_KPIS, DERIVED_KPIS,
                      EVENT_CALENDAR_FIELD, EVENT_KPIS, FEE_KPIS, MODELED_KPIS, NEW_MEMBERS_KPI,
-                     RATE_KPIS)
+                     RATE_KPIS, SELECTABLE_KPIS)
 from .identities import apply_identities
 from .models.club import plan_ratios, plan_totals, residual_series, scheduled_release_values
 from .models.fees import fee_component
 from .models.events import cap_series
 from .models.membership import attrition_base_series, spike_profile
-from .types import Context
+from .types import Champion, Context
 
 AOV_KPI = 29
 ORDERS_KPI = 28
@@ -69,6 +69,47 @@ def _fitted(mh: pd.Series, fitted: Dict[pd.Timestamp, float], month: pd.Timestam
     if np.isfinite(t2):
         return float(t2)
     return float(mh.iloc[-3:].mean() * g) if len(mh) else 0.0
+
+
+def _level_month(mh: pd.Series, month: pd.Timestamp, params) -> float:
+    """Recent-level monthly base (spec 5.3): mean of the last three complete months (the
+    base window) times a shrunk seasonal index, the change from the base window to the
+    target month measured k years back: mh[month - 12k months] over the mean of the base
+    months' values 12k months back, with the smallest k in {1, 2} for which all four months
+    exist (so months 13-24 past the base keep their seasonality). The index is 1.0 when
+    neither lag works or the denominator is not > 0."""
+    if not len(mh):
+        return 0.0
+    base_months = mh.index[-3:]
+    base = float(mh.iloc[-3:].mean())
+    idx = 1.0
+    if len(base_months) == 3:
+        for k in (1, 2):
+            lag = pd.DateOffset(years=k)
+            ly = mh.get(month - lag, np.nan)
+            prior = [mh.get(b - lag, np.nan) for b in base_months]
+            if not (np.isfinite(ly) and all(np.isfinite(v) for v in prior)):
+                continue
+            den = float(np.mean(prior))
+            if den > 0:
+                idx = 1.0 + params.lambda_shrink * (float(np.clip(ly / den, 0.4, 2.5)) - 1.0)
+            break
+    return base * idx
+
+
+def organic_month(k: int, mh: pd.Series, fitted: Dict, month: pd.Timestamp, params, growth: float,
+                  champion: Optional[Champion]) -> float:
+    """Monthly organic value mirroring the daily champion: m * (w*fitted + (1-w)*level)."""
+    plain = _fitted(mh, fitted, month, params.w1, params.w2, growth)
+    if champion is None or k not in SELECTABLE_KPIS:
+        return plain
+    w, m = float(champion.w_swm), float(champion.calibration)
+    if w >= 1.0:
+        base = plain
+    else:
+        level = _level_month(mh, month, params)
+        base = level if w <= 0.0 else w * plain + (1.0 - w) * level
+    return base if m == 1.0 else m * base
 
 
 def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
@@ -219,6 +260,8 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                 p50 = release + (float(h.loc[cur_month:origin, k].sum()) if is_current else 0.0)
             else:
                 organic = fitted[k][month]
+                if not is_current and k in SELECTABLE_KPIS and k in (ctx.champions or {}):
+                    organic = organic_month(k, mh[k], fitted[k], month, p, growth[k], ctx.champions[k])
                 organic_n = organic / growth[k]
                 release = club_release(k, month, stock) if k in CLUB_KPIS else 0.0
                 event = events_in(month, EVENT_CALENDAR_FIELD[k]) if k in EVENT_CALENDAR_FIELD else 0.0
