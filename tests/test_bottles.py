@@ -306,7 +306,8 @@ def test_unreleased_vintage_before_origin_is_clamped_with_full_mass(caplog):
     with caplog.at_level(logging.WARNING, logger="forecast"):
         fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2030, P, bands)
     s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
-    assert s.release_month == pd.Timestamp("2026-11-01") and "moved to 2026-11-01" in caplog.text
+    assert s.release_month == pd.Timestamp("2026-11-01")
+    assert "planned release 2026-01-01 is not after origin; moved to 2026-11-01" in caplog.text
     rows = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2025)]
     assert rows.month_start.min() == pd.Timestamp("2026-11-01")
     assert rows.p50.sum() == pytest.approx(s.lifetime_p50, abs=1e-6)
@@ -371,9 +372,19 @@ def test_unreviewed_labels_get_default_next_vintage():
     hr = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
     assert hr.release_month == pd.Timestamp("2027-06-01") and hr.profile_key == "Home Ranch Pinot Noir"
     assert fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2025)].month_start.min() == pd.Timestamp("2027-06-01")
-    # Ten Oaks 2023 released 2025-06: default 2024 release (2026-06) is not after origin -> clamped
+    # Ten Oaks 2023 released 2025-06: default 2024 release (2026-06) is not after origin -> rolled a year
     to = summ[(summ.label == "Ten Oaks Pinot Noir") & (summ.vintage == 2024)].iloc[0]
-    assert to.release_month == pd.Timestamp("2026-11-01")
+    assert to.release_month == pd.Timestamp("2027-06-01")
+
+
+def test_default_candidate_rolls_forward_by_year_and_logs_count(caplog):
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, h, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    assert "default next-vintage candidates added: 5" in caplog.text
+    assert "Ten Oaks Pinot Noir 2024 default release 2026-06-01 is not after origin; rolled to 2027-06-01" in caplog.text
+    rows = fc[(fc.label == "Ten Oaks Pinot Noir") & (fc.vintage == 2024)]
+    assert rows.month_start.min() == pd.Timestamp("2027-06-01")
 
 
 def test_default_next_vintage_respects_plan_retire_and_named_incoming():

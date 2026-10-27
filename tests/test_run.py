@@ -53,8 +53,10 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "load_bottle_history",
                         lambda conn, origin: bottles[bottles.month_start <= origin].reset_index(drop=True))
     # the window opens the day before the release; synthetic orders land on release day + 1
+    state["order_windows"] = []
     monkeypatch.setattr(frun.fio, "load_club_orders",
-                        lambda conn, start, end: make_club_orders(memberships, [start + pd.Timedelta(days=1)]))
+                        lambda conn, start, end: state["order_windows"].append((start, end))
+                        or make_club_orders(memberships, [start + pd.Timedelta(days=1)]))
     monkeypatch.setattr(frun.fio, "load_memberships", lambda conn: memberships)
     monkeypatch.setattr(frun.fio, "load_members_daily",
                         lambda conn, start, end: make_members_daily(memberships, start, end))
@@ -185,9 +187,54 @@ def test_skip_backtest_skips_periods(fake_io):
     assert s.bottle_rows > 0
 
 
-def test_run_loads_two_plan_years(fake_io):
+def test_run_loads_two_plan_years(fake_io, monkeypatch, recwarn):
+    # one distinct row per plan year; overridden here only so other run tests keep an empty plan
+    def plan(conn, y):
+        fake_io["club_plan_years"].append(y)
+        return pd.DataFrame([["fall", pd.Timestamp(year=y, month=9, day=2), TIER_IDS["Estate"],
+                              "Home Ranch Pinot Noir", y - 2, 2, 50.0, 0.6, None]], columns=fio.EMPTY["club_plan"])
+    monkeypatch.setattr(frun.fio, "load_club_plan", plan)
+    captured = {}
+    real = frun.forecast_daily
+
+    def spy(hist, origin, dates, ctx):
+        captured["ctx"] = ctx
+        return real(hist, origin, dates, ctx)
+    monkeypatch.setattr(frun, "forecast_daily", spy)
     frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
     assert sorted(fake_io["club_plan_years"]) == [ORIGIN.year, ORIGIN.year + 1]
+    cp = captured["ctx"].club_plan
+    assert sorted(cp.release_date.dt.year) == [ORIGIN.year, ORIGIN.year + 1]
+    assert not cp.duplicated().any()
+
+
+def test_two_plan_years_concat_without_warnings(fake_io, monkeypatch, recwarn):
+    # this year's plan empty, next year's not: concatenating an empty frame warns in pandas 2.x
+    def plan(conn, y):
+        if y == ORIGIN.year:
+            return fio._empty_club_plan()
+        return pd.DataFrame([["fall", pd.Timestamp(year=y, month=9, day=2), TIER_IDS["Estate"],
+                              "Home Ranch Pinot Noir", y - 2, 2, 50.0, 0.6, None]], columns=fio.EMPTY["club_plan"])
+    monkeypatch.setattr(frun.fio, "load_club_plan", plan)
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    assert not [w for w in recwarn if "concat" in str(w.message).lower()]
+
+
+def test_club_order_windows_cover_last_three_years(fake_io):
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    w = fake_io["order_windows"]
+    # fixture releases: 13 two-day releases 2023-09-06 .. 2026-09-02; 2023-09-06 is older than 3 years
+    assert len(w) == 12
+    assert w[0] == (pd.Timestamp("2023-11-14"), pd.Timestamp("2023-11-19"))   # start - 1 day, start + days + 2
+    assert w[-1] == (pd.Timestamp("2026-09-01"), pd.Timestamp("2026-09-06"))
+    assert all(e - s == pd.Timedelta(days=5) for s, e in w)
+    assert all(s > ORIGIN - pd.DateOffset(years=3) - pd.Timedelta(days=1) for s, _ in w)
+
+
+def test_backfill_does_not_write_club_history(fake_io):
+    s = frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
+    assert "club_history" not in fake_io
+    assert s.bottle_rows > 0 and fake_io["finished"][-1][1] == "success"
 
 
 def test_run_skips_bottles_and_clubs_without_data(fake_io, monkeypatch):

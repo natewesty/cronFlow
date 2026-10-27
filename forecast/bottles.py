@@ -440,7 +440,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     first-year anchored). Capped at cases x 12 when cases are known. No profile: skipped with a
     warning, except a non-magnum new label, which gets a summary row only.
     Release: an unreleased candidate whose release month is <= origin's month is moved to the month
-    after origin (warning logged), so no curve mass is dropped.
+    after origin when it has a plan row (warning logged), so no curve mass is dropped; a default
+    candidate (no plan row) keeps its month and rolls forward 12 months at a time until after origin.
     Monthly: an already-selling vintage spreads remaining = max(lifetime - sold_to_date, 0) over the
     curve mass from months_sold on (renormalised; remaining = 0 if that mass is 0); a future one
     is lifetime x curve. Rows run from the month after origin to December of plan_year + 1.
@@ -477,6 +478,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             own = vintages[vintages["label"] == label]["vintage"]
             inc = int(own.max()) + 1 if status == "continue" and len(own) else plan_year - 2
         cands.append((label, int(inc)))
+    n_plan_cands = len(dict.fromkeys(cands))
     for label, g in vintages.groupby("label", sort=True):
         newest = g.loc[g["vintage"].astype(int).idxmax()]
         if int(newest["months_sold"]) >= DEFAULT_NEXT_MAX_MONTHS:
@@ -493,6 +495,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             continue
         cands.append((label, nxt))
     cands = list(dict.fromkeys(cands))
+    log.info("bottles: default next-vintage candidates added: %s", len(cands) - n_plan_cands)
 
     fc_rows: List[dict] = []
     summ_rows: List[dict] = []
@@ -514,9 +517,17 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             rm = _plan_value(pr, "release_month")
             release = (pd.Timestamp(rm).to_period("M").start_time if rm is not None
                        else _default_release(label, vintage, vintages, plan_year))
-            if release <= origin_month:
+            if release <= origin_month and pr is None:
+                # default candidate: keep the label's release month, roll forward a year at a time
+                rolled = release
+                while rolled <= origin_month:
+                    rolled = rolled + pd.DateOffset(months=12)
+                log.warning("bottles: %s %s default release %s is not after origin; rolled to %s",
+                            label, vintage, release.date(), rolled.date())
+                release = rolled
+            elif release <= origin_month:
                 clamped = origin_month + pd.DateOffset(months=1)
-                log.warning("bottles: %s %s release %s is not after origin; moved to %s",
+                log.warning("bottles: %s %s planned release %s is not after origin; moved to %s",
                             label, vintage, release.date(), clamped.date())
                 release = clamped
         c = cases.get((label, vintage), np.nan)

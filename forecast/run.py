@@ -70,8 +70,8 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
     py = plan_year(origin)
     with engine.connect() as conn:
         # this year's plan still applies until year end; club._plan_rows filters by year
-        club_plan = pd.concat([fio.load_club_plan(conn, int(origin.year)), fio.load_club_plan(conn, py)],
-                              ignore_index=True)
+        plans = [fio.load_club_plan(conn, int(origin.year)), fio.load_club_plan(conn, py)]
+        club_plan = pd.concat([p for p in plans if not p.empty] or plans[:1], ignore_index=True)
         tier_shares = fio.load_tier_shares(conn, origin, params.tier_min_members)
         label_plan = fio.load_label_plan(conn, py)
         vintage_plan = fio.load_vintage_plan(conn)
@@ -176,8 +176,12 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             fio.write_results(conn, run_id, daily_recs, monthly_recs, acc_recs)
             fio.write_periods(conn, run_id, period_recs, acc_period_recs)
             fio.write_bottles(conn, run_id, bottle_recs, summ_recs, profile_recs, bt_v_recs)
-            if club_history is not None:     # a skipped computation must not wipe the (not run-scoped) table
+            # not run-scoped: a skipped computation must not wipe it, and a backfill must not
+            # replace today's history with the origin's view (same reasoning as the bookings snapshot)
+            if club_history is not None and origin == live:
                 fio.write_club_history(conn, club_recs)
+            elif club_history is not None:
+                log.info("club history write skipped: backfill origin %s", origin.date())
             if origin == live:
                 fio.write_bookings_snapshot(conn, origin + pd.Timedelta(days=1), otb)
             else:
