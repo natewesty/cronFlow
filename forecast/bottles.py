@@ -3,16 +3,19 @@ r"""Bottle label parsing, per-vintage table and price tiers (spec 5.1, 5.3). Pur
 Rules shared with the app (port these exactly):
 
 Titles
-  - label = title with a leading "YYYY " vintage stripped (any size suffix is kept, so a large
-    format is its own label). vintage = leading four digits of the title, else None.
+  - label = title with a leading "YYYY " vintage stripped. A size suffix is kept (a large format is
+    its own label) but spelled one way, " <size>L" (" - 1.5L", " 1.5L", " - 1.5 L", "1.5l" ->
+    " 1.5L"): the warehouse titles the same magnum differently across vintages. vintage = leading
+    four digits of the title, else None.
   - Large format (is_large_format, alias is_magnum): the stripped title ends with a size suffix
     matching /\s*-?\s*\d(\.\d)?\s?L$/i (" - 1.5L", " 3.0L", " - 5.0L", " - 1.5 L", "1.5l").
   - varietal_from_title (fallback only; the warehouse varietal wins when present): strip the
     leading vintage, then the size suffix, then trim; empty -> None (a title that is only digits is
     empty). Else the longest entry of KNOWN_VARIETALS that the text ends with, compared
     case-insensitively and starting at a word boundary (start of text or a non-alphanumeric
-    character before it), returned in the list's casing; else the last whitespace-separated word
-    in its original casing.
+    character before it), returned in the list's casing; else the longest entry found anywhere as
+    whole words (a commemorative "Pinot Noir 3.0L - Year of the Tiger Etch"); else None (a set or
+    a gift is no varietal).
 
 Large formats
   - excluded from price_bands and from every tier (tier profiles, tier dispersion pools, tier
@@ -61,17 +64,20 @@ from forecast.config import BOTTLE_CHANNELS, EngineParams
 
 log = logging.getLogger("forecast")
 
-MAGNUM_SUFFIX = " - 1.5L"     # the classic magnum spelling; any size suffix counts (see LARGE_FORMAT_SUFFIX)
+MAGNUM_SUFFIX = " 1.5L"       # the magnum spelling labels use; any size suffix counts (see LARGE_FORMAT_SUFFIX)
 LARGE_FORMAT_SUFFIX = re.compile(r"\s*-?\s*\d(\.\d)?\s?L$", re.IGNORECASE)
-KNOWN_VARIETALS = ["Pinot Noir", "Chardonnay", "Blanc de Noirs", "Rosé", "Rose", "Merlot", "Syrah",
+_SIZE_SUFFIX = re.compile(r"\s*-?\s*(\d(?:\.\d)?)\s?L$", re.IGNORECASE)   # the same, size captured
+KNOWN_VARIETALS = ["Pinot Noir", "Chardonnay", "Blanc de Noirs", "Blanc de Blancs", "Rosé", "Rose", "Merlot", "Syrah",
                    "Cabernet Sauvignon", "Sauvignon Blanc", "Pinot Gris", "Riesling"]
+_BY_LENGTH = sorted(KNOWN_VARIETALS, key=len, reverse=True)
 _VINTAGE_PREFIX = re.compile(r"^\d{4}\s+")
 _VINTAGE_DIGITS = re.compile(r"^(\d{4})")
 
 
 def label_from_title(title: str) -> str:
-    """Title with the leading four-digit vintage stripped (any large-format size suffix is kept)."""
-    return _VINTAGE_PREFIX.sub("", title.strip())
+    """Title with the leading four-digit vintage stripped; a size suffix is kept, spelled " <size>L"."""
+    t = _VINTAGE_PREFIX.sub("", title.strip())
+    return _SIZE_SUFFIX.sub(lambda m: f" {m.group(1)}L", t).strip()
 
 
 def vintage_from_title(title: str) -> Optional[int]:
@@ -86,21 +92,31 @@ def _strip_size(t: str) -> str:
 def varietal_from_title(title: str) -> Optional[str]:
     """Varietal from a title: strip the leading vintage and any large-format size suffix; None when
     nothing (or only digits) remains; else the longest KNOWN_VARIETALS entry the rest ends with
-    (case-insensitive, at a word boundary, returned in the list's casing); else the last word
-    (original casing). A fallback only: callers prefer the warehouse stg_product.varietal."""
+    (case-insensitive, at a word boundary, returned in the list's casing); else the longest entry
+    found anywhere as whole words; else None. A fallback only: callers prefer stg_product.varietal."""
     t = _strip_size(label_from_title(title))
     if t.isdigit():
         t = ""
     if not t:
         return None
     low = t.lower()
-    for name in sorted(KNOWN_VARIETALS, key=len, reverse=True):
+
+    def at_boundary(i: int, k: str) -> bool:
+        j = i + len(k)
+        return (i == 0 or not low[i - 1].isalnum()) and (j == len(low) or not low[j].isalnum())
+
+    for name in _BY_LENGTH:
         k = name.lower()
-        if low.endswith(k):
-            i = len(low) - len(k)
-            if i == 0 or not low[i - 1].isalnum():
+        if low.endswith(k) and at_boundary(len(low) - len(k), k):
+            return name
+    for name in _BY_LENGTH:
+        k = name.lower()
+        i = low.find(k)
+        while i >= 0:
+            if at_boundary(i, k):
                 return name
-    return t.split()[-1]
+            i = low.find(k, i + 1)
+    return None
 
 
 def base_label(label: str) -> str:

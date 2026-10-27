@@ -25,6 +25,14 @@ def test_title_parsing():
     assert b.varietal_from_title("2021") is None
     assert b.vintage_from_title("Gift Card") is None
     assert b.varietal_from_title("2022 TFV Chardonnay") == "Chardonnay"
+    # One label per wine and size: the warehouse spells the suffix three ways across vintages.
+    for t in ["2023 Carneros Chardonnay - 1.5L", "2024 Carneros Chardonnay 1.5L", "2023 Carneros Chardonnay - 1.5 L",
+              "Carneros Chardonnay 1.5l"]:
+        assert b.label_from_title(t) == "Carneros Chardonnay 1.5L", t
+    assert b.label_from_title("2023 Perrygulch Pinot Noir - 5.0L") == "Perrygulch Pinot Noir 5.0L"
+    assert b.label_from_title("2022 East Slope Pinot Noir 3.0L - Year of the Tiger Etch") == "East Slope Pinot Noir 3.0L - Year of the Tiger Etch"
+    assert b.base_label("Carneros Chardonnay 1.5L") == "Carneros Chardonnay"
+    assert b.label_from_title("1.5L") == "1.5L"
 
 
 def test_vintage_table_release_month_and_first_year():
@@ -468,8 +476,12 @@ def test_large_format_suffixes_and_known_varietals():
     assert b.varietal_from_title("2023 Rosé of Pinot Noir") == "Pinot Noir"
     assert b.varietal_from_title("2023 Estate Rosé") == "Rosé"
     assert b.varietal_from_title("2022 Anderson Valley Cabernet Sauvignon") == "Cabernet Sauvignon"
-    assert b.varietal_from_title("2021-2023 Zodiac Vertical") == "Vertical"   # no known varietal: last word
-    assert b.varietal_from_title("Primrose") == "Primrose"                     # 'rose' only at a word boundary
+    assert b.varietal_from_title("2016 Blanc de Blancs") == "Blanc de Blancs"
+    assert b.varietal_from_title("2022 East Slope Pinot Noir 3.0L - Year of the Tiger Etch") == "Pinot Noir"  # anywhere, whole words
+    assert b.varietal_from_title("2021-2023 Zodiac Vertical") is None        # no known varietal: a set is no varietal
+    assert b.varietal_from_title("Library Terroir Trio") is None
+    assert b.varietal_from_title("Primrose") is None                           # 'rose' only at a word boundary
+    assert b.varietal_from_title("Pinot Noirx") is None
     assert b.varietal_from_title("1.5L") is None and b.varietal_from_title("") is None
 
 
