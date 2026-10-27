@@ -283,3 +283,98 @@ def prune_runs(conn: Connection, keep_days: int = 400) -> None:
         delete from {FORECAST_SCHEMA}.forecast_runs
         where started_at < now() - make_interval(days => :days) and not is_latest
     """), {"days": int(keep_days)})
+
+
+# --- Forecast v2: loader / writer contracts ----------------------------------
+# Signatures are final. Bodies are stubs until WS-B fills them in.
+
+EMPTY: Dict[str, List[str]] = {
+    "club_plan": ["season", "release_date", "tier_id", "label", "vintage", "qty", "price",
+                  "take_rate", "members_override"],
+    "tier_shares": ["tier_id", "tier_name", "active", "share"],
+    "label_plan": ["plan_year", "label", "status", "incoming_vintage", "release_month",
+                   "override_outgoing", "override_incoming", "price", "varietal", "comparable_label"],
+    "vintage_plan": ["label", "vintage", "cases_made", "assumed"],
+    "bottle_history": ["label", "vintage", "varietal", "month_start", "channel", "bottles", "revenue", "price"],
+    "club_orders": ["order_id", "customer_id", "created_at", "label", "vintage", "bottles", "revenue"],
+    "memberships": ["membership_id", "customer_id", "club_id", "club_name", "status", "signup_at",
+                    "cancel_at", "delivery_method"],
+}
+
+
+def _empty(name: str) -> pd.DataFrame:
+    return pd.DataFrame(columns=list(EMPTY[name]))
+
+
+def _empty_club_plan() -> pd.DataFrame:
+    return _empty("club_plan")
+
+
+def _empty_tier_shares() -> pd.DataFrame:
+    return _empty("tier_shares")
+
+
+def _empty_label_plan() -> pd.DataFrame:
+    return _empty("label_plan")
+
+
+def _empty_vintage_plan() -> pd.DataFrame:
+    return _empty("vintage_plan")
+
+
+def _empty_bottle_history() -> pd.DataFrame:
+    return _empty("bottle_history")
+
+
+def _empty_club_orders() -> pd.DataFrame:
+    return _empty("club_orders")
+
+
+def _empty_memberships() -> pd.DataFrame:
+    return _empty("memberships")
+
+
+def load_club_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
+    return _empty_club_plan()  # WS-B
+
+
+def load_tier_shares(conn: Connection, origin: pd.Timestamp, min_members: int) -> pd.DataFrame:
+    return _empty_tier_shares()  # WS-B
+
+
+def load_label_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
+    return _empty_label_plan()  # WS-B
+
+
+def load_vintage_plan(conn: Connection) -> pd.DataFrame:
+    return _empty_vintage_plan()  # WS-B
+
+
+def load_bottle_history(conn: Connection, origin: pd.Timestamp) -> pd.DataFrame:
+    return _empty_bottle_history()  # WS-B
+
+
+def load_club_orders(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+    return _empty_club_orders()  # WS-B
+
+
+def load_memberships(conn: Connection) -> pd.DataFrame:
+    return _empty_memberships()  # WS-B
+
+
+def load_members_daily(conn: Connection, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
+    return pd.Series(dtype=float, index=pd.DatetimeIndex([]))  # WS-B
+
+
+def write_periods(conn: Connection, run_id: int, period_recs: List[dict], acc_recs: List[dict]) -> None:
+    pass  # WS-B
+
+
+def write_bottles(conn: Connection, run_id: int, forecast_recs: List[dict], summary_recs: List[dict],
+                  profile_recs: List[dict], backtest_recs: List[dict]) -> None:
+    pass  # WS-B
+
+
+def write_club_history(conn: Connection, history_recs: List[dict]) -> None:
+    """Delete + insert (not run-scoped)."""
+    pass  # WS-B

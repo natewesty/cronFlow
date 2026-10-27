@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import pandas as pd
 import pytest
 
+from forecast import io as fio
 from forecast import run as frun
 from forecast.config import ALL_KPIS, EngineParams
 from tests.synth import make_history
@@ -41,6 +42,14 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "finish_run", lambda conn, run_id, status, error=None: state["finished"].append((run_id, status, error)))
     monkeypatch.setattr(frun.fio, "write_bookings_snapshot", lambda conn, d, otb: state["snapshots"].append(d))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
+    for name in ["club_plan", "tier_shares", "label_plan", "vintage_plan"]:
+        monkeypatch.setattr(frun.fio, f"load_{name}", lambda conn, *a, _n=name: getattr(fio, f"_empty_{_n}")())
+    monkeypatch.setattr(frun.fio, "load_bottle_history", lambda conn, origin: fio._empty_bottle_history())
+    monkeypatch.setattr(frun.fio, "load_club_orders", lambda conn, start, end: fio._empty_club_orders())
+    monkeypatch.setattr(frun.fio, "load_memberships", lambda conn: fio._empty_memberships())
+    monkeypatch.setattr(frun.fio, "write_periods", lambda conn, run_id, p, a: state.setdefault("periods", []).append((run_id, p, a)))
+    monkeypatch.setattr(frun.fio, "write_bottles", lambda conn, run_id, f, s, p, b: state.setdefault("bottles", []).append(run_id))
+    monkeypatch.setattr(frun.fio, "write_club_history", lambda conn, h: state.setdefault("club_history", []).append(h))
     monkeypatch.setattr(frun, "today_pacific", lambda: ORIGIN + pd.Timedelta(days=1))
     return state
 
@@ -122,3 +131,17 @@ def test_backfill_skips_bookings_snapshot(fake_io):
     frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
     assert fake_io["snapshots"] == []
     assert fake_io["finished"][-1][1] == "success"
+
+
+def test_run_passes_plans_into_context(fake_io, monkeypatch):
+    captured = {}
+    real = frun.forecast_daily
+
+    def spy(hist, origin, dates, ctx):
+        captured["ctx"] = ctx
+        return real(hist, origin, dates, ctx)
+    monkeypatch.setattr(frun, "forecast_daily", spy)
+    frun.run(origin=ORIGIN, horizon=30, dry_run=True, skip_backtest=True)
+    ctx = captured["ctx"]
+    assert ctx.club_plan is not None and ctx.club_plan.empty and ctx.tier_shares is not None
+    assert frun.plan_year(ORIGIN) == 2027

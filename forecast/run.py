@@ -32,6 +32,13 @@ class RunSummary:
     monthly_rows: int
     accuracy_rows: int
     next28_total_revenue: float
+    period_rows: int = 0
+    bottle_rows: int = 0
+
+
+def plan_year(origin: pd.Timestamp) -> int:
+    """The planning year the bottle and club plans are read for."""
+    return int(origin.year) + 1
 
 
 def today_pacific() -> pd.Timestamp:
@@ -54,6 +61,12 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         otb = fio.load_otb(conn, origin)
         members = fio.load_members_at(conn, origin)
         assumptions = fio.load_assumptions(conn)
+        py = plan_year(origin)
+        params_pre = parse_params(assumptions.get("engine_params"))
+        club_plan = fio.load_club_plan(conn, py)
+        tier_shares = fio.load_tier_shares(conn, origin, params_pre.tier_min_members)
+        label_plan = fio.load_label_plan(conn, py)
+        vintage_plan = fio.load_vintage_plan(conn)
     if hist.empty:
         raise RuntimeError("fact_kpi_daily returned no rows")
 
@@ -63,7 +76,9 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
     schedule = parse_schedule(assumptions.get("shipment_schedule")) or default_schedule(releases, origin)
     events = parse_events(assumptions.get("events"))
     a0 = float(members) if members is not None else float(hist[23].iloc[-1])
-    ctx = Context(params=params, releases=releases, schedule=schedule, events=events, otb=otb, members_a0=a0)
+    ctx = Context(params=params, releases=releases, schedule=schedule, events=events, otb=otb, members_a0=a0,
+                  club_plan=club_plan, tier_shares=tier_shares, label_plan=label_plan,
+                  vintage_plan=vintage_plan)
     dates = pd.date_range(origin + pd.Timedelta(days=1), periods=horizon, freq="D")
 
     log.info("origin=%s horizon=%s history=%s..%s releases=%s scheduled=%s events=%s members=%s",
@@ -85,6 +100,8 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         accuracy = pd.DataFrame(columns=fbt.ACCURACY_COLUMNS) if skip_backtest else fbt.run_backtest(hist, releases, params, origin)
         p10, p90 = fbt.apply_bands(point, accuracy, params)
         monthly = monthly_forecast(hist, origin, ctx, daily_point=point)
+        # WS-B: periods
+        # WS-B: bottles + clubs
 
         next28 = float(point[14].iloc[:28].sum())
         for k in ALL_KPIS:

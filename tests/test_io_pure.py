@@ -128,3 +128,9 @@ def test_insert_many_sends_one_statement_per_chunk_and_writes_every_row(monkeypa
 def test_database_url_keeps_explicit_driver(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://u:p@localhost/db")
     assert fio.database_url() == "postgresql+psycopg2://u:p@localhost/db"
+
+
+def test_v2_loader_stubs_return_typed_empty_frames():
+    for name in ["club_plan", "tier_shares", "label_plan", "vintage_plan", "bottle_history", "club_orders", "memberships"]:
+        assert list(fio.EMPTY[name]) == list(getattr(fio, f"_empty_{name}")().columns)
+    assert fio._empty_club_plan().empty
