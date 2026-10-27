@@ -61,9 +61,9 @@ Each selectable KPI (`SELECTABLE_KPIS`: 1, 2, 4, 7, 8, 13, 15, 16, 18, 22, 28, 2
 
 KPI 28 "Total Orders" and KPI 29 "Average Order Value" come from `daily_order_metrics` in `models/kpi/fact_kpi_daily.sql`, which excludes tasting-lounge orders, event orders and external vendors. Since October 2025 the daily count is lower than Tasting Room Orders (KPI 30) on most days, which is impossible for a true total: 28 is effectively web, phone and club orders. The engine treats it as a small channel; the definition is left to the user (rename, or widen the filter in dbt).
 
-Timings (v3 production dry run): _measured in Stream D_
+Timings (2026-10-27 production dry run, origin 2026-10-26): load 5.2 s, select 5.2 s (two selection backtests + grid), daily 0.05 s, backtest 2.4 s (final, on champions), monthly 0.2 s, periods 0.5 s, bottles 0.4 s, clubs 4.8 s; total ≈ 19 s. Champions changed on 8 of 14 selectable KPIs (2, 4, 22, 30 blends; 8 blend 0.25; 28 level; 7 and 13 calibrated swm).
 
-Acceptance (v3 final-backtest month-ahead wMAPE): _measured in Stream D_
+Acceptance (2026-10-27, final-backtest month-ahead wMAPE, v2 run 7 → v3): KPI 14 0.114 → 0.111, KPI 3 0.118 → 0.112, KPI 4 0.085 → 0.080, KPI 6 0.088 → 0.083, KPI 2 0.163 → 0.139, KPI 8 0.497 → 0.316, KPI 22 0.083 → 0.073, KPI 28 0.192 → 0.135, KPI 30 0.086 → 0.072; no selectable KPI worse than run 7; event KPIs unchanged. Known side effect: derived ratio KPIs 20 (0.131 → 0.158) and 21 move with KPI 2's champion; the margin rule guards selectable KPIs only.
 
 ## Known limitations
 
