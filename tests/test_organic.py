@@ -28,3 +28,7 @@ def test_non_selectable_kpi_ignores_champion():
 
 def test_champion_name():
     assert (Champion.name_for(1.0), Champion.name_for(0.0), Champion.name_for(0.25)) == ("swm", "level", "blend")
+
+def test_full_swm_weight_still_applies_calibration():
+    out = organic_forecast(1, H[1], ORIGIN, DATES, P, {1: Champion(w_swm=1.0, calibration=1.1)})
+    assert np.allclose(out, 1.1 * swm_forecast(H[1], ORIGIN, DATES, P))
