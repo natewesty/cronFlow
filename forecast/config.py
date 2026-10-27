@@ -7,18 +7,22 @@ from typing import Dict, List, Optional, Tuple
 
 KPI_SCHEMA = os.getenv("KPI_SCHEMA", "public_nate_sandbox")
 FORECAST_SCHEMA = "forecast"
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "2.0.0"
+RELEASE_MATCH_WINDOW_DAYS = 30
+SEASONS = ("spring", "summer", "fall", "winter")
+BOTTLE_CHANNELS = ("Club", "POS", "Web", "Inbound")
 
 # --- KPI model families (spec §4.2) ---------------------------------------
-SEASONAL_KPIS: List[int] = [1, 2, 5, 7, 8, 15, 16, 18, 30, 31]
+SEASONAL_KPIS: List[int] = [1, 2, 7, 8, 15, 16, 18, 30, 31]
 CLUB_KPIS: List[int] = [4, 13, 22, 28]
 EVENT_KPIS: List[int] = [9, 10, 12, 19]
+FEE_KPIS: List[int] = [5]
 RATE_KPIS: List[int] = [29]
 NEW_MEMBERS_KPI = 24
 ATTRITION_KPI = 25
 ACTIVE_MEMBERS_KPI = 23
 MEMBERSHIP_KPIS: List[int] = [ACTIVE_MEMBERS_KPI, NEW_MEMBERS_KPI, ATTRITION_KPI]
-MODELED_KPIS: List[int] = sorted(SEASONAL_KPIS + CLUB_KPIS + EVENT_KPIS + RATE_KPIS + MEMBERSHIP_KPIS)
+MODELED_KPIS: List[int] = sorted(SEASONAL_KPIS + CLUB_KPIS + EVENT_KPIS + RATE_KPIS + MEMBERSHIP_KPIS + FEE_KPIS)
 
 # --- Identities (spec §4.8, mart semantics) --------------------------------
 SUM_IDENTITIES: Dict[int, List[int]] = {
@@ -73,6 +77,11 @@ for _k in [32, 33]:
 HOLIDAYS_FIXED = {(1, 1), (7, 4), (12, 24), (12, 25), (12, 31)}
 
 
+def season_of(d) -> str:
+    """Club season of a date: Q1 spring, Q2 summer, Q3 fall, Q4 winter."""
+    return SEASONS[(int(d.month) - 1) // 3]
+
+
 @dataclass
 class EngineParams:
     lambda_shrink: float = 0.7
@@ -94,6 +103,11 @@ class EngineParams:
         default_factory=lambda: [(1, 7), (8, 28), (29, 91), (92, 120)])
     monthly_months: int = 24
     monthly_lookback_months: int = 12
+    period_weeks_ahead: int = 4
+    period_months_ahead: int = 3
+    bottle_curve_months: int = 36
+    tier_min_members: int = 10
+    release_match_years: int = 2
 
     @classmethod
     def from_overrides(cls, overrides: Optional[dict]) -> "EngineParams":

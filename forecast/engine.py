@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .config import (ACTIVE_MEMBERS_KPI, ATTRITION_KPI, CLUB_KPIS, EVENT_CALENDAR_FIELD,
-                     EVENT_KPIS, NEW_MEMBERS_KPI, OTB_KPIS, RATE_KPIS, SEASONAL_KPIS)
+                     EVENT_KPIS, FEE_KPIS, NEW_MEMBERS_KPI, OTB_KPIS, RATE_KPIS, SEASONAL_KPIS)
 from .identities import apply_identities
 from .models.club import release_component, release_magnitude, residual_series
 from .models.events import cap_series, event_component
@@ -37,6 +37,11 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
             fc = apply_floor(fc, k, h[k])
         point[k] = fc
         comps[k] = pd.DataFrame({"organic": fc})
+
+    # WS-A replaces with models/fees.py
+    for k in FEE_KPIS:
+        point[k] = apply_floor(swm_forecast(h[k], origin, dates, p), k, h[k])
+        comps[k] = pd.DataFrame({"organic": point[k]})
 
     # --- Event-sensitive flows --------------------------------------------
     for k in EVENT_KPIS:
