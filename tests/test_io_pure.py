@@ -299,3 +299,19 @@ def test_write_models_and_snapshot_loader_empty():
     df = fio.load_bookings_snapshots(
         Conn([("2026-01-02", "2026-01-10", "Tasting", 2, 5, 100.0)]), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-02-01"))
     assert df.iloc[0]["snapshot_date"] == pd.Timestamp("2026-01-02") and df.iloc[0]["guests"] == 5.0
+
+
+def test_bottle_history_sql_splits_pos_event_wine():
+    from forecast.io import BOTTLE_HISTORY_SQL
+    s = " ".join(BOTTLE_HISTORY_SQL.split()).lower()
+    assert "case when i.channel = 'pos' and i.event_fee_or_wine = 'event wine' then 'event'" in s
+    assert "else coalesce(i.channel, 'pos') end as channel" in s
+
+
+def test_bottle_history_records_shape():
+    from forecast.io import bottle_history_records
+    df = pd.DataFrame([{"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": pd.Timestamp("2026-01-01"),
+                        "channel": "Event", "bottles": 12.0, "revenue": 1200.0, "price": 100.0}])
+    recs = bottle_history_records(df)
+    assert recs == [{"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": "2026-01-01",
+                     "channel": "Event", "bottles": 12.0, "revenue": 1200.0}]

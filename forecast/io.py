@@ -456,6 +456,14 @@ def club_history_records(hist: pd.DataFrame) -> List[dict]:
     return out
 
 
+def bottle_history_records(hist: pd.DataFrame) -> List[dict]:
+    return [{
+        "label": str(r.label), "vintage": int(r.vintage), "varietal": _s(r.varietal),
+        "month_start": _date(r.month_start), "channel": str(r.channel),
+        "bottles": _num(r.bottles), "revenue": _num(r.revenue),
+    } for r in hist.itertuples(index=False)]
+
+
 # --- v2 loaders ------------------------------------------------------------------
 
 def _frame(rows, cols: List[str]) -> pd.DataFrame:
@@ -536,7 +544,9 @@ def load_vintage_plan(conn: Connection) -> pd.DataFrame:
 # paid_at is a timestamp: `<= date` would drop the origin day's sales, so compare to the next midnight.
 BOTTLE_HISTORY_SQL = """
         select date_trunc('month', i.paid_at)::date as month_start, p.title, p.vintage, p.varietal,
-               i.channel, sum(i.quantity) as bottles, sum(i.product_subtotal) as revenue
+               case when i.channel = 'POS' and i.event_fee_or_wine = 'Event Wine' then 'Event'
+                    else coalesce(i.channel, 'POS') end as channel,
+               sum(i.quantity) as bottles, sum(i.product_subtotal) as revenue
         from public.fct_order_item i
         join public.stg_product p on p.product_id = i.product_id
         where i.item_type = 'Wine' and i.paid_at < cast(:origin as date) + interval '1 day'
@@ -725,4 +735,15 @@ def write_club_history(conn: Connection, history_recs: List[dict]) -> None:
                members, take_rate, bottles, revenue)
             values (:release_start, :season, cast(:tier_id as uuid), :tier_name, :label, :vintage, :qty_per_box,
                     :price, :orders, :members, :take_rate, :bottles, :revenue)
+        """, history_recs)
+
+
+def write_bottle_history(conn: Connection, history_recs: List[dict]) -> None:
+    """Delete + insert (not run-scoped)."""
+    conn.execute(text(f"delete from {FORECAST_SCHEMA}.bottle_history"))
+    if history_recs:
+        _insert_many(conn, f"""
+            insert into {FORECAST_SCHEMA}.bottle_history
+              (label, vintage, varietal, month_start, channel, bottles, revenue)
+            values (:label, :vintage, :varietal, :month_start, :channel, :bottles, :revenue)
         """, history_recs)

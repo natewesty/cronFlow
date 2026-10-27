@@ -261,6 +261,11 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
                 fio.write_club_history(conn, club_recs)
             elif club_history is not None:
                 log.info("club history write skipped: backfill origin %s", origin.date())
+            # same reasoning: only the live origin sees the full history; an empty frame never wipes it
+            if origin == live and not hist_b.empty:
+                bh_recs = fio.bottle_history_records(hist_b)
+                fio.write_bottle_history(conn, bh_recs)
+                log.info("bottle_history=%s", len(bh_recs))
             if origin == live:
                 fio.write_bookings_snapshot(conn, origin + pd.Timedelta(days=1), otb)
             else:

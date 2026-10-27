@@ -71,6 +71,8 @@ def fake_io(monkeypatch):
     monkeypatch.setattr(frun.fio, "write_bottles",
                         lambda conn, run_id, f, s, p, b: state.setdefault("bottles", []).append((run_id, f, s, p, b)))
     monkeypatch.setattr(frun.fio, "write_club_history", lambda conn, h: state.setdefault("club_history", []).append(h))
+    monkeypatch.setattr(frun.fio, "write_bottle_history",
+                        lambda conn, recs: state.setdefault("bottle_history", []).append(recs))
     monkeypatch.setattr(frun, "today_pacific", lambda: ORIGIN + pd.Timedelta(days=1))
     return state
 
@@ -356,3 +358,17 @@ def test_selection_failure_on_dry_run_writes_nothing(fake_io, monkeypatch):
     with pytest.raises(RuntimeError, match="backtest boom"):
         frun.run(origin=ORIGIN, horizon=5, dry_run=True)
     assert fake_io["finished"] == [] and fake_io["runs"] == []
+
+
+def test_run_writes_bottle_history(fake_io):
+    frun.run(origin=ORIGIN, horizon=5, skip_backtest=True)
+    [recs] = fake_io["bottle_history"]
+    bottles = make_bottle_history()
+    assert len(recs) == len(bottles[bottles.month_start <= ORIGIN]) > 0
+    assert all("run_id" not in r and "price" not in r for r in recs)
+
+
+def test_dry_run_and_backfill_do_not_write_bottle_history(fake_io):
+    frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
+    frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
+    assert "bottle_history" not in fake_io
