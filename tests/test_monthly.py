@@ -122,3 +122,50 @@ def test_monthly_release_matches_daily_and_flags_plan():
     m2 = monthly_forecast(h, origin, Context(params=P, releases=rel, schedule=sched, members_a0=ctx.members_a0, club_plan=plan))
     row2 = m2[(m2.kpi_id == 4) & (m2.month_start == pd.Timestamp("2026-09-01"))].iloc[0]
     assert row2.release == pytest.approx(400_000, rel=1e-6) and row2.release_planned == True
+
+
+def _const_hist():
+    df = make_history()
+    df = df.copy()
+    df[1] = 100.0
+    return df
+
+
+def _with_champs(df, champs):
+    ctx = _ctx(df)
+    ctx.champions = champs
+    return ctx
+
+
+def _row(m, k, month):
+    return m[(m.kpi_id == k) & (m.month_start == month)].iloc[0]
+
+
+def test_default_champion_monthly_unchanged():
+    from forecast.config import SELECTABLE_KPIS
+    from forecast.types import Champion
+    df = make_history()
+    base = monthly_forecast(df, ORIGIN, _with_champs(df, {}))
+    dflt = monthly_forecast(df, ORIGIN, _with_champs(df, {k: Champion.default() for k in SELECTABLE_KPIS}))
+    pd.testing.assert_frame_equal(base, dflt)
+
+
+def test_level_champion_monthly_uses_recent_months():
+    from forecast.types import Champion
+    df = _const_hist()
+    m = monthly_forecast(df, ORIGIN, _with_champs(df, {1: Champion(w_swm=0.0, model="level")}))
+    row = _row(m, 1, pd.Timestamp("2027-02-01"))
+    base = 100.0 * (31 + 31 + 30) / 3          # Jul-Sep mean
+    raw = 2800.0 / base                         # Feb 2026 over Nov-Jan (days differ, so idx is not exactly 1)
+    assert row.organic == pytest.approx(base * (1.0 + P.lambda_shrink * (raw - 1.0)), rel=1e-6)
+    assert abs(row.organic - 3000.0) < 150
+
+
+def test_monthly_calibration_scales_organic():
+    from forecast.types import Champion
+    df = make_history()
+    base = monthly_forecast(df, ORIGIN, _with_champs(df, {}))
+    cal = monthly_forecast(df, ORIGIN, _with_champs(df, {1: Champion(w_swm=1.0, calibration=1.1)}))
+    b, c = _row(base, 1, pd.Timestamp("2027-02-01")), _row(cal, 1, pd.Timestamp("2027-02-01"))
+    assert c.organic == pytest.approx(1.1 * b.organic)
+    assert c.organic_neutral == pytest.approx(1.1 * b.organic_neutral)
