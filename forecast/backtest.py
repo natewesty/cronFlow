@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from .config import ACTIVE_MEMBERS_KPI, EngineParams
+from .config import ACTIVE_MEMBERS_KPI, EngineParams, season_of
 from .engine import forecast_daily
 from .types import Context, Release, ScheduledRelease
 
@@ -46,7 +46,7 @@ def backtest_frame(hist: pd.DataFrame, releases: List[Release], params: EnginePa
         n = min(params.horizon, (origin - o).days)
         dates = pd.date_range(o + pd.Timedelta(days=1), periods=n, freq="D")
         past = [r for r in releases if r.start <= o]
-        future = [ScheduledRelease(start=r.start, days=r.days, label="hist") for r in releases
+        future = [ScheduledRelease(start=r.start, days=r.days, label="hist", season=season_of(r.start)) for r in releases
                   if r.start + pd.Timedelta(days=r.days - 1) > o]
         a0 = float(hist.loc[o, ACTIVE_MEMBERS_KPI]) if ACTIVE_MEMBERS_KPI in hist and o in hist.index else 0.0
         ctx = Context(params=params, releases=past, schedule=future, events=[], otb=None, members_a0=a0)
