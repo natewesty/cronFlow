@@ -10,7 +10,7 @@ from .config import (ACTIVE_MEMBERS_KPI, ALL_KPIS, ATTRITION_KPI, CLUB_KPIS, DER
                      EVENT_CALENDAR_FIELD, EVENT_KPIS, FEE_KPIS, MODELED_KPIS, NEW_MEMBERS_KPI,
                      RATE_KPIS)
 from .identities import apply_identities
-from .models.club import plan_ratios, residual_series, scheduled_release_values
+from .models.club import plan_ratios, plan_totals, residual_series, scheduled_release_values
 from .models.fees import fee_component
 from .models.events import cap_series
 from .models.membership import attrition_base_series, spike_profile
@@ -105,24 +105,31 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
         end = month + pd.DateOffset(months=1)
         return [s for s in ctx.schedule if month <= s.start < end and s.start > origin]
 
-    ratios_cache: Dict[pd.Timestamp, Optional[float]] = {}
+    plan_cache: Dict[pd.Timestamp, tuple] = {}
+
+    def release_plan(s, stock_now: float) -> tuple:
+        """(plan ratio, planned KPI 4 revenue) for one release, both None when unplanned;
+        computed once per release."""
+        if s.start not in plan_cache:
+            stock_s = pd.Series([stock_now], index=[s.start])
+            r = plan_ratios(h[4], ctx.releases, members_hist, stock_s, [s], p,
+                            ctx.club_plan, ctx.tier_shares, peers=ctx.schedule)
+            t = plan_totals(stock_s, [s], ctx.club_plan, ctx.tier_shares, peers=ctx.schedule)
+            plan_cache[s.start] = (r.get(s.start), t.get(s.start))
+        return plan_cache[s.start]
 
     def release_ratio(s, stock_now: float) -> Optional[float]:
-        """Plan ratio for one release (None when unplanned); computed once per release."""
-        if s.start not in ratios_cache:
-            r = plan_ratios(h[4], ctx.releases, members_hist, pd.Series([stock_now], index=[s.start]),
-                            [s], p, ctx.club_plan, ctx.tier_shares)
-            ratios_cache[s.start] = r.get(s.start)
-        return ratios_cache[s.start]
+        return release_plan(s, stock_now)[0]
 
     def club_release(k: int, month: pd.Timestamp, stock_now: float) -> float:
         tot = 0.0
         for s in releases_in(month):
-            ratio = release_ratio(s, stock_now)
+            ratio, rev = release_plan(s, stock_now)
             ratios = {s.start: ratio} if ratio is not None else None
+            planned = {s.start: rev} if (k == 4 and rev is not None) else None
             tot += scheduled_release_values(h[k], ctx.releases, members_hist,
                                             pd.Series([stock_now], index=[s.start]), [s], p,
-                                            ratios)[s.start][0]
+                                            ratios, planned)[s.start][0]
         return tot
 
     def hist_release_total(k: int, month: pd.Timestamp) -> float:
@@ -205,7 +212,8 @@ def monthly_forecast(hist: pd.DataFrame, origin: pd.Timestamp, ctx: Context,
                 if is_current:
                     month_days = month_days[month_days > origin]
                 release = float(fee_component(h[k], ctx.releases, ctx.schedule, members_hist,
-                                              pd.Series([stock], index=[month]), month_days, p).sum())
+                                              pd.Series([stock], index=[month]), month_days, p,
+                                              origin=origin).sum())
                 organic = organic_n = 0.0
                 event = 0.0
                 p50 = release + (float(h.loc[cur_month:origin, k].sum()) if is_current else 0.0)
