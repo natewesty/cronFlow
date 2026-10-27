@@ -386,6 +386,7 @@ def _default_release(label: str, vintage: int, vintages: pd.DataFrame, plan_year
     return pd.Timestamp(year=int(year), month=month, day=1)
 
 
+DEFAULT_NEXT_MAX_MONTHS = 24   # newest vintage sold fewer months than this -> its successor is a default candidate
 MIN_OWN_MONTHS = 3   # months sold before a tier-profiled label's own sales anchor its lifetime
 
 
@@ -420,7 +421,10 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     """Monthly p50/p10/p90 by label-vintage-channel, plus a per-vintage summary.
 
     Candidates: vintages with months_sold < n, plus each continue/new label's incoming vintage
-    (default newest on record + 1 for continue, plan_year - 2 for new).
+    (default newest on record + 1 for continue, plan_year - 2 for new), plus, for every label with
+    sales whose newest vintage has months_sold < DEFAULT_NEXT_MAX_MONTHS and that has no plan row
+    with status 'retire' or naming a different incoming vintage, newest + 1 (unreviewed labels; it
+    takes the default release rule and the normal profile chain, magnums included).
     Profile lifetime for vintage V: label-scope profile = lifetime * trend ** (V - anchor), anchor =
     newest vintage of the profile's key label with a known first_year in `vintages` (gap 0 if none;
     negative gaps allowed); tier profile = lifetime (trend 1), except that a label with rows in
@@ -473,6 +477,21 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             own = vintages[vintages["label"] == label]["vintage"]
             inc = int(own.max()) + 1 if status == "continue" and len(own) else plan_year - 2
         cands.append((label, int(inc)))
+    for label, g in vintages.groupby("label", sort=True):
+        newest = g.loc[g["vintage"].astype(int).idxmax()]
+        if int(newest["months_sold"]) >= DEFAULT_NEXT_MAX_MONTHS:
+            continue
+        nxt = int(newest["vintage"]) + 1
+        pr = plan.get(label)
+        status = _plan_value(pr, "status")
+        if status == "retire":
+            continue
+        inc = _plan_value(pr, "incoming_vintage")
+        if inc is None and status == "new":
+            inc = plan_year - 2                      # the plan's own default incoming for a 'new' row
+        if status in ("continue", "new") and inc is not None and int(inc) != nxt:
+            continue
+        cands.append((label, nxt))
     cands = list(dict.fromkeys(cands))
 
     fc_rows: List[dict] = []

@@ -354,3 +354,36 @@ def test_backtest_vintages_rows_and_bands():
     # the app can feed it straight into fit_profiles as the dispersion source
     prof = fit_profiles(hist, vt, P, dispersion=bt)
     assert (prof["log_dispersion"] > 0).all()
+
+
+def test_unreviewed_labels_get_default_next_vintage():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    fc, summ = forecast_vintages(prof, v, h, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    keys = set(zip(summ.label, summ.vintage))
+    # newest vintage < 24 months sold -> newest + 1 is a candidate
+    for label, nxt in [("Home Ranch Pinot Noir", 2025), ("Three Hills Pinot Noir", 2025),
+                       ("Carneros Chardonnay", 2025), ("Hypersonic Pinot Noir", 2025),
+                       ("Ten Oaks Pinot Noir", 2024)]:
+        assert (label, nxt) in keys, label
+    # Mikado 2022 has sold 29 months: no default 2023
+    assert ("Mikado Tree Pinot Noir - 1.5L", 2023) not in keys
+    assert not summ.duplicated(["label", "vintage"]).any()
+    hr = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+    assert hr.release_month == pd.Timestamp("2027-06-01") and hr.profile_key == "Home Ranch Pinot Noir"
+    assert fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2025)].month_start.min() == pd.Timestamp("2027-06-01")
+    # Ten Oaks 2023 released 2025-06: default 2024 release (2026-06) is not after origin -> clamped
+    to = summ[(summ.label == "Ten Oaks Pinot Noir") & (summ.vintage == 2024)].iloc[0]
+    assert to.release_month == pd.Timestamp("2026-11-01")
+
+
+def test_default_next_vintage_respects_plan_retire_and_named_incoming():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    lp = pd.DataFrame([[2027, "Home Ranch Pinot Noir", "retire", None, None, None, None, None, None, None],
+                       [2027, "Three Hills Pinot Noir", "continue", 2026, None, None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+    fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    keys = set(zip(summ.label, summ.vintage))
+    assert ("Home Ranch Pinot Noir", 2025) not in keys and ("Home Ranch Pinot Noir", 2024) in keys
+    assert ("Three Hills Pinot Noir", 2026) in keys and ("Three Hills Pinot Noir", 2025) not in keys
+    assert ("Carneros Chardonnay", 2025) in keys
+    assert not summ.duplicated(["label", "vintage"]).any()
