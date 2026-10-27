@@ -332,3 +332,25 @@ def test_no_trend_compounding_when_curve_has_no_first_year_mass():
     fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
     s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
     assert s.lifetime_p50 == pytest.approx(float(prof[hr].lifetime.iloc[0]))
+
+
+def test_backtest_vintages_rows_and_bands():
+    hist = make_bottle_history()
+    vt = vintage_table(hist, ORIGIN)
+    bt = b.backtest_vintages(hist, vt, P)
+    assert list(bt.columns) == ["label", "vintage", "first_year_actual", "first_year_forecast", "p10", "p90"]
+    hr = bt[(bt["label"] == "Home Ranch Pinot Noir") & (bt["vintage"] == 2023)].iloc[0]
+    assert abs(hr.first_year_forecast / hr.first_year_actual - 1) < 0.10
+    assert hr.p10 < hr.first_year_forecast < hr.p90
+    # one earlier vintage only -> trend 1.0 (forecast == previous first_year)
+    h22 = bt[(bt["label"] == "Home Ranch Pinot Noir") & (bt["vintage"] == 2022)].iloc[0]
+    assert h22.first_year_forecast == pytest.approx(1919.0)
+    # label with a single known first_year (Hypersonic) and the magnum get no rows
+    assert bt[bt["label"] == "Hypersonic Pinot Noir"].empty
+    assert not bt["label"].str.endswith(" - 1.5L").any()
+    # no look-ahead: 2023 forecast uses 2022 and 2021 only
+    t = 1 + P.lambda_shrink * (np.clip(2024.0 / 1919.0, *P.trend_clip) - 1)
+    assert hr.first_year_forecast == pytest.approx(2024.0 * t)
+    # the app can feed it straight into fit_profiles as the dispersion source
+    prof = fit_profiles(hist, vt, P, dispersion=bt)
+    assert (prof["log_dispersion"] > 0).all()

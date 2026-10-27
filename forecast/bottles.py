@@ -567,3 +567,52 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     summ = pd.DataFrame(summ_rows, columns=SUMMARY_COLUMNS)
     summ["cases_made"] = summ["cases_made"].astype(float)
     return fc, summ
+
+
+BACKTEST_COLUMNS = ["label", "vintage", "first_year_actual", "first_year_forecast", "p10", "p90"]
+
+
+def backtest_vintages(hist: pd.DataFrame, vintages: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
+    """Per-vintage first-year retrospective (spec 5.3). One row per label-vintage with a known
+    first_year and at least one earlier vintage of the same label with a known first_year:
+    forecast = prev.first_year x trend, trend = 1 + lambda_shrink x (clip(prev / prev_prev,
+    trend_clip) - 1) from the two vintages just before the target (1.0 with one earlier vintage or
+    prev_prev <= 0). Only earlier vintages are used. Magnum labels use their own history.
+    sigma = leave-one-out std (ddof=1) of log(actual / forecast) over the other rows with both
+    values > 0 (0.35 when fewer than 3); p10/p90 = forecast x exp(-/+ Z90 x sigma). Rows with
+    actual or forecast <= 0 are left out of the residual pool and get NaN p10/p90. `hist` is unused
+    (kept for symmetry with fit_profiles). Feed the result to fit_profiles(dispersion=...)."""
+    if vintages is None or vintages.empty:
+        return pd.DataFrame(columns=BACKTEST_COLUMNS)
+    lo, hi = params.trend_clip
+    rows = []
+    known = vintages[vintages["first_year"].notna()]
+    for label, g in known.groupby("label", sort=True):
+        seq = sorted((int(v), float(x)) for v, x in zip(g["vintage"], g["first_year"]))
+        for i in range(1, len(seq)):
+            prev = seq[i - 1][1]
+            trend = 1.0
+            if i >= 2 and seq[i - 2][1] > 0:
+                trend = 1.0 + params.lambda_shrink * (float(np.clip(prev / seq[i - 2][1], lo, hi)) - 1.0)
+            rows.append({"label": label, "vintage": seq[i][0], "first_year_actual": seq[i][1],
+                         "first_year_forecast": prev * trend})
+    out = pd.DataFrame(rows, columns=BACKTEST_COLUMNS[:4])
+    if out.empty:
+        return pd.DataFrame(columns=BACKTEST_COLUMNS)
+    a = out["first_year_actual"].to_numpy(float)
+    f = out["first_year_forecast"].to_numpy(float)
+    ok = (a > 0) & (f > 0)
+    resid = np.full(len(out), np.nan)
+    resid[ok] = np.log(a[ok] / f[ok])
+    p10 = np.full(len(out), np.nan)
+    p90 = np.full(len(out), np.nan)
+    for i in range(len(out)):
+        if not ok[i]:
+            continue
+        others = np.delete(resid, i)
+        others = others[np.isfinite(others)]
+        sigma = float(np.std(others, ddof=1)) if len(others) >= MIN_DISPERSION_ROWS else DEFAULT_LOG_DISPERSION
+        p10[i] = f[i] * np.exp(-Z90 * sigma)
+        p90[i] = f[i] * np.exp(Z90 * sigma)
+    out["p10"], out["p90"] = p10, p90
+    return out
