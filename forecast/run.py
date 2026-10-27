@@ -14,7 +14,7 @@ from .assumptions import parse_events, parse_params, parse_schedule
 from . import backtest as fbt
 from .config import ALL_KPIS, ENGINE_VERSION
 from .engine import forecast_daily
-from .models.club import default_schedule, detect_releases
+from .models.club import default_schedule, detect_releases, mark_planned
 from .monthly import monthly_forecast
 from .types import Context
 
@@ -87,8 +87,10 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
 
     engine_params = params.to_dict()
     engine_params["horizon"] = horizon
+    mark_planned(schedule, ctx.club_plan, a0, ctx.tier_shares)
     effective = {"engine": engine_params, "engine_version": ENGINE_VERSION,
-                 "schedule": [{"start": s.start.strftime("%Y-%m-%d"), "days": s.days, "label": s.label} for s in schedule],
+                 "schedule": [{"start": s.start.strftime("%Y-%m-%d"), "days": s.days, "label": s.label,
+                               "season": s.season, "planned_revenue": s.planned_revenue} for s in schedule],
                  "events": events, "members_a0": a0, "releases_detected": len(releases)}
     run_id: Optional[int] = None
     if not dry_run:
