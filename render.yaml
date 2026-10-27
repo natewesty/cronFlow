@@ -1,10 +1,13 @@
+# Reference only: these services were created by hand in the Render dashboard
+# (project "Donum Data Infrastructure"); no Blueprint is attached. Keep this file in
+# sync with the dashboard, but do not sync it as a Blueprint (names would clash).
 services:
   - type: cron
-    name: cronDon-pipeline
+    name: cronDon
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python ingest.py
-    schedule: "0 */1 * * *"  # Run every hour
+    schedule: "0 1,13 * * *"  # 01:00 and 13:00 UTC (matches the live service)
     envVars:
       # Set DBT_FULL_REFRESH=1 for one run after changing the fiscal start month
       # (public.dashboard_fiscal_config), then remove it. Forces dbt --full-refresh
@@ -36,7 +39,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python -m forecast run
-    schedule: "30 13 * * *"  # 05:30 America/Los_Angeles (PST); 06:30 during PDT
+    schedule: "0 14 * * *"  # 06:00 PST / 07:00 PDT, ~50 min after the 13:00 UTC ingest finishes
     envVars:
       - key: DATABASE_URL
         sync: false

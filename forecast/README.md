@@ -30,4 +30,4 @@ Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` loca
 
 ## Deploy
 
-`render.yaml` defines the `cronDon-forecast` cron (daily 13:30 UTC). After changing `render.yaml`, sync the blueprint in the Render dashboard and set the env vars.
+The `cronDon-forecast` cron runs on Render daily at 14:00 UTC (created by hand, mirrored in `render.yaml` for reference; there is no Blueprint). It carries the same database env vars as `cronDon` plus `KPI_SCHEMA`.
