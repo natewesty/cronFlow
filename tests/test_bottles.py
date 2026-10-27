@@ -14,10 +14,10 @@ def test_title_parsing():
     assert b.varietal_from_title("2022 Mikado Tree Pinot Noir - 1.5L") == "Pinot Noir"
     assert b.is_magnum("2022 Mikado Tree Pinot Noir - 1.5L")
     assert not b.is_magnum("2022 Home Ranch Pinot Noir")
-    assert b.varietal_from_title("Gift Card") is None
+    assert b.varietal_from_title("2020 Carneros Chardonnay - 1.5L") == "Chardonnay"
+    assert b.varietal_from_title("2021") is None
     assert b.vintage_from_title("Gift Card") is None
-    # last two words; callers prefer stg_product.varietal
-    assert b.varietal_from_title("2022 TFV Chardonnay") == "TFV Chardonnay"
+    assert b.varietal_from_title("2022 TFV Chardonnay") == "Chardonnay"
 
 
 def test_vintage_table_release_month_and_first_year():

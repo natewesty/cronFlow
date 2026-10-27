@@ -23,16 +23,18 @@ def vintage_from_title(title: str) -> Optional[int]:
 
 
 def varietal_from_title(title: str) -> Optional[str]:
-    """Last two words of the title (' - 1.5L' stripped); None when the title has fewer than three
-    words (counted with the vintage, so '2022 TFV Chardonnay' yields 'TFV Chardonnay' while a bare
-    'Gift Card' yields None). A fallback only: callers prefer the warehouse stg_product.varietal."""
-    t = title.strip()
+    """Varietal from a title: strip the leading vintage and any ' - 1.5L' suffix; if the rest ends
+    with 'pinot noir' (case-insensitive) return 'Pinot Noir', else the last word (original casing);
+    None when no words remain. A fallback only: callers prefer the warehouse stg_product.varietal."""
+    t = label_from_title(title)
     if t.endswith(MAGNUM_SUFFIX):
         t = t[: -len(MAGNUM_SUFFIX)]
-    words = t.split()
-    if len(words) < 3:
+    t = _VINTAGE_DIGITS.sub("", t).strip() if t.strip().isdigit() else t.strip()
+    if not t:
         return None
-    return " ".join(words[-2:])
+    if t.lower().endswith("pinot noir"):
+        return "Pinot Noir"
+    return t.split()[-1]
 
 
 def is_magnum(title: str) -> bool:
