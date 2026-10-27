@@ -262,3 +262,73 @@ def test_tier_profiled_label_lifetime_anchors_on_own_sales():
     assert b._own_tier_lifetime("Hypersonic Pinot Noir", vy, curve, 999.0) == pytest.approx(expect)
     assert b._own_tier_lifetime("Hypersonic Pinot Noir", vy.assign(months_sold=2), curve, 999.0) == 999.0
     assert b._own_tier_lifetime("Nobody", vy, curve, 999.0) == 999.0
+
+
+# --- fix round 1 ----------------------------------------------------------------
+
+def test_selling_vintage_conserves_remaining_and_bands_respect_sold():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    # Plan year 2028 -> window to Dec 2029 covers every remaining month (HR 2024 ends May 2029).
+    fc, summ = forecast_vintages(prof, v, h, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2028, P, bands)
+    s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2024)].iloc[0]
+    got = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2024)].p50.sum()
+    assert got == pytest.approx(s.lifetime_p50 - s.sold_to_date, abs=1e-6)
+    selling = summ[summ.sold_to_date > 0]
+    assert (selling.lifetime_p10 >= selling.sold_to_date - 1e-9).all()
+    assert (selling.lifetime_p10 <= selling.lifetime_p50).all() and (selling.lifetime_p50 <= selling.lifetime_p90).all()
+    rem = s.lifetime_p50 - s.sold_to_date
+    assert s.lifetime_p10 == pytest.approx(s.sold_to_date + rem * np.exp(-1.2816 * 0.35))
+    assert s.lifetime_p90 == pytest.approx(s.sold_to_date + rem * np.exp(1.2816 * 0.35))
+
+
+def test_sold_at_or_over_cap_gives_zeros():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    vp = pd.DataFrame([["Home Ranch Pinot Noir", 2022, 100, False]], columns=fio.EMPTY["vintage_plan"])   # cap 1200 < sold
+    fc, summ = forecast_vintages(prof, v, h, fio._empty_label_plan(), vp, ORIGIN, 2027, P, bands)
+    rows = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2022)]
+    assert (rows.p50 == 0).all() and (rows.p90 == 0).all()
+    s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2022)].iloc[0]
+    assert s.lifetime_p50 == s.sold_to_date == s.lifetime_p10 == s.lifetime_p90
+
+
+def test_lifetime_p90_capped_at_cases():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    vp = pd.DataFrame([["Ten Oaks Pinot Noir", 2023, 100, False]], columns=fio.EMPTY["vintage_plan"])   # cap 1200
+    fc, summ = forecast_vintages(prof, v, h, fio._empty_label_plan(), vp, ORIGIN, 2027, P, bands)
+    s = summ[(summ.label == "Ten Oaks Pinot Noir") & (summ.vintage == 2023)].iloc[0]
+    assert s.lifetime_p50 == pytest.approx(1200) and s.lifetime_p90 == pytest.approx(1200)
+
+
+def test_unreleased_vintage_before_origin_is_clamped_with_full_mass(caplog):
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    lp = pd.DataFrame([[2030, "Home Ranch Pinot Noir", "continue", 2025, pd.Timestamp("2026-01-01"), None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2030, P, bands)
+    s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+    assert s.release_month == pd.Timestamp("2026-11-01") and "moved to 2026-11-01" in caplog.text
+    rows = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2025)]
+    assert rows.month_start.min() == pd.Timestamp("2026-11-01")
+    assert rows.p50.sum() == pytest.approx(s.lifetime_p50, abs=1e-6)
+
+
+def test_complete_curve_skips_reference_with_no_cumulative_share():
+    slots = np.array([[30.0, 10.0, 0.0, 0.0]])
+    dead = np.array([[0.0, 0.0, 0.5, 0.5]])
+    good = np.array([[0.25, 0.25, 0.25, 0.25]])
+    out, est = b._complete_curve(slots, 2, [dead, good])
+    assert est == pytest.approx(80.0) and np.allclose(out, [[30 / 80, 10 / 80, 0.25, 0.25]])
+    out, est = b._complete_curve(slots, 2, [dead, None])
+    assert est == 40.0
+
+
+def test_no_trend_compounding_when_curve_has_no_first_year_mass():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P).copy(); bands = price_bands(h)
+    hr = prof.key == "Home Ranch Pinot Noir"
+    flat = [0.0] * 12 + [1.0 / (24 * 4)] * 24
+    prof.loc[hr, "curve"] = pd.Series([list(flat) for _ in range(int(hr.sum()))], index=prof.index[hr])
+    lp = pd.DataFrame([[2027, "Home Ranch Pinot Noir", "continue", 2025, None, None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+    fc, summ = forecast_vintages(prof, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+    assert s.lifetime_p50 == pytest.approx(float(prof[hr].lifetime.iloc[0]))
