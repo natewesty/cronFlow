@@ -5,6 +5,8 @@ import os
 from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Optional, Tuple
 
+import pandas as pd
+
 KPI_SCHEMA = os.getenv("KPI_SCHEMA", "public_nate_sandbox")
 FORECAST_SCHEMA = "forecast"
 ENGINE_VERSION = "2.0.0"
@@ -77,7 +79,7 @@ for _k in [32, 33]:
 HOLIDAYS_FIXED = {(1, 1), (7, 4), (12, 24), (12, 25), (12, 31)}
 
 
-def season_of(d) -> str:
+def season_of(d: pd.Timestamp) -> str:
     """Club season of a date: Q1 spring, Q2 summer, Q3 fall, Q4 winter."""
     return SEASONS[(int(d.month) - 1) // 3]
 

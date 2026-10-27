@@ -61,16 +61,16 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         otb = fio.load_otb(conn, origin)
         members = fio.load_members_at(conn, origin)
         assumptions = fio.load_assumptions(conn)
-        py = plan_year(origin)
-        params_pre = parse_params(assumptions.get("engine_params"))
-        club_plan = fio.load_club_plan(conn, py)
-        tier_shares = fio.load_tier_shares(conn, origin, params_pre.tier_min_members)
-        label_plan = fio.load_label_plan(conn, py)
-        vintage_plan = fio.load_vintage_plan(conn)
     if hist.empty:
         raise RuntimeError("fact_kpi_daily returned no rows")
 
     params = parse_params(assumptions.get("engine_params"))
+    py = plan_year(origin)
+    with engine.connect() as conn:
+        club_plan = fio.load_club_plan(conn, py)
+        tier_shares = fio.load_tier_shares(conn, origin, params.tier_min_members)
+        label_plan = fio.load_label_plan(conn, py)
+        vintage_plan = fio.load_vintage_plan(conn)
     horizon = int(horizon or params.horizon)
     releases = detect_releases(hist[4], params)
     schedule = parse_schedule(assumptions.get("shipment_schedule")) or default_schedule(releases, origin)

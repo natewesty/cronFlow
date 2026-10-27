@@ -55,14 +55,15 @@ def cases_made(label: str, vintage: int) -> int:
     return int(round(lifetime_bottles(label, vintage) / sold / 12.0))
 
 
-def make_bottle_history(seed: int = 0, end: str = "2026-10-25", truncate: bool = False) -> pd.DataFrame:
+def make_bottle_history(seed: int = 0, end: str = "2026-10-25", full_lifetime: bool = False) -> pd.DataFrame:
     """Monthly bottles by label x vintage x channel (columns of load_bottle_history).
 
-    With truncate=False (default) every vintage carries its whole 36-month curve, including
-    months after `end`, so lifetime shares are exact for curve tests. truncate=True drops
-    months after `end` to emulate what a live warehouse would hold."""
+    Default: history through `end`, no row with month_start after end's month. The last
+    month is emitted at full-month volume even though `end` falls mid-month (known
+    simplification). full_lifetime=True emits every vintage's complete 36-month curve
+    regardless of `end` (includes future months, for curve-shape tests)."""
     rng = np.random.default_rng(seed)
-    end_ts = pd.Timestamp(end)
+    last_month = pd.Timestamp(end).to_period("M").start_time
     rows = []
     for label in LABELS:
         for vintage in VINTAGES[label]:
@@ -70,7 +71,7 @@ def make_bottle_history(seed: int = 0, end: str = "2026-10-25", truncate: bool =
             start = pd.Timestamp(year=vintage + 2, month=RELEASE_MONTH.get(label, 6), day=1)
             for m in range(36):
                 month_start = start + pd.DateOffset(months=m)
-                if truncate and month_start > end_ts:
+                if not full_lifetime and month_start > last_month:
                     break
                 mix = CHANNEL_MIX_RELEASE if m in (2, 3) else CHANNEL_MIX_OTHER
                 for ch, share in mix.items():
