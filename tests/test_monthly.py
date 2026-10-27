@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import pandas as pd
 
 from forecast.config import ALL_KPIS, EngineParams
@@ -104,3 +105,20 @@ def test_aov_monthly_averages_only_order_days():
     nov = df.loc["2025-11"]
     assert abs(row.p50 - nov[nov[28] > 0][29].mean()) < 1e-9
     assert not m.p50.isna().any()
+
+
+def test_monthly_release_matches_daily_and_flags_plan():
+    df = make_history(season_mult={"fall": 1.4, "summer": 0.6, "spring": 1.0, "winter": 1.0})
+    origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    ctx = Context(params=P, releases=rel, schedule=sched, members_a0=float(h[23].iloc[-1]))
+    m = monthly_forecast(h, origin, ctx)
+    row = m[(m.kpi_id == 4) & (m.month_start == pd.Timestamp("2026-09-01"))].iloc[0]
+    actual = df[4].reindex(s.dates).sum()
+    assert abs(row.release - actual) / actual < 0.06 and row.release_planned == False
+    plan = pd.DataFrame([["fall", pd.Timestamp("2026-09-01"), "t1", "A", 2024, 1, 1.0, 1.0, 400_000]],
+                        columns=["season", "release_date", "tier_id", "label", "vintage", "qty", "price", "take_rate", "members_override"])
+    m2 = monthly_forecast(h, origin, Context(params=P, releases=rel, schedule=sched, members_a0=ctx.members_a0, club_plan=plan))
+    row2 = m2[(m2.kpi_id == 4) & (m2.month_start == pd.Timestamp("2026-09-01"))].iloc[0]
+    assert row2.release == pytest.approx(400_000, rel=1e-6) and row2.release_planned == True
