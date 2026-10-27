@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from forecast.backtest import (ACCURACY_COLUMNS, apply_bands, backtest_frame, bucket_for,
+from forecast.backtest import (ACCURACY_COLUMNS, ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS,
+                               period_frame, run_period_backtest, summarize_periods, apply_bands, backtest_frame, bucket_for,
                                run_backtest, summarize)
 from forecast.config import EngineParams
 from forecast.models.club import detect_releases
@@ -95,3 +96,43 @@ def test_apply_bands_zero_forecast_gets_zero_band_even_without_ratio():
     p10, p90 = apply_bands(point, acc, P)
     assert (p10[5] == 0).all() and (p90[5] == 0).all()
     assert (p10[1] == 80).all()
+
+
+def test_period_frame_only_full_periods():
+    df = make_history(); rel = detect_releases(df[4], P)
+    bt = backtest_frame(df, rel, P, ORIGIN)
+    pf = period_frame(bt, P)
+    months = pf[(pf.period == "month") & (pf.kpi_id == 1)]
+    for r in months.itertuples():
+        start = pd.Timestamp(r.period_start); end = start + pd.offsets.MonthEnd(0)
+        o = pd.Timestamp(r.origin_date)
+        assert start > o and end <= o + pd.Timedelta(days=P.horizon)
+    weeks = pf[(pf.period == "week") & (pf.kpi_id == 1)]
+    assert (pd.to_datetime(weeks.period_start).dt.dayofweek == 0).all()
+    assert months.ahead.max() <= P.period_months_ahead and weeks.ahead.max() <= P.period_weeks_ahead
+
+
+def test_period_ahead_uses_last_origin_before_period():
+    df = make_history(); rel = detect_releases(df[4], P)
+    pf = period_frame(backtest_frame(df, rel, P, ORIGIN), P)
+    m1 = pf[(pf.period == "month") & (pf.ahead == 1) & (pf.kpi_id == 1)]
+    assert not m1.duplicated(["period_start"]).any()
+    for r in m1.itertuples():
+        start = pd.Timestamp(r.period_start)
+        origins = sorted(pf[(pf.kpi_id == 1)].origin_date.unique())
+        assert pd.Timestamp(r.origin_date) == max(o for o in map(pd.Timestamp, origins) if o < start)
+
+
+def test_summarize_periods_hit_rate_near_eighty_percent():
+    df = make_history(); rel = detect_releases(df[4], P)
+    periods, acc = run_period_backtest(backtest_frame(df, rel, EngineParams(backtest_days=365, backtest_step=7), ORIGIN), P)
+    row = acc[(acc.kpi_id == 1) & (acc.period == "month") & (acc.ahead == 1)].iloc[0]
+    assert 0.6 <= row.hit_rate <= 1.0 and row.n >= 8 and row.wmape < 0.2
+    assert list(periods.columns) == PERIOD_COLUMNS and list(acc.columns) == ACCURACY_PERIOD_COLUMNS
+
+
+def test_ratio_kpi_periods_use_aggregate_period():
+    df = make_history(); rel = detect_releases(df[4], P)
+    pf = period_frame(backtest_frame(df, rel, P, ORIGIN), P)
+    r17 = pf[(pf.kpi_id == 17) & (pf.period == "month")].iloc[0]
+    assert 2 < r17.actual < 6   # a ratio, not a sum of daily ratios
