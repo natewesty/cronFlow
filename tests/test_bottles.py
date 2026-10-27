@@ -398,3 +398,53 @@ def test_default_next_vintage_respects_plan_retire_and_named_incoming():
     assert ("Three Hills Pinot Noir", 2026) in keys and ("Three Hills Pinot Noir", 2025) not in keys
     assert ("Carneros Chardonnay", 2025) in keys
     assert not summ.duplicated(["label", "vintage"]).any()
+
+
+def _row(label, vintage, month, bottles, channel="POS", price=40.0, varietal="Pinot Noir"):
+    return [label, vintage, varietal, pd.Timestamp(month), channel, float(bottles), bottles * price, price]
+
+
+def test_stray_prerelease_bottles_keep_next_vintage_unreleased():
+    h = make_bottle_history()
+    stray = pd.DataFrame([_row("Home Ranch Pinot Noir", 2025, "2026-07-01", 6, price=60.0)], columns=h.columns)
+    hs = pd.concat([h, stray], ignore_index=True)
+    vt = vintage_table(hs, ORIGIN)
+    assert list(vt.columns) == b.VINTAGE_COLUMNS and vt.columns[-1] == "released"
+    r = vt[(vt.label == "Home Ranch Pinot Noir") & (vt.vintage == 2025)].iloc[0]
+    assert not r.released and pd.isna(r.release_month) and r.sold_to_date == 6 and r.months_sold == 0
+    assert np.isnan(r.first_year)
+    assert vt[vt.vintage != 2025].released.all()
+    lp = pd.DataFrame([[2027, "Home Ranch Pinot Noir", "continue", None, None, None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+
+    def hr_2027(hist, plan):
+        v = vintage_table(hist, ORIGIN); prof = fit_profiles(hist, v, P); bands = price_bands(hist)
+        fc, summ = forecast_vintages(prof, v, hist, plan, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+        hr = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.month_start.dt.year == 2027)]
+        return float(hr.p50.sum()), summ
+
+    for plan in (lp, fio._empty_label_plan()):
+        base, base_summ = hr_2027(h, plan)
+        got, summ = hr_2027(hs, plan)
+        assert abs(got / base - 1) < 0.05
+        assert ("Home Ranch Pinot Noir", 2026) not in set(zip(summ.label, summ.vintage))
+        s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+        s0 = base_summ[(base_summ.label == "Home Ranch Pinot Noir") & (base_summ.vintage == 2025)].iloc[0]
+        assert s.sold_to_date == 6 and s.release_month == pd.Timestamp("2027-06-01")
+        assert s.lifetime_p50 == pytest.approx(s0.lifetime_p50)      # stray bottles count toward the lifetime
+
+
+def test_release_month_threshold_and_first_sale_fallback():
+    rows = [_row("Big", 2022, "2024-05-01", 10), _row("Big", 2022, "2024-06-01", 200),   # threshold month wins
+            _row("Big", 2022, "2024-07-01", 30),
+            _row("Big", 2019, "2023-07-01", 8), _row("Big", 2019, "2024-01-01", 5),      # library tail: first sale
+            _row("Small", 2022, "2024-03-01", 12), _row("Small", 2022, "2024-09-01", 20),  # never 50: first sale
+            _row("Small", 2023, "2025-04-01", 9)]
+    hist = pd.DataFrame(rows, columns=fio.EMPTY["bottle_history"])
+    vt = vintage_table(hist, ORIGIN).set_index(["label", "vintage"])
+    assert vt.loc[("Big", 2022)].release_month == pd.Timestamp("2024-06-01")
+    assert vt.loc[("Big", 2022)].sold_to_date == 240 and vt.loc[("Big", 2022)].released
+    assert vt.loc[("Big", 2019)].release_month == pd.Timestamp("2023-07-01") and vt.loc[("Big", 2019)].released
+    assert vt.loc[("Small", 2022)].release_month == pd.Timestamp("2024-03-01") and vt.loc[("Small", 2022)].released
+    assert vt.loc[("Small", 2023)].release_month == pd.Timestamp("2025-04-01") and vt.loc[("Small", 2023)].released
+    assert vt.loc[("Small", 2023)].months_sold == 19

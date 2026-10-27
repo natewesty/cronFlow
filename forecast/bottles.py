@@ -46,32 +46,64 @@ def is_magnum(title: str) -> bool:
     return title.strip().endswith(MAGNUM_SUFFIX)
 
 
-VINTAGE_COLUMNS = ["label", "vintage", "varietal", "release_month", "sold_to_date", "months_sold", "first_year"]
+VINTAGE_COLUMNS = ["label", "vintage", "varietal", "release_month", "sold_to_date", "months_sold", "first_year",
+                   "released"]
 
 
 def vintage_table(hist: pd.DataFrame, origin: pd.Timestamp, threshold: int = 50) -> pd.DataFrame:
-    """One row per label-vintage with sales on or before origin. release_month is the first month
-    with >= threshold bottles (all channels), else the first month with any sales. first_year is the
-    bottles in the 12 months from release_month, NaN when months_sold < 12."""
+    """One row per label-vintage with sales on or before origin.
+
+    Release rule: release_month is the first month with >= threshold bottles (all channels). A
+    vintage that never reached the threshold:
+      - releases on its first month with any sale when no vintage of the label ever reached the
+        threshold (small labels, magnums), or when it is older than the label's newest vintage that
+        did (library tail whose release predates the history);
+      - otherwise is UNRELEASED (stray pre-release sales of the next vintage): released = False,
+        release_month = NaT, months_sold = 0, first_year = NaN; sold_to_date keeps its bottles.
+    first_year is the bottles in the 12 months from release_month, NaN when months_sold < 12."""
     origin_month = pd.Timestamp(origin).to_period("M").start_time
     h = hist[hist["month_start"] <= origin]
-    rows = []
+    per: Dict[Tuple[str, int], Tuple[pd.Series, Optional[pd.Timestamp], pd.DataFrame]] = {}
     for (label, vintage), g in h.groupby(["label", "vintage"], sort=True):
         monthly = g.groupby("month_start")["bottles"].sum().sort_index()
         if monthly.empty:
             continue
         big = monthly[monthly >= threshold]
-        release = (big.index[0] if len(big) else monthly.index[0])
+        per[(label, int(vintage))] = (monthly, big.index[0] if len(big) else None, g)
+    newest_big: Dict[str, int] = {}
+    for (label, vintage), (_m, big_first, _g) in per.items():
+        if big_first is not None:
+            newest_big[label] = max(vintage, newest_big.get(label, vintage))
+    rows = []
+    for (label, vintage), (monthly, big_first, g) in per.items():
+        vs = g["varietal"].dropna() if "varietal" in g else pd.Series(dtype=object)
+        varietal = vs.iloc[0] if len(vs) else varietal_from_title(str(label))  # label has no vintage; may be None
+        row = {"label": label, "vintage": vintage, "varietal": varietal, "release_month": pd.NaT,
+               "sold_to_date": float(monthly.sum()), "months_sold": 0, "first_year": np.nan, "released": False}
+        if big_first is not None:
+            release = big_first
+        elif label not in newest_big or vintage < newest_big[label]:
+            release = monthly.index[0]
+        else:
+            rows.append(row)
+            continue
         months_sold = (origin_month.year - release.year) * 12 + origin_month.month - release.month + 1
         end = release + pd.DateOffset(months=12)
         first_year = float(monthly[(monthly.index >= release) & (monthly.index < end)].sum()) \
             if months_sold >= 12 else np.nan
-        vs = g["varietal"].dropna() if "varietal" in g else pd.Series(dtype=object)
-        varietal = vs.iloc[0] if len(vs) else varietal_from_title(str(label))  # label has no vintage; may be None
-        rows.append({"label": label, "vintage": int(vintage), "varietal": varietal, "release_month": release,
-                     "sold_to_date": float(monthly.sum()), "months_sold": int(months_sold),
-                     "first_year": first_year})
-    return pd.DataFrame(rows, columns=VINTAGE_COLUMNS)
+        row.update(release_month=release, months_sold=int(months_sold), first_year=first_year, released=True)
+        rows.append(row)
+    out = pd.DataFrame(rows, columns=VINTAGE_COLUMNS)
+    out["release_month"] = pd.to_datetime(out["release_month"])
+    out["released"] = out["released"].astype(bool)
+    return out
+
+
+def _released(vintages: pd.DataFrame) -> pd.DataFrame:
+    """Rows of `vintages` that have released (all rows when the frame has no `released` column)."""
+    if vintages is None or vintages.empty or "released" not in vintages:
+        return vintages
+    return vintages[vintages["released"].astype(bool)]
 
 
 def price_bands(hist: pd.DataFrame) -> Dict[str, Tuple[float, float]]:
@@ -373,8 +405,10 @@ def _plan_value(row: Optional[pd.Series], col: str):
 
 def _default_release(label: str, vintage: int, vintages: pd.DataFrame, plan_year: int) -> pd.Timestamp:
     """Modal release month-of-year over the label's vintages (ties: the most recent vintage's),
-    in the year in which the previous vintage's release + 12 months falls; else June of plan_year."""
-    own = vintages[vintages["label"] == label].sort_values("vintage")
+    in the year in which the previous vintage's release + 12 months falls; else June of plan_year.
+    Released vintages only (an unreleased vintage has no release month)."""
+    rel = _released(vintages)
+    own = rel[rel["label"] == label].sort_values("vintage")
     prev = own[own["vintage"] < vintage]
     if own.empty or prev.empty:
         return pd.Timestamp(year=plan_year, month=6, day=1)
@@ -398,8 +432,10 @@ def _own_tier_lifetime(label: str, vintages: pd.DataFrame, curve: np.ndarray, ti
       - else the newest vintage has months_sold >= 3: sold_to_date(newest) / tier cumulative share
         through min(months_sold, n) (if that share > 0);
       - else the tier lifetime.
-    Trend is 1.0 (no two first years to compare), so every vintage of the label gets this value."""
-    own = vintages[vintages["label"] == label].sort_values("vintage")
+    Trend is 1.0 (no two first years to compare), so every vintage of the label gets this value.
+    Released vintages only."""
+    rel = _released(vintages)
+    own = rel[rel["label"] == label].sort_values("vintage")
     if own.empty:
         return tier_lifetime
     anchor = _anchor_vintage(vintages, label)
@@ -420,11 +456,15 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
                       bands: Dict[str, Tuple[float, float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Monthly p50/p10/p90 by label-vintage-channel, plus a per-vintage summary.
 
-    Candidates: vintages with months_sold < n, plus each continue/new label's incoming vintage
-    (default newest on record + 1 for continue, plan_year - 2 for new), plus, for every label with
-    sales whose newest vintage has months_sold < DEFAULT_NEXT_MAX_MONTHS and that has no plan row
-    with status 'retire' or naming a different incoming vintage, newest + 1 (unreviewed labels; it
-    takes the default release rule and the normal profile chain, magnums included).
+    Candidates: vintages with months_sold < n (unreleased vintages included), plus each
+    continue/new label's incoming vintage (default newest released vintage + 1 for continue,
+    plan_year - 2 for new), plus, for every label with sales whose newest released vintage has
+    months_sold < DEFAULT_NEXT_MAX_MONTHS and that has no plan row with status 'retire' or naming a
+    different incoming vintage, newest released + 1 (unreviewed labels; it takes the default release
+    rule and the normal profile chain, magnums included).
+    An unreleased vintage (vintage_table released = False) is forecast like a future vintage (plan
+    or default release month, whole curve) with remaining = lifetime - sold_to_date: its stray
+    pre-release bottles count toward its lifetime.
     Profile lifetime for vintage V: label-scope profile = lifetime * trend ** (V - anchor), anchor =
     newest vintage of the profile's key label with a known first_year in `vintages` (gap 0 if none;
     negative gaps allowed); tier profile = lifetime (trend 1), except that a label with rows in
@@ -442,18 +482,20 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     Release: an unreleased candidate whose release month is <= origin's month is moved to the month
     after origin when it has a plan row (warning logged), so no curve mass is dropped; a default
     candidate (no plan row) keeps its month and rolls forward 12 months at a time until after origin.
-    Monthly: an already-selling vintage spreads remaining = max(lifetime - sold_to_date, 0) over the
+    Monthly: an already-selling (released) vintage spreads remaining = max(lifetime - sold_to_date, 0) over the
     curve mass from months_sold on (renormalised; remaining = 0 if that mass is 0); a future one
-    is lifetime x curve. Rows run from the month after origin to December of plan_year + 1.
+    is (lifetime - sold) x curve (sold = 0 unless unreleased). Rows run from the month after origin to December of plan_year + 1.
     Monthly p10/p90 = p50 x exp(-/+ Z90 x log_dispersion).
     Lifetime: p50 = sold + remaining; p10 = sold + remaining x exp(-Z90 x sigma); p90 = sold +
     remaining x exp(+Z90 x sigma), then capped at max(cases x 12, p50) when cases are known (never
-    below sold). For a future vintage sold = 0 and remaining = lifetime."""
+    below sold). For a future vintage sold = 0 and remaining = lifetime; for an unreleased one
+    remaining = max(lifetime - sold, 0)."""
     n = int(params.bottle_curve_months)
     origin_month = pd.Timestamp(origin).to_period("M").start_time
     window_end = pd.Timestamp(year=plan_year + 1, month=12, day=1)
     vintages = vintages if vintages is not None else pd.DataFrame(columns=VINTAGE_COLUMNS)
     vt = {(r.label, int(r.vintage)): r for r in vintages.itertuples(index=False)}
+    released = _released(vintages)
     plan: Dict[str, pd.Series] = {}
     if label_plan is not None:
         for _, r in label_plan.iterrows():
@@ -475,11 +517,11 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             continue
         inc = _plan_value(r, "incoming_vintage")
         if inc is None:
-            own = vintages[vintages["label"] == label]["vintage"]
+            own = released[released["label"] == label]["vintage"]
             inc = int(own.max()) + 1 if status == "continue" and len(own) else plan_year - 2
         cands.append((label, int(inc)))
     n_plan_cands = len(dict.fromkeys(cands))
-    for label, g in vintages.groupby("label", sort=True):
+    for label, g in released.groupby("label", sort=True):
         newest = g.loc[g["vintage"].astype(int).idxmax()]
         if int(newest["months_sold"]) >= DEFAULT_NEXT_MAX_MONTHS:
             continue
@@ -503,6 +545,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         pr = plan.get(label)
         is_new = _plan_value(pr, "status") == "new"
         v = vt.get((label, vintage))
+        is_rel = v is not None and bool(getattr(v, "released", True))
         varietal = lab_varietal.get(label) or _plan_value(pr, "varietal") or varietal_from_title(label)
         price = _plan_value(pr, "price")
         price = prices.get(label) if price is None else float(price)
@@ -511,7 +554,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         if prof is None and (not is_new or is_magnum(str(label))):
             log.warning("bottles: no profile for %s %s (varietal %s); skipped", label, vintage, varietal)
             continue
-        if v is not None:
+        if is_rel:
             release = pd.Timestamp(v.release_month)
         else:
             rm = _plan_value(pr, "release_month")
@@ -558,12 +601,12 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             life = min(life, float(c) * 12.0)
         life = 0.0 if not np.isfinite(life) else max(life, 0.0)
 
-        remaining = life - sold if v is not None else life
+        remaining = life - sold
         if prof is None:
             log.warning("bottles: no profile for new label %s %s; summary only", label, vintage)
         else:
             curve = np.array(list(prof["curve"]), dtype=float)   # channels x n, in prof row order
-            if v is not None:
+            if is_rel:
                 start = int(v.months_sold)
                 remaining = max(life - sold, 0.0)
                 mass = float(curve[:, start:].sum())
@@ -573,7 +616,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
                 remaining = remaining if mass > 0 else 0.0
             else:
                 start = 0
-                monthly = life * curve
+                remaining = max(life - sold, 0.0)
+                monthly = remaining * curve
             lo_k, hi_k = np.exp(-Z90 * disp), np.exp(Z90 * disp)
             for m in range(start, n):
                 month = release + pd.DateOffset(months=m)
