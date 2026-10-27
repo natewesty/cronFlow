@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -14,11 +14,12 @@ from .assumptions import merge_schedule, parse_events, parse_params, parse_sched
 from . import backtest as fbt
 from .bottles import backtest_vintages, fit_profiles, forecast_vintages, price_bands, vintage_table
 from .clubs import release_history, tier_table
-from .config import ALL_KPIS, ENGINE_VERSION
+from .config import ALL_KPIS, ENGINE_VERSION, SELECTABLE_KPIS
 from .engine import forecast_daily
 from .models.club import default_schedule, detect_releases, mark_planned
 from .monthly import monthly_forecast
-from .types import Context
+from .selection import select_champions
+from .types import Champion, Context
 
 log = logging.getLogger("forecast")
 PACIFIC = ZoneInfo("America/Los_Angeles")
@@ -36,6 +37,7 @@ class RunSummary:
     next28_total_revenue: float
     period_rows: int = 0
     bottle_rows: int = 0
+    models: int = 0
 
 
 def _step_timer():
@@ -48,6 +50,28 @@ def _step_timer():
         log.info("step=%s %.2fs", name, now - last[0])
         last[0] = now
     return step
+
+
+def _fill_champion_wmape(champions: Dict[int, Champion], acc_periods: pd.DataFrame) -> None:
+    """Final month-ahead=1 WMAPE per champion; wmape_default stays as selection set it."""
+    def month1(frame: pd.DataFrame, k: int) -> Optional[float]:
+        row = frame[(frame.kpi_id == k) & (frame.period == "month") & (frame.ahead == 1)]
+        return float(row.wmape.iloc[0]) if len(row) and pd.notna(row.wmape.iloc[0]) else None
+    for k, c in champions.items():
+        c.wmape = month1(acc_periods, k)
+
+
+def _log_champions(champions: Dict[int, Champion]) -> int:
+    changed = 0
+    for k, c in sorted(champions.items()):
+        if c.model == "swm" and c.calibration == 1.0:
+            continue
+        changed += 1
+        log.info("champion kpi=%s model=%s w=%.2f cal=%.2f wmape=%.3f default=%.3f", k, c.model, c.w_swm,
+                 c.calibration, c.wmape if c.wmape is not None else float("nan"),
+                 c.wmape_default if c.wmape_default is not None else float("nan"))
+    log.info("champions: %d of %d KPIs changed", changed, len(SELECTABLE_KPIS))
+    return changed
 
 
 def plan_year(origin: pd.Timestamp) -> int:
@@ -90,6 +114,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         vintage_plan = fio.load_vintage_plan(conn)
         hist_b = fio.load_bottle_history(conn, origin)
         memberships = fio.load_memberships(conn)
+        snapshots = fio.load_bookings_snapshots(conn, origin - pd.Timedelta(days=params.backtest_days), origin)
     step("load")
     horizon = int(horizon or params.horizon)
     releases = detect_releases(hist[4], params)
@@ -113,17 +138,28 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
                                "season": s.season, "planned_revenue": s.planned_revenue} for s in schedule],
                  "events": events, "members_a0": a0, "releases_detected": len(releases)}
     run_id: Optional[int] = None
+    champions: Dict[int, Champion] = {}
+    if not skip_backtest:
+        _, bt_swm = fbt.run_backtest_full(hist, releases, params, origin, snapshots=snapshots)
+        _, bt_level = fbt.run_backtest_full(hist, releases, params, origin,
+                                            champions=fbt.uniform_champions(0.0), snapshots=snapshots)
+        champions = select_champions(fbt.period_frame(bt_swm, params), fbt.period_frame(bt_level, params), params)
+        step("select")
+    effective["champions"] = {str(k): {"model": c.model, "w_swm": c.w_swm, "calibration": c.calibration}
+                              for k, c in sorted(champions.items())}
     if not dry_run:
         with engine.begin() as conn:
             run_id = fio.start_run(conn, origin, horizon, effective)
 
     try:
+        ctx.champions = champions
         point, comps = forecast_daily(hist, origin, dates, ctx)
         step("daily")
         if skip_backtest:
             accuracy, bt_frame = pd.DataFrame(columns=fbt.ACCURACY_COLUMNS), None
         else:
-            accuracy, bt_frame = fbt.run_backtest_full(hist, releases, params, origin)
+            accuracy, bt_frame = fbt.run_backtest_full(hist, releases, params, origin, champions=champions,
+                                                       snapshots=snapshots)
         step("backtest")
         p10, p90 = fbt.apply_bands(point, accuracy, params)
         monthly = monthly_forecast(hist, origin, ctx, daily_point=point)
@@ -133,6 +169,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             acc_periods = pd.DataFrame(columns=fbt.ACCURACY_PERIOD_COLUMNS)
         else:
             periods, acc_periods = fbt.run_period_backtest(bt_frame, params)
+            _fill_champion_wmape(champions, acc_periods)
         step("periods")
         bottle_fc = bottle_summ = profiles = bt_v = None
         if hist_b.empty:
@@ -184,23 +221,27 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         for k in (4, 6, 14):
             row = acc_periods[(acc_periods.kpi_id == k) & (acc_periods.period == "month") & (acc_periods.ahead == 1)]
             wm1.append(f"{float(row.wmape.iloc[0]):.3f}" if len(row) and pd.notna(row.wmape.iloc[0]) else "n/a")
+        _log_champions(champions)
+        model_recs = fio.model_records(champions, run_id=0)
         log.info("month ahead=1 wmape: kpi4=%s kpi6=%s kpi14=%s", *wm1)
         log.info("periods=%s bottles=%s club_history=%s", len(period_recs), len(bottle_recs), len(club_recs))
         summary = RunSummary(run_id=None, origin=origin, horizon=horizon, kpis=len(point.columns),
                              daily_rows=len(daily_recs), monthly_rows=len(monthly_recs),
                              accuracy_rows=len(acc_recs), next28_total_revenue=next28,
-                             period_rows=len(period_recs), bottle_rows=len(bottle_recs))
+                             period_rows=len(period_recs), bottle_rows=len(bottle_recs),
+                             models=len(model_recs))
         if dry_run:
             log.info("dry run: %s", summary)
             return summary
 
         for rec in (daily_recs + monthly_recs + acc_recs + period_recs + acc_period_recs + bottle_recs
-                    + summ_recs + profile_recs + bt_v_recs):
+                    + summ_recs + profile_recs + bt_v_recs + model_recs):
             rec["run_id"] = run_id
         with engine.begin() as conn:
             fio.write_results(conn, run_id, daily_recs, monthly_recs, acc_recs)
             fio.write_periods(conn, run_id, period_recs, acc_period_recs)
             fio.write_bottles(conn, run_id, bottle_recs, summ_recs, profile_recs, bt_v_recs)
+            fio.write_models(conn, run_id, model_recs)
             # not run-scoped: a skipped computation must not wipe it, and a backfill must not
             # replace today's history with the origin's view (same reasoning as the bookings snapshot)
             if club_history is not None and origin == live and not club_recs:

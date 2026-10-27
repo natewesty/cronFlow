@@ -6,7 +6,7 @@ import pytest
 
 from forecast import io as fio
 from forecast import run as frun
-from forecast.config import ALL_KPIS, SEASONS, EngineParams
+from forecast.config import ALL_KPIS, SELECTABLE_KPIS, SEASONS, EngineParams
 from tests.synth import make_history
 from tests.synth_bottles import TIER_IDS, make_bottle_history, make_club_orders, make_members_daily, make_memberships
 
@@ -45,6 +45,9 @@ def fake_io(monkeypatch):
                         state["finished"].append((run_id, status, error))
                         or state.__setitem__("finished_bottle_rows", bottle_rows))
     monkeypatch.setattr(frun.fio, "write_bookings_snapshot", lambda conn, d, otb: state["snapshots"].append(d))
+    monkeypatch.setattr(frun.fio, "load_bookings_snapshots", lambda conn, start, end: pd.DataFrame(
+        columns=["snapshot_date", "reservation_date", "attribution", "reservations", "guests", "fees"]))
+    monkeypatch.setattr(frun.fio, "write_models", lambda conn, run_id, recs: state.setdefault("models", []).append(recs))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
     for name in ["tier_shares", "label_plan", "vintage_plan"]:
         monkeypatch.setattr(frun.fio, f"load_{name}", lambda conn, *a, _n=name: getattr(fio, f"_empty_{_n}")())
@@ -286,3 +289,39 @@ def test_run_logs_step_timings_and_club_active_members(fake_io, caplog):
     line = next(r.getMessage() for r in caplog.records if "active_in_listed_tiers=" in r.getMessage())
     # fixture: Estate 1500 + Premier 4 850 + Grand 4 350 + Premier 6 260 active (Tiny is below 10)
     assert "tiers=4 active_in_listed_tiers=2960 members=3500.0" in line
+
+
+def _bt_params(monkeypatch):
+    monkeypatch.setattr(frun.fio, "load_assumptions",
+                        lambda conn: {"engine_params": {"backtest_days": 200, "backtest_step": 7}})
+
+
+def test_run_selects_and_writes_models(fake_io, monkeypatch):
+    _bt_params(monkeypatch)
+    s = frun.run(origin=ORIGIN, horizon=5)
+    [recs] = fake_io["models"]
+    assert s.models == len(recs) == len(SELECTABLE_KPIS)
+    assert all(r["run_id"] == 42 for r in recs)
+    assert set(fake_io["runs"][0]["champions"]) == {str(k) for k in SELECTABLE_KPIS}
+
+
+def test_skip_backtest_writes_no_models(fake_io, monkeypatch):
+    captured = {}
+    real = frun.forecast_daily
+
+    def spy(hist, origin, dates, ctx):
+        captured["ctx"] = ctx
+        return real(hist, origin, dates, ctx)
+    monkeypatch.setattr(frun, "forecast_daily", spy)
+    s = frun.run(origin=ORIGIN, horizon=30, skip_backtest=True)
+    assert s.models == 0 and captured["ctx"].champions == {}
+    assert fake_io["models"] == [[]] and fake_io["runs"][0]["champions"] == {}
+    assert s.daily_rows == 30 * len(ALL_KPIS)
+
+
+def test_dry_run_logs_champion_summary(fake_io, monkeypatch, caplog):
+    _bt_params(monkeypatch)
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        frun.run(origin=ORIGIN, horizon=5, dry_run=True)
+    assert any(r.getMessage().startswith("champions: ") and f"of {len(SELECTABLE_KPIS)} KPIs changed" in r.getMessage()
+              for r in caplog.records)
