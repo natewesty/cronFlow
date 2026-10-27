@@ -117,7 +117,7 @@ def test_profile_columns_and_shape():
     assert all(len(c) == 36 and isinstance(c, list) for c in prof.curve)
     for (_scope, _key), g in prof.groupby(["scope", "key"]):
         assert abs(sum(sum(c) for c in g.curve) - 1) < 1e-9
-        assert set(g.channel) == {"Club", "POS", "Web", "Inbound"}
+        assert set(g.channel) == {"Club", "POS", "Event", "Web", "Inbound"}
     # Hypersonic has no vintage with >= 24 months sold, so no label profile.
     assert not ((prof.scope == "label") & (prof.key == "Hypersonic Pinot Noir")).any()
     # Magnums keep a label profile but are in no tier; without Mikado, Pinot Noir|high is empty.
