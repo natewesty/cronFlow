@@ -51,3 +51,16 @@ def test_parse_schedule_and_events_skip_pathological():
                                          {"start": "2027-06-01"}]})
     assert len(sched) == 1
     assert len(parse_events({"events": [{"date": "NaT"}, {"date": "2027-07-24"}]})) == 1
+
+
+def test_merge_schedule_assumed_entries_win_per_season_year():
+    from forecast.assumptions import merge_schedule
+    from forecast.types import ScheduledRelease
+    sr = lambda d, label: ScheduledRelease(start=pd.Timestamp(d), days=2, label=label)
+    assumed = [sr("2027-11-10", "Winter"), sr("2027-09-01", "Fall")]
+    default = [sr("2026-11-18", "d1"), sr("2027-09-08", "d2"), sr("2027-11-17", "d3")]
+    out = merge_schedule(assumed, default)
+    assert [(s.start, s.label) for s in out] == [(pd.Timestamp("2026-11-18"), "d1"),
+                                                 (pd.Timestamp("2027-09-01"), "Fall"),
+                                                 (pd.Timestamp("2027-11-10"), "Winter")]
+    assert merge_schedule(None, default) == default

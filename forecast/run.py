@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from . import io as fio
-from .assumptions import parse_events, parse_params, parse_schedule
+from .assumptions import merge_schedule, parse_events, parse_params, parse_schedule
 from . import backtest as fbt
 from .config import ALL_KPIS, ENGINE_VERSION
 from .engine import forecast_daily
@@ -73,7 +73,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         vintage_plan = fio.load_vintage_plan(conn)
     horizon = int(horizon or params.horizon)
     releases = detect_releases(hist[4], params)
-    schedule = parse_schedule(assumptions.get("shipment_schedule")) or default_schedule(releases, origin)
+    schedule = merge_schedule(parse_schedule(assumptions.get("shipment_schedule")), default_schedule(releases, origin))
     events = parse_events(assumptions.get("events"))
     a0 = float(members) if members is not None else float(hist[23].iloc[-1])
     ctx = Context(params=params, releases=releases, schedule=schedule, events=events, otb=otb, members_a0=a0,
