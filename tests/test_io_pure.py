@@ -160,7 +160,7 @@ def test_bottle_records():
                                  "lifetime_p50", "lifetime_p10", "lifetime_p90", "profile_key"])
     s = fio.vintage_summary_records(summ, 3)
     assert len(s) == 1 and s[0]["release_month"] == "2024-03-01" and s[0]["cases_made"] is None
-    assert s[0]["sold_to_date"] == 120 and "profile_key" not in s[0]
+    assert s[0]["sold_to_date"] == 120 and s[0]["profile_key"] == "k"
     bt = pd.DataFrame([["Lux", 2022, 10.0, np.nan, 5.0, 15.0]],
                       columns=["label", "vintage", "first_year_actual", "first_year_forecast", "p10", "p90"])
     b = fio.bottle_backtest_records(bt, 3)[0]

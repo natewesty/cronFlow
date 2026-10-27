@@ -385,6 +385,7 @@ def vintage_summary_records(summ: pd.DataFrame, run_id: int) -> List[dict]:
         "release_month": _date(r.release_month), "sold_to_date": _int(r.sold_to_date),
         "cases_made": _int(r.cases_made), "lifetime_p50": _num(r.lifetime_p50),
         "lifetime_p10": _num(r.lifetime_p10), "lifetime_p90": _num(r.lifetime_p90),
+        "profile_key": _s(r.profile_key),
     } for r in summ.itertuples(index=False)]
 
 
@@ -602,9 +603,9 @@ def write_bottles(conn: Connection, run_id: int, forecast_recs: List[dict], summ
         _insert_many(conn, f"""
             insert into {FORECAST_SCHEMA}.bottle_vintage_summary
               (run_id, label, vintage, varietal, release_month, sold_to_date, cases_made,
-               lifetime_p50, lifetime_p10, lifetime_p90)
+               lifetime_p50, lifetime_p10, lifetime_p90, profile_key)
             values (:run_id, :label, :vintage, :varietal, :release_month, :sold_to_date, :cases_made,
-                    :lifetime_p50, :lifetime_p10, :lifetime_p90)
+                    :lifetime_p50, :lifetime_p10, :lifetime_p90, :profile_key)
         """, summary_recs)
     if profile_recs:
         _insert_many(conn, f"""
