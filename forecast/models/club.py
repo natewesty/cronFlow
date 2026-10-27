@@ -180,3 +180,53 @@ def release_component(schedule: List[ScheduledRelease],
             if d in out.index:
                 out[d] += total * share
     return out
+
+
+def _plan_rows(club_plan: Optional[pd.DataFrame], s: ScheduledRelease) -> pd.DataFrame:
+    if club_plan is None or len(club_plan) == 0:
+        return pd.DataFrame()
+    dates = pd.to_datetime(club_plan["release_date"])
+    return club_plan[(club_plan["season"] == season_of(s.start)) & (dates.dt.year == s.start.year)]
+
+
+def planned_release_revenue(club_plan: Optional[pd.DataFrame], s: ScheduledRelease,
+                            members_total: float,
+                            tier_shares: Optional[pd.DataFrame]) -> Optional[float]:
+    """Σ_tier members × take_rate × Σ(qty × price) for the plan rows of this release;
+    None when there are no rows or the sum is not positive."""
+    rows = _plan_rows(club_plan, s)
+    if rows.empty:
+        return None
+    share_of: Dict[str, float] = {}
+    if tier_shares is not None and len(tier_shares):
+        share_of = {str(t): float(v) for t, v in zip(tier_shares["tier_id"], tier_shares["share"])}
+    total = 0.0
+    for tier_id, g in rows.groupby("tier_id", sort=False):
+        ov = g["members_override"].iloc[0]
+        members = float(ov) if pd.notna(ov) else float(members_total) * share_of.get(str(tier_id), 0.0)
+        take = float(g["take_rate"].fillna(0.0).iloc[0])
+        box = float((g["qty"].fillna(0.0) * g["price"].fillna(0.0)).sum())
+        total += members * take * box
+    return float(total) if total > 0 else None
+
+
+def plan_ratios(y4: pd.Series, releases: List[Release], members_hist: pd.Series,
+                projected_stock: pd.Series, schedule: List[ScheduledRelease],
+                params: EngineParams, club_plan: Optional[pd.DataFrame],
+                tier_shares: Optional[pd.DataFrame]) -> Dict[pd.Timestamp, float]:
+    """planned revenue / matched (or pooled) value, for planned releases only."""
+    out: Dict[pd.Timestamp, float] = {}
+    for s in schedule:
+        members_total = _members_at(projected_stock, s.start)
+        rev = planned_release_revenue(club_plan, s, members_total, tier_shares)
+        if rev is None:
+            continue
+        base = scheduled_release_values(y4, releases, members_hist, projected_stock, [s], params)[s.start][0]
+        out[s.start] = float(rev / base) if base > 0 else 1.0
+    return out
+
+
+def mark_planned(schedule: List[ScheduledRelease], club_plan: Optional[pd.DataFrame],
+                 members_total: float, tier_shares: Optional[pd.DataFrame]) -> None:
+    for s in schedule:
+        s.planned_revenue = planned_release_revenue(club_plan, s, members_total, tier_shares)

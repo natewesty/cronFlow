@@ -1,8 +1,10 @@
 import numpy as np
+import pytest
 import pandas as pd
 
 from forecast.config import EngineParams
-from forecast.models.club import (default_schedule, detect_releases, match_release,
+from forecast.models.club import (default_schedule, mark_planned, plan_ratios,
+                                  planned_release_revenue, detect_releases, match_release,
                                   release_component, release_magnitude,
                                   release_magnitude_pooled, residual_series,
                                   scheduled_release_values)
@@ -146,3 +148,34 @@ def test_default_schedule_drops_superseded_release_when_gap_is_357_days():
         assert pd.Timestamp("2026-09-09") not in starts
         assert pd.Timestamp("2027-09-08") not in starts
         assert all(not s.label.startswith("Sep 2025") for s in sched)
+
+
+def _plan(season, year, rows):
+    return pd.DataFrame(rows, columns=["season", "release_date", "tier_id", "label", "vintage", "qty", "price", "take_rate", "members_override"]).assign(season=season, release_date=pd.Timestamp(f"{year}-09-01"))
+
+
+def test_planned_release_revenue_members_times_take_times_box():
+    plan = _plan("fall", 2027, [[None, None, "t1", "A", 2025, 2, 100.0, 0.5, None], [None, None, "t1", "B", 2025, 1, 50.0, 0.5, None], [None, None, "t2", "A", 2025, 4, 100.0, 0.8, 100]])
+    shares = pd.DataFrame({"tier_id": ["t1", "t2"], "tier_name": ["T1", "T2"], "active": [900, 100], "share": [0.9, 0.1]})
+    s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="", season="fall")
+    assert planned_release_revenue(plan, s, 1000.0, shares) == pytest.approx(144_500)
+
+
+def test_planned_revenue_zero_is_ignored():
+    plan = _plan("fall", 2027, [[None, None, "t1", "A", 2025, 0, 100.0, 0.5, None]])
+    s = ScheduledRelease(start=pd.Timestamp("2027-09-01"), days=2, label="", season="fall")
+    assert planned_release_revenue(plan, s, 1000.0, None) is None
+
+
+def test_plan_ratios_scale_matched_total_to_plan():
+    df = make_history(); origin = pd.Timestamp("2026-08-15"); h = df.loc[:origin]
+    rel = detect_releases(h[4], P); sched = default_schedule(rel, origin)
+    s = next(x for x in sched if x.start.month == 9)
+    plan = _plan("fall", s.start.year, [[None, None, "t1", "A", 2024, 1, 1.0, 1.0, 500_000]])
+    ratios = plan_ratios(h[4], rel, h[23], df[23], sched, P, plan, None)
+    vals = scheduled_release_values(h[4], rel, h[23], df[23], [s], P, ratios)
+    assert vals[s.start][0] == pytest.approx(500_000, rel=1e-6)
+    assert set(ratios) == {s.start}
+    mark_planned(sched, plan, 1000.0, None)
+    assert s.planned_revenue == pytest.approx(500_000)
+    assert all(x.planned_revenue is None for x in sched if x is not s)
