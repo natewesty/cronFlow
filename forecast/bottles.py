@@ -76,8 +76,9 @@ def vintage_table(hist: pd.DataFrame, origin: pd.Timestamp, threshold: int = 50)
 
 def price_bands(hist: pd.DataFrame) -> Dict[str, Tuple[float, float]]:
     """Tercile cut points (t1, t2) of distinct labels' median prices within each varietal. A varietal
-    with fewer than 3 labels gets (median, median)."""
+    with fewer than 3 labels gets (median, median). Magnum labels (title ends ' - 1.5L') are excluded."""
     per = hist.groupby("label").agg(price=("price", "median"), varietal=("varietal", "first")).reset_index()
+    per = per[~per["label"].astype(str).map(is_magnum)]
     per["varietal"] = per["varietal"].where(per["varietal"].notna(), per["label"].map(varietal_from_title))
     out: Dict[str, Tuple[float, float]] = {}
     for varietal, g in per.dropna(subset=["varietal"]).groupby("varietal"):
@@ -112,11 +113,6 @@ Z90 = 1.2816
 def _channels(hist: pd.DataFrame) -> List[str]:
     seen = set(hist["channel"].dropna().unique()) if "channel" in hist else set()
     return list(BOTTLE_CHANNELS) + sorted(str(c) for c in seen - set(BOTTLE_CHANNELS))
-
-
-def _month_diff(a: pd.Timestamp, b: pd.Timestamp) -> int:
-    """Whole months from a to b."""
-    return (b.year - a.year) * 12 + b.month - a.month
 
 
 def _label_prices(hist: pd.DataFrame) -> Dict[str, float]:
@@ -159,30 +155,77 @@ def _normalise(curve: np.ndarray) -> np.ndarray:
     return curve / tot if tot > 0 else curve
 
 
+def _anchor_vintage(vintages: pd.DataFrame, label: str) -> Optional[int]:
+    """Newest vintage of the label with a known first_year (None if there is none)."""
+    fy = vintages[(vintages["label"] == label) & vintages["first_year"].notna()]
+    return int(fy["vintage"].max()) if len(fy) else None
+
+
+def _complete_curve(slots: np.ndarray, months_sold: int,
+                    ref: Optional[np.ndarray]) -> Tuple[np.ndarray, float]:
+    """Curve and lifetime estimate of an incomplete vintage (months_sold < n), from a reference shape.
+
+    cum = ref[:, :months_sold].sum() (all channels); lifetime_est = total_to_date / cum; observed
+    months get slots / lifetime_est; months >= months_sold get ref * (1 - observed_cum) / ref_remaining.
+    Without a reference (or cum <= 0) the vintage is normalised by its own total to date."""
+    total = float(slots.sum())
+    if ref is None:
+        return slots / total, total
+    cum = float(ref[:, :months_sold].sum())
+    if cum <= 0:
+        return slots / total, total
+    est = total / cum
+    out = np.zeros_like(slots)
+    out[:, :months_sold] = slots[:, :months_sold] / est
+    observed = float(out.sum())
+    rem = float(ref[:, months_sold:].sum())
+    if rem > 0:
+        out[:, months_sold:] = ref[:, months_sold:] * (1.0 - observed) / rem
+    return out, est
+
+
 def fit_profiles(hist: pd.DataFrame, vintages: pd.DataFrame, params: EngineParams,
                  dispersion: Optional[pd.DataFrame] = None) -> pd.DataFrame:
-    """Sell-through profiles per label and per varietal-price tier.
+    """Sell-through profiles per label and per varietal-price tier. n = params.bottle_curve_months.
 
-    A vintage qualifies when months_sold >= 24. Its curve is bottles by month-since-release and
-    channel (n = bottle_curve_months slots, only months through origin, missing = 0) divided by its
-    all-channel total over those slots. A label's curve is the equal-weight mean of its qualifying
-    vintages' curves; a tier's is the mean over every qualifying label-vintage of the tier. Curves
-    are renormalised so a key's channel curves sum to 1. Label lifetime = latest qualifying
-    vintage's slot total, extrapolated through the tier curve (label curve if no tier) when it has
-    fewer than n months; tier lifetime = mean of its labels' lifetimes. Label trend =
-    1 + lambda * (clip(fy[latest] / fy[previous]) - 1) over the two latest vintages with a
-    first_year; tier trend = 1. log_dispersion = sample std of log(actual / forecast) first-year
-    rows for the label (>= 3), else the tier's (>= 3), else 0.35."""
+    Slots: a qualifying vintage (months_sold >= 24) contributes bottles by month-since-release m and
+    channel, for 0 <= m < min(months_sold, n) (months through origin only; missing = 0). A vintage
+    with an all-channel slot total <= 0 is ignored.
+
+    Vintage curve (channels x n, sums to 1 over channels and months):
+      - complete (months_sold >= n): slots / slot total.
+      - incomplete (24 <= months_sold < n): completed from a reference shape, see _complete_curve.
+        Reference = the tier's reference curve (normalised equal-weight mean of the complete
+        vintages' curves of every non-magnum label in the tier); if none, the normalised mean of the
+        label's own complete vintages' curves; if neither, own-total normalisation.
+    Label curve = normalised equal-weight mean of its qualifying vintages' curves. Tier curve =
+    normalised equal-weight mean over every qualifying label-vintage of its non-magnum labels.
+    Tier of a label = tier_key(first non-null varietal in `vintages`, median hist price,
+    price_bands(hist)); magnum labels have no tier.
+
+    Label lifetime = lifetime_est(anchor) = first_year(anchor) / first12_share, where anchor = newest
+    vintage of the label with a known first_year and first12_share = label curve summed over months
+    0-11 and all channels. If first12_share <= 0, the lifetime estimate of the latest qualifying
+    vintage (its slot total if complete, else _complete_curve's estimate) is used instead.
+    Tier lifetime = mean of its labels' lifetimes.
+    Label trend = 1 + lambda_shrink * (clip(fy[newest] / fy[previous], *trend_clip) - 1) over the
+    two newest vintages with a first_year (1.0 if fewer than two or fy[previous] <= 0); tier trend
+    = 1.0. A consumer forecasts vintage V of the profile's label as lifetime * trend ** (V - anchor).
+    log_dispersion = sample std (ddof=1) of log(first_year_actual / first_year_forecast) over the
+    `dispersion` rows with both values > 0: the label's rows when >= 3, else (non-magnum only) the
+    rows of every label in its tier when >= 3, else 0.35. Tier rows use the tier's rows, else 0.35.
+    n_vintages = qualifying vintages (label) or label-vintages (tier). Every key has one row per
+    channel; a key with no qualifying vintage is absent."""
     n = int(params.bottle_curve_months)
     channels = _channels(hist)
     if vintages is None or vintages.empty or hist.empty:
         return pd.DataFrame(columns=PROFILE_COLUMNS)
     qual = vintages[vintages["months_sold"] >= QUALIFY_MONTHS]
-    meta = qual.set_index(["label", "vintage"])[["release_month", "months_sold"]]
+    ms_of = {(r.label, int(r.vintage)): int(r.months_sold) for r in qual.itertuples(index=False)}
 
     # Per qualifying vintage: (channels x n) bottle slots through origin.
     h = hist.merge(qual[["label", "vintage", "release_month", "months_sold"]], on=["label", "vintage"])
-    slots: Dict[Tuple[str, int], np.ndarray] = {}
+    raw: Dict[Tuple[str, int], np.ndarray] = {}
     if not h.empty:
         rel = pd.DatetimeIndex(h["release_month"])
         ms = pd.DatetimeIndex(h["month_start"])
@@ -193,19 +236,44 @@ def fit_profiles(hist: pd.DataFrame, vintages: pd.DataFrame, params: EngineParam
             arr = np.zeros((len(channels), n))
             np.add.at(arr, (g["channel"].map(ch_idx).to_numpy(), g["m"].to_numpy()),
                       g["bottles"].astype(float).to_numpy())
-            slots[(label, int(vintage))] = arr
-    curves = {k: a / a.sum() for k, a in slots.items() if a.sum() > 0}
+            if arr.sum() > 0:
+                raw[(label, int(vintage))] = arr
 
     prices = _label_prices(hist)
     bands = price_bands(hist)
     varietals = {lab: (g["varietal"].dropna().iloc[0] if g["varietal"].notna().any() else None)
                  for lab, g in vintages.groupby("label")}
-    labels = sorted({lab for lab, _v in curves})
-    tier_of = {lab: _safe_tier(varietals.get(lab), prices.get(lab), bands) for lab in labels}
+    labels = sorted({lab for lab, _v in raw})
+
+    def tier_for(lab: str) -> Optional[str]:
+        return None if is_magnum(str(lab)) else _safe_tier(varietals.get(lab), prices.get(lab), bands)
+
+    tier_of = {lab: tier_for(lab) for lab in labels}
+    tiers = sorted({t for t in tier_of.values() if t is not None})
+
+    complete = {k: a / a.sum() for k, a in raw.items() if ms_of[k] >= n}
+    tier_ref: Dict[str, np.ndarray] = {}
+    for tk in tiers:
+        members = [c for (lab, _v), c in complete.items() if tier_of[lab] == tk]
+        if members:
+            tier_ref[tk] = _normalise(np.mean(members, axis=0))
+    label_ref = {lab: _normalise(np.mean([c for (l2, _v), c in complete.items() if l2 == lab], axis=0))
+                 for lab in labels if any(l2 == lab for (l2, _v) in complete)}
+
+    curves: Dict[Tuple[str, int], np.ndarray] = {}
+    life_est: Dict[Tuple[str, int], float] = {}
+    for (lab, v), a in raw.items():
+        if (lab, v) in complete:
+            curves[(lab, v)], life_est[(lab, v)] = complete[(lab, v)], float(a.sum())
+            continue
+        ref = tier_ref.get(tier_of[lab]) if tier_of[lab] is not None else None
+        if ref is None:
+            ref = label_ref.get(lab)
+        curves[(lab, v)], life_est[(lab, v)] = _complete_curve(a, ms_of[(lab, v)], ref)
 
     tier_curves: Dict[str, np.ndarray] = {}
     tier_n: Dict[str, int] = {}
-    for tk in sorted({t for t in tier_of.values() if t is not None}):
+    for tk in tiers:
         members = [c for (lab, _v), c in curves.items() if tier_of[lab] == tk]
         tier_curves[tk] = _normalise(np.mean(members, axis=0))
         tier_n[tk] = len(members)
@@ -213,36 +281,36 @@ def fit_profiles(hist: pd.DataFrame, vintages: pd.DataFrame, params: EngineParam
     ratios = _log_ratios(dispersion)
     tier_ratios: Dict[str, List[float]] = {}
     for lab, xs in ratios.items():
-        tk = _safe_tier(varietals.get(lab), prices.get(lab), bands)
+        tk = tier_for(lab)
         if tk is not None:
             tier_ratios.setdefault(tk, []).extend(xs)
     lo, hi = params.trend_clip
+    fy_of = {(r.label, int(r.vintage)): float(r.first_year) for r in vintages.itertuples(index=False)
+             if pd.notna(r.first_year)}
 
     rows = []
     label_life: Dict[str, float] = {}
     for lab in labels:
         keys = sorted(v for (l2, v) in curves if l2 == lab)
         curve = _normalise(np.mean([curves[(lab, v)] for v in keys], axis=0))
-        latest = keys[-1]
-        total = float(slots[(lab, latest)].sum())
-        msold = int(meta.loc[(lab, latest), "months_sold"])
-        if msold < n:
-            ref = tier_curves.get(tier_of[lab], curve)
-            cum = float(ref[:, :msold].sum())
-            if cum > 0:
-                total = total / cum
-        label_life[lab] = total
-        fy = vintages[(vintages["label"] == lab) & vintages["first_year"].notna()].sort_values("vintage")
+        anchor = _anchor_vintage(vintages, lab)
+        f12 = float(curve[:, :12].sum())
+        if anchor is not None and f12 > 0:
+            life = fy_of[(lab, anchor)] / f12
+        else:
+            life = life_est[(lab, keys[-1])]
+        label_life[lab] = life
+        fy = sorted((v, x) for (l2, v), x in fy_of.items() if l2 == lab)
         trend = 1.0
         if len(fy) >= 2:
-            prev, last = float(fy["first_year"].iloc[-2]), float(fy["first_year"].iloc[-1])
+            prev, last = fy[-2][1], fy[-1][1]
             if prev > 0:
                 trend = 1.0 + params.lambda_shrink * (float(np.clip(last / prev, lo, hi)) - 1.0)
         disp = _std_or_none(ratios.get(lab, []))
         if disp is None and tier_of[lab] is not None:
             disp = _std_or_none(tier_ratios.get(tier_of[lab], []))
         disp = DEFAULT_LOG_DISPERSION if disp is None else disp
-        rows += _profile_rows("label", lab, channels, curve, total, trend, disp, len(keys))
+        rows += _profile_rows("label", lab, channels, curve, life, trend, disp, len(keys))
     for tk, curve in tier_curves.items():
         life = float(np.mean([label_life[lab] for lab in labels if tier_of[lab] == tk]))
         disp = _std_or_none(tier_ratios.get(tk, []))
@@ -258,10 +326,15 @@ def _profile_rows(scope: str, key: str, channels: List[str], curve: np.ndarray, 
              "n_vintages": int(n_vintages)} for i, ch in enumerate(channels)]
 
 
+BAND_ORDER = ("low", "mid", "high")
+
+
 def profile_for(profiles: pd.DataFrame, label: str, varietal, price, comparable: Optional[str],
                 bands: Dict[str, Tuple[float, float]]) -> Optional[pd.DataFrame]:
-    """Fallback chain: the label's own rows, else the comparable label's rows, else the tier rows
-    for (varietal, price), else None (also None for an unknown varietal or missing price)."""
+    """Fallback chain: the label's own rows, else the comparable label's rows, else tier rows, else
+    None. Tier step: tier_key(varietal, price, bands); if that key has no rows, the nearest band of
+    the same varietal that has rows (band distance in low < mid < high; ties go to the lower band).
+    Magnum labels never fall back to a tier. None also for an unknown varietal or missing price."""
     if profiles is None or profiles.empty:
         return None
     lab = profiles[profiles["scope"] == "label"]
@@ -270,11 +343,19 @@ def profile_for(profiles: pd.DataFrame, label: str, varietal, price, comparable:
             rows = lab[lab["key"] == name]
             if len(rows):
                 return rows
+    if is_magnum(str(label)):
+        return None
     tk = _safe_tier(varietal, price, bands)
     if tk is None:
         return None
-    rows = profiles[(profiles["scope"] == "tier") & (profiles["key"] == tk)]
-    return rows if len(rows) else None
+    var, band = tk.rsplit("|", 1)
+    i = BAND_ORDER.index(band)
+    tiers = profiles[profiles["scope"] == "tier"]
+    for j in sorted(range(len(BAND_ORDER)), key=lambda j: (abs(j - i), j)):
+        rows = tiers[tiers["key"] == f"{var}|{BAND_ORDER[j]}"]
+        if len(rows):
+            return rows
+    return None
 
 
 def _plan_value(row: Optional[pd.Series], col: str):
@@ -306,11 +387,16 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     """Monthly p50/p10/p90 by label-vintage-channel, plus a per-vintage summary.
 
     Candidates: vintages with months_sold < n, plus each continue/new label's incoming vintage
-    (default newest on record + 1 for continue, plan_year - 2 for new). Lifetime: existing label =
-    profile lifetime x profile trend; new label = cases x 12 x 0.85, or x min(1, comparable
-    lifetime / (comparable cases x 12)) when the comparable label has its own profile and cases
-    for its latest qualifying vintage; with no cases on file, the profile lifetime x trend. Capped
-    at cases x 12 when cases are known. An already-selling vintage spreads max(lifetime -
+    (default newest on record + 1 for continue, plan_year - 2 for new).
+    Profile lifetime for vintage V: label-scope profile = lifetime * trend ** (V - anchor), anchor =
+    newest vintage of the profile's key label with a known first_year in `vintages` (gap 0 if none;
+    negative gaps allowed); tier profile = lifetime (trend 1).
+    Lifetime: existing label = profile lifetime for V; new label (status 'new') with cases known =
+    cases x 12 x 0.85, the 0.85 replaced by min(1, comparable profile lifetime / (comparable cases x
+    12)) when the profile used is the comparable label's own and vintage_plan has cases > 0 for
+    the comparable's anchor vintage; new label with no cases = profile lifetime for V. Capped at
+    cases x 12 when cases are known. No profile: skipped with a warning, except a non-magnum new
+    label, which gets a summary row only. An already-selling vintage spreads max(lifetime -
     sold_to_date, 0) over the curve mass from months_sold on; a future one is lifetime x curve.
     Rows run from the month after origin to December of plan_year + 1."""
     n = int(params.bottle_curve_months)
@@ -355,7 +441,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         price = prices.get(label) if price is None else float(price)
         comparable = _plan_value(pr, "comparable_label")
         prof = profile_for(profiles, label, varietal, price, comparable, bands)
-        if prof is None and not is_new:
+        if prof is None and (not is_new or is_magnum(str(label))):
             log.warning("bottles: no profile for %s %s (varietal %s); skipped", label, vintage, varietal)
             continue
         if v is not None:
@@ -369,18 +455,22 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
 
         p_life = float(prof["lifetime"].iloc[0]) if prof is not None else np.nan
         p_trend = float(prof["trend"].iloc[0]) if prof is not None else 1.0
+        gap = 0
+        if prof is not None and prof["scope"].iloc[0] == "label":
+            anchor = _anchor_vintage(vintages, prof["key"].iloc[0])
+            gap = vintage - anchor if anchor is not None else 0
         disp = float(prof["log_dispersion"].iloc[0]) if prof is not None else DEFAULT_LOG_DISPERSION
         if is_new and pd.notna(c):
             factor = NEW_LABEL_SELL_THROUGH
             if isinstance(comparable, str) and prof is not None and prof["scope"].iloc[0] == "label" \
                     and prof["key"].iloc[0] == comparable:
-                cq = vintages[(vintages["label"] == comparable) & (vintages["months_sold"] >= QUALIFY_MONTHS)]
-                cc = cases.get((comparable, int(cq["vintage"].max())), np.nan) if len(cq) else np.nan
+                ca = _anchor_vintage(vintages, comparable)
+                cc = cases.get((comparable, ca), np.nan) if ca is not None else np.nan
                 if pd.notna(cc) and cc > 0:
                     factor = min(1.0, p_life / (cc * 12.0))
             life = float(c) * 12.0 * factor
         else:
-            life = p_life * p_trend
+            life = p_life * p_trend ** gap
         if pd.notna(c):
             life = min(life, float(c) * 12.0)
         life = 0.0 if not np.isfinite(life) else max(life, 0.0)

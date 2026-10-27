@@ -78,6 +78,8 @@ def test_forecast_vintages_incoming_and_new_label():
     fc, summ = forecast_vintages(prof, v, h, lp, vp, ORIGIN, 2027, P, bands)
     hr25 = fc[(fc.label == "Home Ranch Pinot Noir") & (fc.vintage == 2025)]
     assert hr25.month_start.min() == pd.Timestamp("2027-06-01")
+    hr25s = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2025)].iloc[0]
+    assert abs(hr25s.lifetime_p50 / (4000 * 1.05 ** 4) - 1) < 0.10
     s = summ[(summ.label == "Ridgeline Pinot Noir")].iloc[0]
     assert s.lifetime_p50 == pytest.approx(450 * 12 * 0.85) and s.lifetime_p10 < s.lifetime_p50 < s.lifetime_p90
     assert (fc.p50 >= 0).all() and fc.p50.notna().all()
@@ -110,7 +112,9 @@ def test_profile_columns_and_shape():
         assert set(g.channel) == {"Club", "POS", "Web", "Inbound"}
     # Hypersonic has no vintage with >= 24 months sold, so no label profile.
     assert not ((prof.scope == "label") & (prof.key == "Hypersonic Pinot Noir")).any()
-    assert ((prof.scope == "tier") & (prof.key == "Pinot Noir|high")).any()
+    # Magnums keep a label profile but are in no tier; without Mikado, Pinot Noir|high is empty.
+    assert ((prof.scope == "label") & (prof.key == "Mikado Tree Pinot Noir - 1.5L")).any()
+    assert set(prof[prof.scope == "tier"].key) == {"Pinot Noir|low", "Pinot Noir|mid", "Chardonnay|low"}
     assert (prof.log_dispersion == 0.35).all()
     assert (prof[prof.scope == "tier"].trend == 1.0).all()
 
@@ -121,17 +125,53 @@ def test_full_lifetime_curve_matches_planted_shape():
     hr = prof[(prof.scope == "label") & (prof.key == "Home Ranch Pinot Noir")]
     total_by_month = np.sum(np.array(list(hr.curve)), axis=0)
     assert np.abs(total_by_month - CURVE).max() < 0.005
-    # Lifetime = latest qualifying (2024) vintage's 36-month total; trend over 2023 -> 2024 first years.
+    # Lifetime = first_year(2024 anchor) / first-12 share; trend over 2023 -> 2024 first years.
     life = float(hr.lifetime.iloc[0])
     assert abs(life / lifetime_bottles("Home Ranch Pinot Noir", 2024) - 1) < 0.02
     assert float(hr.trend.iloc[0]) == pytest.approx(1 + 0.7 * 0.05, abs=0.01)
 
 
-def test_lifetime_extrapolated_for_partial_latest_vintage():
+def test_incomplete_vintage_completed_from_tier_and_anchor_lifetime():
     h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P)
     hr = prof[(prof.scope == "label") & (prof.key == "Home Ranch Pinot Noir")]
-    # Latest qualifying vintage is 2022 (29 months sold); extrapolation lands near its true lifetime.
-    assert abs(float(hr.lifetime.iloc[0]) / lifetime_bottles("Home Ranch Pinot Noir", 2022) - 1) < 0.06
+    curve = np.sum(np.array(list(hr.curve)), axis=0)
+    # 2022 (29 months) is completed with the tier's complete-vintage tail, so the tail is not lost.
+    assert abs(curve[29:].sum() - CURVE[29:].sum()) < 0.01
+    assert abs(curve[:12].sum() - 0.48) < 0.01
+    # Lifetime anchors on the newest vintage with a first year (2023, 17 months sold).
+    assert abs(float(hr.lifetime.iloc[0]) / lifetime_bottles("Home Ranch Pinot Noir", 2023) - 1) < 0.03
+
+
+def test_complete_curve_rules():
+    ref = np.array([[0.25, 0.25, 0.25, 0.25]])
+    slots = np.array([[30.0, 10.0, 0.0, 0.0]])
+    out, est = b._complete_curve(slots, 2, ref)
+    assert est == pytest.approx(80.0)
+    assert np.allclose(out, [[30 / 80, 10 / 80, 0.25, 0.25]]) and out.sum() == pytest.approx(1.0)
+    out, est = b._complete_curve(slots, 2, None)
+    assert est == 40.0 and np.allclose(out, [[0.75, 0.25, 0.0, 0.0]])
+
+
+def test_magnums_out_of_bands_and_skipped_without_label_profile(caplog):
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    assert bands["Pinot Noir"] == (58.0, 62.0)   # Mikado ($160) excluded
+    assert profile_for(prof, "Mikado Tree Pinot Noir - 1.5L", "Pinot Noir", 160.0, None, bands).scope.iloc[0] == "label"
+    prof2 = prof[prof.key != "Mikado Tree Pinot Noir - 1.5L"]
+    assert profile_for(prof2, "Mikado Tree Pinot Noir - 1.5L", "Pinot Noir", 160.0, None, bands) is None
+    lp = pd.DataFrame([[2027, "Big Pinot Noir - 1.5L", "new", 2025, pd.Timestamp("2027-09-01"), None, None, 150.0,
+                        "Pinot Noir", None]], columns=fio.EMPTY["label_plan"])
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        fc, summ = forecast_vintages(prof2, v, h, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    assert not summ.label.isin(["Mikado Tree Pinot Noir - 1.5L", "Big Pinot Noir - 1.5L"]).any()
+    assert "Mikado Tree Pinot Noir - 1.5L" in caplog.text and "Big Pinot Noir - 1.5L" in caplog.text
+
+
+def test_tier_nearest_band_fallback():
+    h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
+    # High band has no qualifying label: nearest is mid.
+    assert profile_for(prof, "X Pinot Noir", "Pinot Noir", 120.0, None, bands).key.iloc[0] == "Pinot Noir|mid"
+    no_mid = prof[prof.key != "Pinot Noir|mid"]
+    assert profile_for(no_mid, "X Pinot Noir", "Pinot Noir", 60.0, None, bands).key.iloc[0] == "Pinot Noir|low"
 
 
 def test_log_dispersion_from_dispersion_frame():
@@ -159,9 +199,13 @@ def test_forecast_vintages_columns_window_and_bands():
     assert summ.cases_made.isna().all()
     k = np.exp(1.2816 * 0.35)
     assert np.allclose(fc.p90, fc.p50 * k) and np.allclose(fc.p10, fc.p50 / k)
-    # Hypersonic (no label profile) falls back to its tier.
+    # Hypersonic (no label profile, high band empty) falls back to the nearest band.
     hy = summ[summ.label == "Hypersonic Pinot Noir"]
-    assert set(hy.profile_key) == {"Pinot Noir|high"}
+    assert set(hy.profile_key) == {"Pinot Noir|mid"}
+    # Trend compounds per vintage from the anchor (2023): 2024 = lifetime * trend, 2022 = lifetime / trend.
+    hr = prof[(prof.scope == "label") & (prof.key == "Home Ranch Pinot Noir")].iloc[0]
+    hr24 = summ[(summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2024)].iloc[0]
+    assert hr24.lifetime_p50 == pytest.approx(max(hr.lifetime * hr.trend, hr24.sold_to_date))
     # Every candidate with months_sold < 36 has a summary row; Home Ranch 2021 (41 months) does not.
     assert not ((summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2021)).any()
     assert ((summ.label == "Home Ranch Pinot Noir") & (summ.vintage == 2024)).any()
@@ -175,9 +219,9 @@ def test_future_vintage_after_window_has_summary_only_and_comparable_scaling():
     lp = pd.DataFrame([[2027, "Late Pinot Noir", "new", 2025, pd.Timestamp("2029-03-01"), None, None, 60.0, "Pinot Noir", None],
                        [2027, "Copy Pinot Noir", "new", 2025, pd.Timestamp("2027-09-01"), None, None, 60.0, "Pinot Noir",
                         "Home Ranch Pinot Noir"]], columns=fio.EMPTY["label_plan"])
-    # Home Ranch's latest qualifying vintage is 2022; give it a generous cases figure so ratio < 1.
+    # Home Ranch's anchor vintage is 2023; give it a generous cases figure so ratio < 1.
     vp = pd.DataFrame([["Late Pinot Noir", 2025, 300, False], ["Copy Pinot Noir", 2025, 300, False],
-                       ["Home Ranch Pinot Noir", 2022, 1000, False]], columns=fio.EMPTY["vintage_plan"])
+                       ["Home Ranch Pinot Noir", 2023, 1000, False]], columns=fio.EMPTY["vintage_plan"])
     fc, summ = forecast_vintages(prof, v, h, lp, vp, ORIGIN, 2027, P, bands)
     assert fc[fc.label == "Late Pinot Noir"].empty
     late = summ[summ.label == "Late Pinot Noir"].iloc[0]
@@ -190,7 +234,7 @@ def test_future_vintage_after_window_has_summary_only_and_comparable_scaling():
 
 def test_existing_label_incoming_without_profile_is_skipped(caplog):
     h = make_bottle_history(); v = vintage_table(h, ORIGIN); prof = fit_profiles(h, v, P); bands = price_bands(h)
-    prof = prof[prof.key != "Pinot Noir|high"]   # Hypersonic now has no profile at all
+    prof = prof[~prof.key.str.startswith("Pinot Noir|")]   # Hypersonic now has no profile at all
     lp = pd.DataFrame([[2027, "Hypersonic Pinot Noir", "continue", None, None, None, None, None, None, None]],
                       columns=fio.EMPTY["label_plan"])
     with caplog.at_level(logging.WARNING, logger="forecast"):
