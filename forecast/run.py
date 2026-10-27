@@ -142,10 +142,19 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
     run_id: Optional[int] = None
     champions: Dict[int, Champion] = {}
     if not skip_backtest:
-        _, bt_swm = fbt.run_backtest_full(hist, releases, params, origin, snapshots=snapshots)
-        _, bt_level = fbt.run_backtest_full(hist, releases, params, origin,
-                                            champions=fbt.uniform_champions(0.0), snapshots=snapshots)
-        champions = select_champions(fbt.period_frame(bt_swm, params), fbt.period_frame(bt_level, params), params)
+        try:
+            _, bt_swm = fbt.run_backtest_full(hist, releases, params, origin, snapshots=snapshots)
+            _, bt_level = fbt.run_backtest_full(hist, releases, params, origin,
+                                                champions=fbt.uniform_champions(0.0), snapshots=snapshots)
+            champions = select_champions(fbt.period_frame(bt_swm, params), fbt.period_frame(bt_level, params),
+                                         params)
+        except Exception as exc:  # noqa: BLE001 - selection runs before start_run; still leave a failed row
+            if not dry_run:
+                effective["champions"] = {}
+                with engine.begin() as conn:
+                    failed_id = fio.start_run(conn, origin, horizon, effective)
+                    fio.finish_run(conn, failed_id, "failed", str(exc))
+            raise
         step("select")
     effective["champions"] = {str(k): {"model": c.model, "w_swm": c.w_swm, "calibration": c.calibration}
                               for k, c in sorted(champions.items())}

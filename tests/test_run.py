@@ -336,3 +336,23 @@ def test_log_champions_names_reverted_kpis(caplog):
     assert changed == 1
     assert "champion kpi=2 reverted for kpi=20" in caplog.text
     assert "champion kpi=8 model=blend" in caplog.text
+
+
+def test_selection_failure_leaves_failed_run(fake_io, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("backtest boom")
+    monkeypatch.setattr(frun.fbt, "run_backtest_full", boom)
+    with pytest.raises(RuntimeError, match="backtest boom"):
+        frun.run(origin=ORIGIN, horizon=5)
+    assert fake_io["finished"] == [(42, "failed", "backtest boom")]
+    assert len(fake_io["runs"]) == 1 and fake_io["runs"][0]["champions"] == {}
+    assert fake_io["written"] is None
+
+
+def test_selection_failure_on_dry_run_writes_nothing(fake_io, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("backtest boom")
+    monkeypatch.setattr(frun.fbt, "run_backtest_full", boom)
+    with pytest.raises(RuntimeError, match="backtest boom"):
+        frun.run(origin=ORIGIN, horizon=5, dry_run=True)
+    assert fake_io["finished"] == [] and fake_io["runs"] == []
