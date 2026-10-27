@@ -134,3 +134,56 @@ def test_v2_loader_stubs_return_typed_empty_frames():
     for name in ["club_plan", "tier_shares", "label_plan", "vintage_plan", "bottle_history", "club_orders", "memberships"]:
         assert list(fio.EMPTY[name]) == list(getattr(fio, f"_empty_{name}")().columns)
     assert fio._empty_club_plan().empty
+
+
+# --- v2 converters -----------------------------------------------------------------
+
+def test_period_and_accuracy_period_records():
+    from forecast.backtest import ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS
+    per = pd.DataFrame([[1, "week", 2, pd.Timestamp("2026-09-07"), pd.Timestamp("2026-08-30"), 5.0, np.nan, 1.0, 9.0]],
+                       columns=PERIOD_COLUMNS)
+    rec = fio.period_records(per, 7)
+    assert len(rec) == 1 and rec[0]["run_id"] == 7 and rec[0]["period_start"] == "2026-09-07"
+    assert rec[0]["origin_date"] == "2026-08-30" and rec[0]["forecast"] is None
+    acc = pd.DataFrame([[1, "month", 1, 0.2, np.nan, 0.5, 4]], columns=ACCURACY_PERIOD_COLUMNS)
+    r = fio.accuracy_period_records(acc, 7)[0]
+    assert r["bias"] is None and r["n"] == 4 and r["hit_rate"] == 0.5
+
+
+def test_bottle_records():
+    fc = pd.DataFrame([["Lux", 2022, pd.Timestamp("2026-11-01"), "Club", 3.0, np.nan, 5.0]],
+                      columns=["label", "vintage", "month_start", "channel", "p50", "p10", "p90"])
+    r = fio.bottle_records(fc, 3)[0]
+    assert r["month_start"] == "2026-11-01" and r["p10"] is None and r["vintage"] == 2022
+    summ = pd.DataFrame([["Lux", 2022, "Pinot Noir", pd.Timestamp("2024-03-01"), 120.0, np.nan, 200.0, 150.0, 250.0, "k"]],
+                        columns=["label", "vintage", "varietal", "release_month", "sold_to_date", "cases_made",
+                                 "lifetime_p50", "lifetime_p10", "lifetime_p90", "profile_key"])
+    s = fio.vintage_summary_records(summ, 3)
+    assert len(s) == 1 and s[0]["release_month"] == "2024-03-01" and s[0]["cases_made"] is None
+    assert s[0]["sold_to_date"] == 120 and "profile_key" not in s[0]
+    bt = pd.DataFrame([["Lux", 2022, 10.0, np.nan, 5.0, 15.0]],
+                      columns=["label", "vintage", "first_year_actual", "first_year_forecast", "p10", "p90"])
+    b = fio.bottle_backtest_records(bt, 3)[0]
+    assert b["first_year_forecast"] is None and b["first_year_actual"] == 10.0
+
+
+def test_profile_records_curve_json():
+    curve = np.linspace(0.0, 0.1, 36)
+    prof = pd.DataFrame([["label", "Lux", "Club", curve, 100.0, 0.02, np.nan, 3]],
+                        columns=["scope", "key", "channel", "curve", "lifetime", "trend", "log_dispersion", "n_vintages"])
+    r = fio.profile_records(prof, 9)[0]
+    got = json.loads(r["curve"])
+    assert len(got) == 36 and all(isinstance(x, float) for x in got)
+    assert r["log_dispersion"] is None and r["n_vintages"] == 3
+
+
+def test_club_history_records_nil_uuid_for_other():
+    from forecast.clubs import HISTORY_COLUMNS
+    tid = "11111111-1111-1111-1111-111111111111"
+    h = pd.DataFrame([[pd.Timestamp("2026-04-01"), "spring", tid, "Gold", "Lux", 2022, 2.0, 40.0, 10, 20, 0.5, 20, 800.0],
+                      [pd.Timestamp("2026-04-01"), "spring", "other", "Other", "Lux", np.nan, np.nan, np.nan, 3, 0, np.nan, 3, 90.0]],
+                     columns=HISTORY_COLUMNS)
+    recs = fio.club_history_records(h)
+    assert len(recs) == 2
+    assert recs[0]["tier_id"] == tid and recs[0]["release_start"] == "2026-04-01" and recs[0]["vintage"] == 2022
+    assert recs[1]["tier_id"] == fio.NIL_UUID and recs[1]["vintage"] is None and recs[1]["take_rate"] is None
