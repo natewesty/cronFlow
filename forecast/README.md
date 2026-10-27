@@ -37,7 +37,7 @@ Run order (v3 inserts selection before `start_run`; see "v3 champion models"): l
 
 Period p10/p90 bands are in-sample: the ratio percentiles come from the same backtest periods they are applied to.
 
-Each step logs its wall time (`step=load|daily|backtest|monthly|periods|bottles|clubs|write <seconds>s`); the club step also logs `club tiers=… active_in_listed_tiers=… members=…` to compare listed-tier actives with `members_a0`.
+Each step logs its wall time (`step=load|select|daily|backtest|monthly|periods|bottles|clubs|write <seconds>s`); the club step also logs `club tiers=… active_in_listed_tiers=… members=…` to compare listed-tier actives with `members_a0`.
 
 Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.8–5.5 s, daily 0.06 s, backtest 2.3–2.8 s, monthly 0.15 s, periods 0.5 s, bottles 0.35 s, clubs 4.4–4.7 s (12 window queries); total ≈ 13–14 s. Output: 7,068 period rows, ≈ 12,300 bottle rows, 230 club-history rows, 9 tiers.
 
