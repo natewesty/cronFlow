@@ -11,6 +11,7 @@ from .config import (ACTIVE_MEMBERS_KPI, ATTRITION_KPI, CLUB_KPIS, EVENT_CALENDA
 from .identities import apply_identities
 from .models.club import plan_ratios, release_component, residual_series, scheduled_release_values
 from .models.events import cap_series, event_component
+from .models.fees import fee_component
 from .models.membership import (attrition_base_series, project_stock, spike_component,
                                 spike_profile)
 from .models.otb import otb_series
@@ -37,11 +38,6 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
             fc = apply_floor(fc, k, h[k])
         point[k] = fc
         comps[k] = pd.DataFrame({"organic": fc})
-
-    # WS-A replaces with models/fees.py
-    for k in FEE_KPIS:
-        point[k] = apply_floor(swm_forecast(h[k], origin, dates, p), k, h[k])
-        comps[k] = pd.DataFrame({"organic": point[k]})
 
     # --- Event-sensitive flows --------------------------------------------
     for k in EVENT_KPIS:
@@ -85,6 +81,12 @@ def forecast_daily(hist: pd.DataFrame, origin: pd.Timestamp, dates: pd.DatetimeI
     comps[NEW_MEMBERS_KPI] = pd.DataFrame({"organic": new})
     comps[ATTRITION_KPI] = pd.DataFrame({"organic": base_attr, "spike": spike})
     comps[ACTIVE_MEMBERS_KPI] = pd.DataFrame({"organic": stock})
+
+    # --- Club fees: release-offset event -------------------------------------
+    for k in FEE_KPIS:
+        fc = fee_component(h[k], ctx.releases, ctx.schedule, members_hist, stock, dates, p)
+        point[k] = fc
+        comps[k] = pd.DataFrame({"organic": pd.Series(0.0, index=dates), "release": fc})
 
     # --- Club-sensitive flows ----------------------------------------------
     ratios = plan_ratios(h[4], ctx.releases, members_hist, stock, ctx.schedule, p,
