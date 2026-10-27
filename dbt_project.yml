@@ -19,6 +19,15 @@ models:
       +materialized: view
     marts:
       +materialized: table
+      # Disabled 2026-10-27: nothing reads these three tables (the dashboard methods
+      # that did are dead code) and together they cost ~13 min of DB time per run,
+      # re-scanning fct_order once per metric column. Re-enable if a consumer appears.
+      agg_revenue_kpis:
+        +enabled: false
+      agg_revenue_monthly_kpis:
+        +enabled: false
+      agg_revenue_quarterly_kpis:
+        +enabled: false
     intermediate:
       +materialized: ephemeral
     kpi:
