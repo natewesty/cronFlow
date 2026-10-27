@@ -1,4 +1,45 @@
-"""Bottle label parsing, per-vintage table and price tiers (spec 5.1, 5.3). Pure pandas, no IO."""
+r"""Bottle label parsing, per-vintage table and price tiers (spec 5.1, 5.3). Pure pandas, no IO.
+
+Rules shared with the app (port these exactly):
+
+Titles
+  - label = title with a leading "YYYY " vintage stripped (any size suffix is kept, so a large
+    format is its own label). vintage = leading four digits of the title, else None.
+  - Large format (is_large_format, alias is_magnum): the stripped title ends with a size suffix
+    matching /\s*-?\s*\d(\.\d)?\s?L$/i (" - 1.5L", " 3.0L", " - 5.0L", " - 1.5 L", "1.5l").
+  - varietal_from_title (fallback only; the warehouse varietal wins when present): strip the
+    leading vintage, then the size suffix, then trim; empty -> None (a title that is only digits is
+    empty). Else the longest entry of KNOWN_VARIETALS that the text ends with, compared
+    case-insensitively and starting at a word boundary (start of text or a non-alphanumeric
+    character before it), returned in the list's casing; else the last whitespace-separated word
+    in its original casing.
+
+Large formats
+  - excluded from price_bands and from every tier (tier profiles, tier dispersion pools, tier
+    reference curves); profile_for gives them their own label profile (or the plan's comparable
+    label) and never a tier profile; they never get a default next-vintage candidate (they are
+    forecast only for vintages already selling or a plan row's incoming vintage).
+
+Release (vintage_table, threshold = 50 bottles per month, all channels; "sale month" = a month
+whose bottles sum to > 0, "first sale" = the first sale month, else the first month with a row)
+  - released with release_month = first month with >= threshold bottles, if any month has;
+  - else released with release_month = first sale, if the vintage has >= 3 distinct sale months;
+  - else released with release_month = first sale, if no vintage of the label ever reached the
+    threshold, or the vintage is older than the label's newest vintage that did;
+  - else UNRELEASED: released = False, release_month = NaT, months_sold = 0, first_year = NaN,
+    sold_to_date keeps its bottles.
+
+Default next-vintage candidates (forecast_vintages, labels with no deciding plan row)
+  - only for a label with >= 2 released vintages, not large format, whose newest released vintage
+    has months_sold < 24 and whose plan row (if any) is not 'retire' and names no other incoming
+    vintage: candidate = newest released vintage + 1.
+  - An unreleased candidate whose release month (plan or default) is <= origin's month:
+      plan row                          -> moved to origin month + 1 ("planned release ... moved to");
+      no plan row, sold_to_date > 0     -> moved to origin month + 1 ("default release ... already
+                                           selling ... moved to");
+      no plan row, no sales             -> rolled forward 12 months at a time until after origin
+                                           ("default release ... rolled to").
+"""
 from __future__ import annotations
 
 import logging
@@ -12,13 +53,16 @@ from forecast.config import BOTTLE_CHANNELS, EngineParams
 
 log = logging.getLogger("forecast")
 
-MAGNUM_SUFFIX = " - 1.5L"
+MAGNUM_SUFFIX = " - 1.5L"     # the classic magnum spelling; any size suffix counts (see LARGE_FORMAT_SUFFIX)
+LARGE_FORMAT_SUFFIX = re.compile(r"\s*-?\s*\d(\.\d)?\s?L$", re.IGNORECASE)
+KNOWN_VARIETALS = ["Pinot Noir", "Chardonnay", "Blanc de Noirs", "Rosé", "Rose", "Merlot", "Syrah",
+                   "Cabernet Sauvignon", "Sauvignon Blanc", "Pinot Gris", "Riesling"]
 _VINTAGE_PREFIX = re.compile(r"^\d{4}\s+")
 _VINTAGE_DIGITS = re.compile(r"^(\d{4})")
 
 
 def label_from_title(title: str) -> str:
-    """Title with the leading four-digit vintage stripped (magnum suffix is kept)."""
+    """Title with the leading four-digit vintage stripped (any large-format size suffix is kept)."""
     return _VINTAGE_PREFIX.sub("", title.strip())
 
 
@@ -27,38 +71,57 @@ def vintage_from_title(title: str) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+def _strip_size(t: str) -> str:
+    return LARGE_FORMAT_SUFFIX.sub("", t.strip()).strip()
+
+
 def varietal_from_title(title: str) -> Optional[str]:
-    """Varietal from a title: strip the leading vintage and any ' - 1.5L' suffix; if the rest ends
-    with 'pinot noir' (case-insensitive) return 'Pinot Noir', else the last word (original casing);
-    None when no words remain. A fallback only: callers prefer the warehouse stg_product.varietal."""
-    t = label_from_title(title)
-    if t.endswith(MAGNUM_SUFFIX):
-        t = t[: -len(MAGNUM_SUFFIX)]
-    t = _VINTAGE_DIGITS.sub("", t).strip() if t.strip().isdigit() else t.strip()
+    """Varietal from a title: strip the leading vintage and any large-format size suffix; None when
+    nothing (or only digits) remains; else the longest KNOWN_VARIETALS entry the rest ends with
+    (case-insensitive, at a word boundary, returned in the list's casing); else the last word
+    (original casing). A fallback only: callers prefer the warehouse stg_product.varietal."""
+    t = _strip_size(label_from_title(title))
+    if t.isdigit():
+        t = ""
     if not t:
         return None
-    if t.lower().endswith("pinot noir"):
-        return "Pinot Noir"
+    low = t.lower()
+    for name in sorted(KNOWN_VARIETALS, key=len, reverse=True):
+        k = name.lower()
+        if low.endswith(k):
+            i = len(low) - len(k)
+            if i == 0 or not low[i - 1].isalnum():
+                return name
     return t.split()[-1]
 
 
 def is_magnum(title: str) -> bool:
-    return title.strip().endswith(MAGNUM_SUFFIX)
+    """True for any large format: the title ends with a size suffix (LARGE_FORMAT_SUFFIX)."""
+    return bool(LARGE_FORMAT_SUFFIX.search(str(title).strip()))
+
+
+is_large_format = is_magnum
 
 
 VINTAGE_COLUMNS = ["label", "vintage", "varietal", "release_month", "sold_to_date", "months_sold", "first_year",
                    "released"]
 
 
+RELEASE_MIN_SALE_MONTHS = 3   # a vintage selling in this many distinct months is released even under the threshold
+
+
 def vintage_table(hist: pd.DataFrame, origin: pd.Timestamp, threshold: int = 50) -> pd.DataFrame:
     """One row per label-vintage with sales on or before origin.
 
-    Release rule: release_month is the first month with >= threshold bottles (all channels). A
-    vintage that never reached the threshold:
-      - releases on its first month with any sale when no vintage of the label ever reached the
-        threshold (small labels, magnums), or when it is older than the label's newest vintage that
-        did (library tail whose release predates the history);
-      - otherwise is UNRELEASED (stray pre-release sales of the next vintage): released = False,
+    Release rule (all channels; a sale month is a month whose bottles sum to > 0; first sale = the
+    first sale month, else the first month with a row):
+      - a vintage with a month of >= threshold bottles releases on the first such month;
+      - else one with sales in >= RELEASE_MIN_SALE_MONTHS (3) distinct months releases on its first
+        sale (a slow vintage trickling out);
+      - else it releases on its first sale when no vintage of the label ever reached the threshold
+        (small labels, magnums), or when it is older than the label's newest vintage that did
+        (library tail whose release predates the history);
+      - otherwise it is UNRELEASED (stray pre-release sales of the next vintage): released = False,
         release_month = NaT, months_sold = 0, first_year = NaN; sold_to_date keeps its bottles.
     first_year is the bottles in the 12 months from release_month, NaN when months_sold < 12."""
     origin_month = pd.Timestamp(origin).to_period("M").start_time
@@ -80,10 +143,14 @@ def vintage_table(hist: pd.DataFrame, origin: pd.Timestamp, threshold: int = 50)
         varietal = vs.iloc[0] if len(vs) else varietal_from_title(str(label))  # label has no vintage; may be None
         row = {"label": label, "vintage": vintage, "varietal": varietal, "release_month": pd.NaT,
                "sold_to_date": float(monthly.sum()), "months_sold": 0, "first_year": np.nan, "released": False}
+        sale_months = monthly.index[monthly > 0]
+        first_sale = sale_months[0] if len(sale_months) else monthly.index[0]
         if big_first is not None:
             release = big_first
+        elif len(sale_months) >= RELEASE_MIN_SALE_MONTHS:
+            release = first_sale
         elif label not in newest_big or vintage < newest_big[label]:
-            release = monthly.index[0]
+            release = first_sale
         else:
             rows.append(row)
             continue
@@ -108,7 +175,7 @@ def _released(vintages: pd.DataFrame) -> pd.DataFrame:
 
 def price_bands(hist: pd.DataFrame) -> Dict[str, Tuple[float, float]]:
     """Tercile cut points (t1, t2) of distinct labels' median prices within each varietal. A varietal
-    with fewer than 3 labels gets (median, median). Magnum labels (title ends ' - 1.5L') are excluded."""
+    with fewer than 3 labels gets (median, median). Large-format labels (is_large_format) are excluded."""
     per = hist.groupby("label").agg(price=("price", "median"), varietal=("varietal", "first")).reset_index()
     per = per[~per["label"].astype(str).map(is_magnum)]
     per["varietal"] = per["varietal"].where(per["varietal"].notna(), per["label"].map(varietal_from_title))
@@ -372,7 +439,7 @@ def profile_for(profiles: pd.DataFrame, label: str, varietal, price, comparable:
     """Fallback chain: the label's own rows, else the comparable label's rows, else tier rows, else
     None. Tier step: tier_key(varietal, price, bands); if that key has no rows, the nearest band of
     the same varietal that has rows (band distance in low < mid < high; ties go to the lower band).
-    Magnum labels never fall back to a tier. None also for an unknown varietal or missing price."""
+    Large-format labels (is_large_format) never fall back to a tier. None also for an unknown varietal or missing price."""
     if profiles is None or profiles.empty:
         return None
     lab = profiles[profiles["scope"] == "label"]
@@ -458,10 +525,11 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
 
     Candidates: vintages with months_sold < n (unreleased vintages included), plus each
     continue/new label's incoming vintage (default newest released vintage + 1 for continue,
-    plan_year - 2 for new), plus, for every label with sales whose newest released vintage has
-    months_sold < DEFAULT_NEXT_MAX_MONTHS and that has no plan row with status 'retire' or naming a
-    different incoming vintage, newest released + 1 (unreviewed labels; it takes the default release
-    rule and the normal profile chain, magnums included).
+    plan_year - 2 for new), plus, for every label that is not large format, has >= 2 released
+    vintages, whose newest released vintage has months_sold < DEFAULT_NEXT_MAX_MONTHS and that has
+    no plan row with status 'retire' or naming a different incoming vintage, newest released + 1
+    (unreviewed labels; it takes the default release rule and the normal profile chain). Any other
+    label's next vintage needs a plan row.
     An unreleased vintage (vintage_table released = False) is forecast like a future vintage (plan
     or default release month, whole curve) with remaining = lifetime - sold_to_date: its stray
     pre-release bottles count toward its lifetime.
@@ -480,8 +548,10 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     first-year anchored). Capped at cases x 12 when cases are known. No profile: skipped with a
     warning, except a non-magnum new label, which gets a summary row only.
     Release: an unreleased candidate whose release month is <= origin's month is moved to the month
-    after origin when it has a plan row (warning logged), so no curve mass is dropped; a default
-    candidate (no plan row) keeps its month and rolls forward 12 months at a time until after origin.
+    after origin when it has a plan row or, with no plan row, when it already has sales
+    (sold_to_date > 0: it is trickling out now), so no curve mass is dropped; a candidate with no
+    plan row and no sales keeps its month and rolls forward 12 months at a time until after origin.
+    Each case logs its own warning.
     Monthly: an already-selling (released) vintage spreads remaining = max(lifetime - sold_to_date, 0) over the
     curve mass from months_sold on (renormalised; remaining = 0 if that mass is 0); a future one
     is (lifetime - sold) x curve (sold = 0 unless unreleased). Rows run from the month after origin to December of plan_year + 1.
@@ -522,6 +592,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         cands.append((label, int(inc)))
     n_plan_cands = len(dict.fromkeys(cands))
     for label, g in released.groupby("label", sort=True):
+        if len(g) < 2 or is_large_format(str(label)):
+            continue                                 # needs a plan row
         newest = g.loc[g["vintage"].astype(int).idxmax()]
         if int(newest["months_sold"]) >= DEFAULT_NEXT_MAX_MONTHS:
             continue
@@ -560,8 +632,16 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             rm = _plan_value(pr, "release_month")
             release = (pd.Timestamp(rm).to_period("M").start_time if rm is not None
                        else _default_release(label, vintage, vintages, plan_year))
-            if release <= origin_month and pr is None:
-                # default candidate: keep the label's release month, roll forward a year at a time
+            sold_now = float(v.sold_to_date) if v is not None else 0.0
+            if release <= origin_month and pr is None and sold_now > 0:
+                # unreleased but already selling: it is trickling out now
+                clamped = origin_month + pd.DateOffset(months=1)
+                log.warning("bottles: %s %s default release %s is not after origin and it is already selling "
+                            "(%s bottles); moved to %s", label, vintage, release.date(), int(round(sold_now)),
+                            clamped.date())
+                release = clamped
+            elif release <= origin_month and pr is None:
+                # default candidate with no sales: keep the label's release month, roll forward a year at a time
                 rolled = release
                 while rolled <= origin_month:
                     rolled = rolled + pd.DateOffset(months=12)

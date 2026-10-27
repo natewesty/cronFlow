@@ -448,3 +448,124 @@ def test_release_month_threshold_and_first_sale_fallback():
     assert vt.loc[("Small", 2022)].release_month == pd.Timestamp("2024-03-01") and vt.loc[("Small", 2022)].released
     assert vt.loc[("Small", 2023)].release_month == pd.Timestamp("2025-04-01") and vt.loc[("Small", 2023)].released
     assert vt.loc[("Small", 2023)].months_sold == 19
+
+
+# --- production dry-run fixes (2026-10-26) ----------------------------------------
+
+def test_large_format_suffixes_and_known_varietals():
+    for t in ["2022 Mikado Tree Pinot Noir - 1.5L", "East Slope Pinot Noir 3.0L", "Perrygulch Pinot Noir - 5.0L",
+              "2023 Savoy Chardonnay - 1.5 L", "Big Syrah 1.5l"]:
+        assert b.is_magnum(t) and b.is_large_format(t), t
+    for t in ["2023 Home Ranch Pinot Noir", "Blanc de Noirs", "2021-2023 Zodiac Vertical", "Gift Card"]:
+        assert not b.is_large_format(t), t
+    assert b.label_from_title("2024 East Slope Pinot Noir 3.0L") == "East Slope Pinot Noir 3.0L"
+    assert b.varietal_from_title("2024 East Slope Pinot Noir 3.0L") == "Pinot Noir"
+    assert b.varietal_from_title("Perrygulch Pinot Noir - 5.0L") == "Pinot Noir"
+    assert b.varietal_from_title("2023 Savoy Chardonnay - 1.5 L") == "Chardonnay"
+    assert b.varietal_from_title("2019 Blanc de Noirs") == "Blanc de Noirs"
+    assert b.varietal_from_title("Blanc de Noirs") == "Blanc de Noirs"
+    assert b.varietal_from_title("2022 TFV CHARDONNAY") == "Chardonnay"
+    assert b.varietal_from_title("2023 Rosé of Pinot Noir") == "Pinot Noir"
+    assert b.varietal_from_title("2023 Estate Rosé") == "Rosé"
+    assert b.varietal_from_title("2022 Anderson Valley Cabernet Sauvignon") == "Cabernet Sauvignon"
+    assert b.varietal_from_title("2021-2023 Zodiac Vertical") == "Vertical"   # no known varietal: last word
+    assert b.varietal_from_title("Primrose") == "Primrose"                     # 'rose' only at a word boundary
+    assert b.varietal_from_title("1.5L") is None and b.varietal_from_title("") is None
+
+
+def _monthly(label, vintage, start, counts, price=40.0, varietal="Pinot Noir"):
+    first = pd.Timestamp(start)
+    return [_row(label, vintage, first + pd.DateOffset(months=i), c, price=price, varietal=varietal)
+            for i, c in enumerate(counts) if c]
+
+
+def test_large_formats_out_of_bands_tiers_and_default_candidates():
+    lf = "Savoy Chardonnay - 1.5 L"
+    rows = []
+    for lab, price in [("A Chardonnay", 40.0), ("B Chardonnay", 50.0), ("C Chardonnay", 60.0), (lf, 150.0)]:
+        for v, start in [(2021, "2023-06-01"), (2022, "2024-06-01"), (2023, "2025-06-01")]:
+            rows += _monthly(lab, v, start, [80] * 6 + [30] * 30, price=price, varietal="Chardonnay")
+    hist = pd.DataFrame(rows, columns=fio.EMPTY["bottle_history"])
+    v = vintage_table(hist, ORIGIN); prof = fit_profiles(hist, v, P); bands = price_bands(hist)
+    assert bands["Chardonnay"] == pytest.approx((np.quantile([40, 50, 60], 1 / 3), np.quantile([40, 50, 60], 2 / 3)))
+    assert ((prof.scope == "label") & (prof.key == lf)).any()
+    tiers = prof[prof.scope == "tier"].groupby("key").n_vintages.first()
+    assert tiers.sum() == 6                                         # 3 standard labels x 2 qualifying vintages
+    assert profile_for(prof, lf, "Chardonnay", 150.0, None, bands).key.iloc[0] == lf
+    assert profile_for(prof[prof.key != lf], lf, "Chardonnay", 150.0, None, bands) is None
+    fc, summ = forecast_vintages(prof, v, hist, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    keys = set(zip(summ.label, summ.vintage))
+    assert ("A Chardonnay", 2024) in keys and (lf, 2024) not in keys
+    assert (lf, 2023) in keys                                       # an already-selling vintage is still forecast
+
+
+def test_default_next_vintage_needs_two_released_vintages(caplog):
+    rows = _monthly("Solo Pinot Noir", 2023, "2025-06-01", [90] * 17)
+    rows += _monthly("Duo Pinot Noir", 2022, "2024-06-01", [90] * 29) + _monthly("Duo Pinot Noir", 2023, "2025-06-01", [90] * 17)
+    hist = pd.DataFrame(rows, columns=fio.EMPTY["bottle_history"])
+    v = vintage_table(hist, ORIGIN); prof = fit_profiles(hist, v, P); bands = price_bands(hist)
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, hist, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    keys = set(zip(summ.label, summ.vintage))
+    assert ("Duo Pinot Noir", 2024) in keys and ("Solo Pinot Noir", 2024) not in keys
+    assert "default next-vintage candidates added: 1" in caplog.text
+    # ...but a plan row still brings in the single-vintage label's next vintage.
+    lp = pd.DataFrame([[2027, "Solo Pinot Noir", "continue", None, None, None, None, None, None, None]],
+                      columns=fio.EMPTY["label_plan"])
+    fc, summ = forecast_vintages(prof, v, hist, lp, fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    assert ("Solo Pinot Noir", 2024) in set(zip(summ.label, summ.vintage))
+
+
+def test_three_sale_months_release_a_vintage_under_the_threshold():
+    rows = (_monthly("L", 2021, "2023-06-01", [80] * 40)
+            + _monthly("L", 2022, "2026-02-01", [0, 12, 0, 9, 7])         # 3 sale months, never 50
+            + _monthly("L", 2023, "2026-08-01", [5, 6]))                  # 2 sale months: unreleased
+    hist = pd.DataFrame(rows, columns=fio.EMPTY["bottle_history"])
+    vt = vintage_table(hist, ORIGIN).set_index(["label", "vintage"])
+    r = vt.loc[("L", 2022)]
+    assert r.released and r.release_month == pd.Timestamp("2026-03-01") and r.months_sold == 8
+    u = vt.loc[("L", 2023)]
+    assert not u.released and pd.isna(u.release_month) and u.sold_to_date == 11
+
+
+def test_unreleased_with_sales_is_clamped_not_rolled(caplog):
+    h = make_bottle_history()
+    # Ten Oaks 2024: two months of stray sales, default release 2026-06 (before origin) -> trickling out now.
+    stray = pd.DataFrame([_row("Ten Oaks Pinot Noir", 2024, "2026-08-01", 5, price=52.0),
+                          _row("Ten Oaks Pinot Noir", 2024, "2026-09-01", 4, price=52.0)], columns=h.columns)
+    hs = pd.concat([h, stray], ignore_index=True)
+    v = vintage_table(hs, ORIGIN); prof = fit_profiles(hs, v, P); bands = price_bands(hs)
+    assert not v[(v.label == "Ten Oaks Pinot Noir") & (v.vintage == 2024)].released.iloc[0]
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, hs, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    s = summ[(summ.label == "Ten Oaks Pinot Noir") & (summ.vintage == 2024)].iloc[0]
+    assert s.release_month == pd.Timestamp("2026-11-01") and s.sold_to_date == 9
+    assert ("Ten Oaks Pinot Noir 2024 default release 2026-06-01 is not after origin and it is already selling "
+            "(9 bottles); moved to 2026-11-01") in caplog.text
+    assert "Ten Oaks Pinot Noir 2024 default release 2026-06-01 is not after origin; rolled to" not in caplog.text
+    rows = fc[(fc.label == "Ten Oaks Pinot Noir") & (fc.vintage == 2024)]
+    assert rows.month_start.min() == pd.Timestamp("2026-11-01")
+
+
+def test_pearl_small_label_vintages_release_on_first_sale(caplog):
+    """Production case: one 50+ vintage, four later vintages selling 10-30 bottles a month."""
+    rows = _monthly("Pearl Pinot Noir", 2020, "2022-03-01", [70] * 6 + [25] * 30)
+    for v, start, n in [(2021, "2023-03-01", 36), (2022, "2024-03-01", 32), (2023, "2025-03-01", 20),
+                        (2024, "2026-03-01", 8)]:
+        rows += _monthly("Pearl Pinot Noir", v, start, [10 + (i * 7) % 21 for i in range(n)])
+    hist = pd.DataFrame(rows, columns=fio.EMPTY["bottle_history"])
+    v = vintage_table(hist, ORIGIN)
+    pv = v[v.label == "Pearl Pinot Noir"].set_index("vintage")
+    assert pv.released.all()
+    for vin, first in [(2021, "2023-03-01"), (2022, "2024-03-01"), (2023, "2025-03-01"), (2024, "2026-03-01")]:
+        assert pv.loc[vin].release_month == pd.Timestamp(first), vin
+    prof = fit_profiles(hist, v, P); bands = price_bands(hist)
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        fc, summ = forecast_vintages(prof, v, hist, fio._empty_label_plan(), fio._empty_vintage_plan(), ORIGIN, 2027, P, bands)
+    assert "default next-vintage candidates added: 1" in caplog.text
+    assert "rolled to" not in caplog.text and "moved to" not in caplog.text
+    pearl = summ[summ.label == "Pearl Pinot Noir"].set_index("vintage")
+    assert set(pearl.index) == {2022, 2023, 2024, 2025}               # newest + 1 only; 2021 has 36 months sold
+    for vin in (2022, 2023, 2024):
+        assert pearl.loc[vin].release_month == pv.loc[vin].release_month
+    assert pearl.loc[2025].release_month == pd.Timestamp("2027-03-01")
