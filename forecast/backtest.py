@@ -100,9 +100,16 @@ def summarize(bt: pd.DataFrame, params: EngineParams) -> pd.DataFrame:
                        "weekly_wmape": float, "monthly_wmape": float})
 
 
+def run_backtest_full(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
+                      origin: pd.Timestamp) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Daily accuracy summary plus the backtest frame it came from (for the period backtest)."""
+    bt = backtest_frame(hist, releases, params, origin)
+    return summarize(bt, params), bt
+
+
 def run_backtest(hist: pd.DataFrame, releases: List[Release], params: EngineParams,
                  origin: pd.Timestamp) -> pd.DataFrame:
-    return summarize(backtest_frame(hist, releases, params, origin), params)
+    return run_backtest_full(hist, releases, params, origin)[0]
 
 
 def apply_bands(point: pd.DataFrame, accuracy: pd.DataFrame,

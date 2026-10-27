@@ -21,6 +21,16 @@ Connection comes from `DATABASE_URL` (or `DB_*`), loaded from `cronDon.env` loca
 
 `forecast_runs` (one row per run, `is_latest` marks the live one), `forecast_daily` (120 days × 31 KPIs per run), `forecast_monthly` (36 months of components), `forecast_accuracy` (rolling backtest per KPI and horizon bucket), `assumptions` (written by the app: `shipment_schedule`, `events`, `growth_overrides`, `engine_params`), `bookings_snapshot` (daily Tock on-the-books snapshot).
 
+## v2 tables and run order
+
+Run-scoped (keyed by `run_id`, pruned with the run): `forecast_backtest_periods` and `forecast_accuracy_periods` (week/month period backtest per KPI and periods ahead), `bottle_forecast` (monthly p50/p10/p90 per label, vintage and channel), `bottle_vintage_summary`, `bottle_profiles`, `bottle_backtest` (first-year retrospective per vintage). Not run-scoped: `club_release_history` (replaced on every run that loads memberships; left untouched when the club step is skipped). App-written plans: `label_plan`, `bottle_vintage_plan`, `club_release_plan`, `club_release_tier_plan`.
+
+Run order: load KPI history, OTB, members, assumptions → load plans (club plan for this year and next, tier shares, label and vintage plans), bottle history and memberships → detect releases → daily forecast → daily backtest (kept as a frame) → bands → monthly → period backtest (from the same frame; empty with `--skip-backtest`) → bottles (vintage table, price bands, vintage backtest, profiles, vintage forecast; skipped with a warning when there is no bottle history) → club history (orders for each release in the last 3 years, one window query per release; skipped with a warning when there are no memberships) → write everything in one transaction. `--dry-run` computes all of it and logs the counts (`periods=… bottles=… club_history=…`) and the month ahead=1 WMAPE for KPIs 4, 6 and 14.
+
+Period p10/p90 bands are in-sample: the ratio percentiles come from the same backtest periods they are applied to.
+
+Timings with the v2 steps: _to be measured on the first production dry run_.
+
 ## Tests
 
 ```bash

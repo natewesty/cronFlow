@@ -3,7 +3,7 @@ import pandas as pd
 
 from forecast.backtest import (ACCURACY_COLUMNS, ACCURACY_PERIOD_COLUMNS, PERIOD_COLUMNS,
                                period_frame, run_period_backtest, summarize_periods, apply_bands, backtest_frame, bucket_for,
-                               run_backtest, summarize)
+                               run_backtest, run_backtest_full, summarize)
 from forecast.config import EngineParams
 from forecast.models.club import detect_releases
 from tests.synth import make_history
@@ -41,6 +41,14 @@ def test_run_backtest_accuracy_is_sane():
     row = acc[(acc.kpi_id == 1) & (acc.horizon_bucket == "8-28")].iloc[0]
     assert row.weekly_wmape is not None and row.weekly_wmape <= one.wmape + 0.1
     assert set(acc.kpi_id) == set(range(1, 32))
+
+
+def test_run_backtest_full_returns_summary_and_frame():
+    df = make_history()
+    rel = detect_releases(df[4], P)
+    acc, bt = run_backtest_full(df, rel, P, ORIGIN)
+    pd.testing.assert_frame_equal(acc, run_backtest(df, rel, P, ORIGIN))
+    pd.testing.assert_frame_equal(bt, backtest_frame(df, rel, P, ORIGIN))
 
 
 def test_wmape_null_when_no_actuals():
