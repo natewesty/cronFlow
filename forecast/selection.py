@@ -149,9 +149,13 @@ class _GuardFrames:
 
     def __init__(self, pf_swm: pd.DataFrame, pf_level: pd.DataFrame):
         ps, pl = _raw_month_ahead(pf_swm), _raw_month_ahead(pf_level)
-        self.actual = _wide(ps, "actual")
-        self.f_swm = _wide(ps, "forecast")
-        self.f_level = _wide(pl, "forecast").reindex(self.actual.index)
+        actual, f_swm, f_level = _wide(ps, "actual"), _wide(ps, "forecast"), _wide(pl, "forecast")
+        # One shared index: a month whose value is NaN for every KPI in one pivot would
+        # otherwise be missing from that frame alone and break the element-wise maths.
+        index = actual.index.union(f_swm.index).union(f_level.index)
+        self.actual = actual.reindex(index)
+        self.f_swm = f_swm.reindex(index)
+        self.f_level = f_level.reindex(index)
 
     def forecast(self, k: int, champions: Dict[int, Champion]) -> np.ndarray:
         """k's period forecasts under `champions`: m * (w*swm + (1-w)*level) for a selectable

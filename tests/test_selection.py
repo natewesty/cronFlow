@@ -201,3 +201,21 @@ def test_headline_guard_picks_the_most_helpful_reversion():
 def test_champion_weights_are_clipped_to_unit_interval():
     p = EngineParams.from_overrides({"champion_weights": [-0.5, 0.5, 1.5, 1.0]})
     assert p.champion_weights == [0.0, 0.5, 1.0]
+
+
+def test_guard_frames_align_when_a_month_is_nan_everywhere():
+    """A month whose swm forecast is NaN for every KPI is missing from that pivot alone; the
+    guard frames must still line up (regression: shapes (8,) vs (7,) in the guard maths)."""
+    import numpy as np
+    from forecast.selection import _GuardFrames
+    months = pd.date_range("2026-01-01", periods=8, freq="MS")
+    rows = []
+    for k in (2, 16):
+        for i, m in enumerate(months):
+            f = np.nan if i == 3 else 100.0
+            rows.append({"kpi_id": k, "period": "month", "ahead": 1, "period_start": m,
+                         "origin_date": m - pd.Timedelta(days=1), "actual": 100.0, "forecast": f, "calendar": False})
+    pf_swm = pd.DataFrame(rows)
+    pf_level = pf_swm.assign(forecast=100.0)
+    g = _GuardFrames(pf_swm, pf_level)
+    assert len(g.actual) == len(g.f_swm) == len(g.f_level) == 8
