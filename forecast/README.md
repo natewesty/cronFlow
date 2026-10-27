@@ -39,7 +39,19 @@ Period p10/p90 bands are in-sample: the ratio percentiles come from the same bac
 
 Each step logs its wall time (`step=load|daily|backtest|monthly|periods|bottles|clubs|write <seconds>s`); the club step also logs `club tiers=… active_in_listed_tiers=… members=…` to compare listed-tier actives with `members_a0`. Timings with the v2 steps: _to be measured on the first production dry run_.
 
+Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.8–5.5 s, daily 0.06 s, backtest 2.3–2.8 s, monthly 0.15 s, periods 0.5 s, bottles 0.35 s, clubs 4.4–4.7 s (12 window queries); total ≈ 13–14 s. Output: 7,068 period rows, ≈ 12,300 bottle rows, 230 club-history rows, 9 tiers.
+
+Acceptance (2026-10-27): month ahead=1 WMAPE kpi 4 = 0.085, kpi 6 = 0.088 (target ≤ 0.15), kpi 14 = 0.114 (previous engine 0.185). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
+
 Bottle release rule: a vintage releases in its first month with ≥ 50 bottles. A vintage that never reached 50 releases on its first sale when no vintage of its label ever did (small labels, magnums) or when it is older than the label's newest vintage that did (library tail); otherwise it is unreleased (stray pre-release bottles): no release month, forecast as an incoming vintage whose lifetime already includes the bottles sold, and the default next vintage counts from the newest released one.
+
+## Known limitations
+
+- Period p10/p90 bands are in-sample: the ratio percentiles come from the same backtest periods they are applied to.
+- An assumed schedule date more than 7 days from an actual release double-counts fees (user-input error).
+- One-off products (verticals, trios, etches) and large formats without a base-label profile get no bottle forecast and log "no profile … skipped".
+- An under-threshold newest vintage stays unreleased until it sells ≥ 50 in a month or in ≥ 3 months.
+- Detail tables of non-latest runs are pruned after 14 days.
 
 ## Tests
 
