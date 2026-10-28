@@ -41,7 +41,7 @@ Each step logs its wall time (`step=load|select|daily|backtest|monthly|periods|b
 
 Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.9 s, select 5.2 s (two selection backtests + grid + headline guard), daily 0.05 s, backtest 2.4 s (final, on champions), monthly 0.2 s, periods 0.5 s, bottles 0.4 s, clubs 4.3 s; total ≈ 18 s. Champions changed on 6 of 14 selectable KPIs (4, 22, 30 blends; 8 blend 0.25; 28 level; 7 calibrated swm); the headline guard reverted KPI 2's blend to protect Average Tasting Fee (20).
 
-Acceptance (2026-10-27): month ahead=1 WMAPE kpi 4 = 0.085, kpi 6 = 0.088 (target ≤ 0.15), kpi 14 = 0.114 (previous engine 0.185). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
+Acceptance (2026-10-27, current dry run with Bottles v2: run time 19 s, `bottle_rows` 15,365): month ahead=1 WMAPE kpi 4 = 0.080, kpi 6 = 0.083 (target ≤ 0.15), kpi 14 = 0.108 (previous engine 0.185; v2 run 7 gave 0.085, 0.088 and 0.114). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
 
 Bottle release rule: a vintage releases in its first month with ≥ 50 bottles. A vintage that never reached 50 releases on its first sale when no vintage of its label ever did (small labels, magnums) or when it is older than the label's newest vintage that did (library tail); otherwise it is unreleased (stray pre-release bottles): no release month, forecast as an incoming vintage whose lifetime already includes the bottles sold, and the default next vintage counts from the newest released one.
 

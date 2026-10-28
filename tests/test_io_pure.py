@@ -317,6 +317,30 @@ def test_bottle_history_records_shape():
                      "channel": "Event", "bottles": 12.0, "revenue": 1200.0}]
 
 
+def test_bottle_history_records_merge_duplicate_keys(caplog):
+    from forecast.io import bottle_history_records
+    m = pd.Timestamp("2026-01-01")
+    df = pd.DataFrame([
+        {"label": "A", "vintage": 2024, "varietal": None, "month_start": m, "channel": "POS",
+         "bottles": 5.0, "revenue": 500.0, "price": 100.0},
+        {"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": m, "channel": "POS",
+         "bottles": 7.0, "revenue": 700.0, "price": 100.0},
+        {"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": m, "channel": "Web",
+         "bottles": 1.0, "revenue": 100.0, "price": 100.0},
+    ])
+    with caplog.at_level("WARNING", logger="forecast"):
+        recs = bottle_history_records(df)
+    assert recs == [
+        {"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": "2026-01-01",
+         "channel": "POS", "bottles": 12.0, "revenue": 1200.0},
+        {"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": "2026-01-01",
+         "channel": "Web", "bottles": 1.0, "revenue": 100.0},
+    ]
+    keys = [(r["label"], r["vintage"], r["month_start"], r["channel"]) for r in recs]
+    assert len(keys) == len(set(keys))
+    assert any("merged 1 rows" in rec.getMessage() for rec in caplog.records)
+
+
 def test_empty_stock_plan_columns():
     from forecast.io import _empty
     assert list(_empty("stock_plan").columns) == ["plan_year", "label", "vintage", "usable_9l", "shiners_9l", "produced_9l",

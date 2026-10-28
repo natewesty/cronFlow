@@ -466,12 +466,35 @@ def club_history_records(hist: pd.DataFrame) -> List[dict]:
     return out
 
 
+BOTTLE_HISTORY_KEY = ("label", "vintage", "month_start", "channel")
+
+
 def bottle_history_records(hist: pd.DataFrame) -> List[dict]:
-    return [{
-        "label": str(r.label), "vintage": int(r.vintage), "varietal": _s(r.varietal),
-        "month_start": _date(r.month_start), "channel": str(r.channel),
-        "bottles": _num(r.bottles), "revenue": _num(r.revenue),
-    } for r in hist.itertuples(index=False)]
+    """One record per primary key (label, vintage, month_start, channel). Two products can parse to the
+    same label and vintage with different varietals (one filled, one empty); their rows are merged here
+    (bottles and revenue summed, the first non-null varietal kept) so the insert never collides."""
+    merged: Dict[tuple, dict] = {}
+    for r in hist.itertuples(index=False):
+        rec = {
+            "label": str(r.label), "vintage": int(r.vintage), "varietal": _s(r.varietal),
+            "month_start": _date(r.month_start), "channel": str(r.channel),
+            "bottles": _num(r.bottles), "revenue": _num(r.revenue),
+        }
+        key = tuple(rec[k] for k in BOTTLE_HISTORY_KEY)
+        prev = merged.get(key)
+        if prev is None:
+            merged[key] = rec
+            continue
+        for k in ("bottles", "revenue"):
+            if rec[k] is not None:
+                prev[k] = rec[k] if prev[k] is None else prev[k] + rec[k]
+        if prev["varietal"] is None:
+            prev["varietal"] = rec["varietal"]
+    collapsed = len(hist) - len(merged)
+    if collapsed > 0:
+        log.warning("bottle_history: merged %d rows that shared a (label, vintage, month, channel) key "
+                    "across varietals", collapsed)
+    return list(merged.values())
 
 
 # --- v2 loaders ------------------------------------------------------------------
