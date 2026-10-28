@@ -49,7 +49,7 @@ def fake_io(monkeypatch):
         columns=["snapshot_date", "reservation_date", "attribution", "reservations", "guests", "fees"]))
     monkeypatch.setattr(frun.fio, "write_models", lambda conn, run_id, recs: state.setdefault("models", []).append(recs))
     monkeypatch.setattr(frun.fio, "prune_runs", lambda conn, keep_days=400: None)
-    for name in ["tier_shares", "label_plan", "vintage_plan"]:
+    for name in ["tier_shares", "label_plan", "vintage_plan", "stock_plan"]:
         monkeypatch.setattr(frun.fio, f"load_{name}", lambda conn, *a, _n=name: getattr(fio, f"_empty_{_n}")())
     state["club_plan_years"] = []
     monkeypatch.setattr(frun.fio, "load_club_plan",
@@ -372,3 +372,22 @@ def test_dry_run_and_backfill_do_not_write_bottle_history(fake_io):
     frun.run(origin=ORIGIN, horizon=5, dry_run=True, skip_backtest=True)
     frun.run(origin=ORIGIN - pd.Timedelta(days=7), horizon=5, skip_backtest=True)
     assert "bottle_history" not in fake_io
+
+
+def test_run_loads_stock_plan_and_passes_it_to_bottles(fake_io, monkeypatch):
+    stock = fio._empty("stock_plan")
+    seen = {}
+
+    def load(conn, y):
+        seen["year"] = y
+        return stock
+    monkeypatch.setattr(frun.fio, "load_stock_plan", load)
+    real = frun.forecast_vintages
+
+    def spy(*a, **kw):
+        seen["stock_plan"] = kw.get("stock_plan")
+        return real(*a, **kw)
+    monkeypatch.setattr(frun, "forecast_vintages", spy)
+    frun.run(origin=ORIGIN, horizon=30, dry_run=True, skip_backtest=True)
+    assert seen["year"] == frun.plan_year(ORIGIN) == 2027
+    assert seen["stock_plan"] is stock

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -11,11 +12,14 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import ProgrammingError
 
 from .bottles import label_from_title, varietal_from_title, vintage_from_title
 from .clubs import take_rate_default, tier_table
 from .types import Champion
 from .config import ACTIVE_MEMBERS_KPI, ALL_KPIS, ENGINE_VERSION, FORECAST_SCHEMA, KPI_SCHEMA
+
+log = logging.getLogger("forecast")
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 CHUNK = 1000          # rows per multi-row INSERT (11 cols x 1000 stays under Postgres' 65535 binds)
@@ -324,6 +328,8 @@ EMPTY: Dict[str, List[str]] = {
     "label_plan": ["plan_year", "label", "status", "incoming_vintage", "release_month",
                    "override_outgoing", "override_incoming", "price", "varietal", "comparable_label"],
     "vintage_plan": ["label", "vintage", "cases_made", "assumed"],
+    "stock_plan": ["plan_year", "label", "vintage", "usable_9l", "shiners_9l", "produced_9l", "count_shiners",
+                   "release", "release_date", "status"],
     "bottle_history": ["label", "vintage", "varietal", "month_start", "channel", "bottles", "revenue", "price"],
     "club_orders": ["order_id", "customer_id", "created_at", "label", "vintage", "bottles", "revenue"],
     "memberships": ["membership_id", "customer_id", "club_id", "club_name", "status", "signup_at",
@@ -349,6 +355,10 @@ def _empty_label_plan() -> pd.DataFrame:
 
 def _empty_vintage_plan() -> pd.DataFrame:
     return _empty("vintage_plan")
+
+
+def _empty_stock_plan() -> pd.DataFrame:
+    return _empty("stock_plan")
 
 
 def _empty_bottle_history() -> pd.DataFrame:
@@ -539,6 +549,42 @@ def load_vintage_plan(conn: Connection) -> pd.DataFrame:
         order by label, vintage
     """)).fetchall()
     return _frame(rows, EMPTY["vintage_plan"])
+
+
+def _missing_relation(err: ProgrammingError) -> bool:
+    """True when the error is Postgres 'undefined table' (42P01), not any other 'does not exist'."""
+    code = getattr(getattr(err, "orig", None), "pgcode", None)
+    if code is not None:
+        return code == "42P01"
+    msg = str(err).lower()
+    return "relation" in msg and "does not exist" in msg
+
+
+def load_stock_plan(conn: Connection, plan_year: int) -> pd.DataFrame:
+    """The plan year's stock rows with the label's label_plan status (null when the label has no row).
+    A missing forecast.stock_plan table (before its migration) gives the empty frame and a warning;
+    the query runs in a savepoint so the connection stays usable."""
+    try:
+        with conn.begin_nested():
+            rows = conn.execute(text(f"""
+                select s.plan_year, s.label, s.vintage, s.usable_9l, s.shiners_9l, s.produced_9l, s.count_shiners,
+                       s.release, s.release_date, l.status
+                from {FORECAST_SCHEMA}.stock_plan s
+                left join {FORECAST_SCHEMA}.label_plan l on l.plan_year = s.plan_year and l.label = s.label
+                where s.plan_year = :y
+                order by s.label, s.vintage
+            """), {"y": int(plan_year)}).fetchall()
+    except ProgrammingError as err:
+        if not _missing_relation(err):
+            raise
+        log.warning("bottles: %s.stock_plan does not exist yet; no stock rows used", FORECAST_SCHEMA)
+        return _empty("stock_plan")
+    df = _frame(rows, EMPTY["stock_plan"])
+    if not df.empty:
+        for c in ["usable_9l", "shiners_9l", "produced_9l"]:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+        df["release_date"] = pd.to_datetime(df["release_date"])
+    return df
 
 
 # paid_at is a timestamp: `<= date` would drop the origin day's sales, so compare to the next midnight.

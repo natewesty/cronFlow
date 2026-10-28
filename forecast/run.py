@@ -113,6 +113,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
         club_plan = pd.concat([p for p in plans if not p.empty] or plans[:1], ignore_index=True)
         tier_shares = fio.load_tier_shares(conn, origin, params.tier_min_members)
         label_plan = fio.load_label_plan(conn, py)
+        stock_plan = fio.load_stock_plan(conn, py)
         vintage_plan = fio.load_vintage_plan(conn)
         hist_b = fio.load_bottle_history(conn, origin)
         memberships = fio.load_memberships(conn)
@@ -125,7 +126,7 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
     a0 = float(members) if members is not None else float(hist[23].iloc[-1])
     ctx = Context(params=params, releases=releases, schedule=schedule, events=events, otb=otb, members_a0=a0,
                   club_plan=club_plan, tier_shares=tier_shares, label_plan=label_plan,
-                  vintage_plan=vintage_plan)
+                  vintage_plan=vintage_plan, stock_plan=stock_plan)
     dates = pd.date_range(origin + pd.Timedelta(days=1), periods=horizon, freq="D")
 
     log.info("origin=%s horizon=%s history=%s..%s releases=%s scheduled=%s events=%s members=%s",
@@ -191,7 +192,8 @@ def run(origin: Optional[pd.Timestamp] = None, horizon: Optional[int] = None, dr
             bt_v = backtest_vintages(hist_b, vintages, params)
             profiles = fit_profiles(hist_b, vintages, params, dispersion=bt_v)
             bottle_fc, bottle_summ = forecast_vintages(profiles, vintages, hist_b, ctx.label_plan, ctx.vintage_plan,
-                                                       origin, plan_year(origin), params, bands)
+                                                       origin, plan_year(origin), params, bands,
+                                                       stock_plan=ctx.stock_plan)
         step("bottles")
         club_history = None
         if memberships.empty:

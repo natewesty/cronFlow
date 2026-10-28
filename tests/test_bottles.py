@@ -6,8 +6,8 @@ import pytest
 
 from forecast import bottles as b
 from forecast import io as fio
-from forecast.bottles import fit_profiles, forecast_vintages, price_bands, profile_for, vintage_table
-from forecast.config import EngineParams
+from forecast.bottles import backtest_vintages, fit_profiles, forecast_vintages, price_bands, profile_for, vintage_table
+from forecast.config import BOTTLE_CHANNELS, EngineParams
 from tests.synth_bottles import CURVE, make_bottle_history, lifetime_bottles
 
 ORIGIN = pd.Timestamp("2026-10-25")
@@ -644,3 +644,173 @@ def test_profiles_and_forecast_carry_five_channels():
     # a label's curve still sums to 1 over channels and months
     one = prof[(prof.scope == "label")].groupby("key").first().index[0]
     assert abs(sum(sum(c) for c in prof[(prof.scope == "label") & (prof.key == one)]["curve"]) - 1.0) < 1e-6
+
+
+# --- stock_plan rows: candidates, cap, release (spec 7.4) ---------------------
+
+def _a_released_label_vintage(vintages):
+    """Alphabetically first released, standard-format row still in the window with sales."""
+    r = vintages[vintages.released & (vintages.months_sold < 36) & (vintages.sold_to_date > 0)
+                 & ~vintages.label.map(b.is_large_format)].sort_values(["label", "vintage"]).iloc[0]
+    return r.label, int(r.vintage)
+
+
+def _a_label_with_profile(vintages):
+    """Alphabetically first standard-format label with >= 2 released vintages (it has its own profile)."""
+    rel = vintages[vintages.released & ~vintages.label.map(b.is_large_format)]
+    counts = rel.groupby("label").size()
+    return sorted(counts[counts >= 2].index)[0]
+
+
+def _stock(rows):
+    return pd.DataFrame(rows, columns=["plan_year", "label", "vintage", "usable_9l", "shiners_9l", "produced_9l",
+                                       "count_shiners", "release", "release_date", "status"])
+
+def test_stock_cap_replaces_cases_cap():
+    hist = make_bottle_history(seed=1); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    lab, v = _a_released_label_vintage(vintages)           # helper: a released row with months_sold < 36
+    sold = float(vintages[(vintages.label == lab) & (vintages.vintage == v)].sold_to_date.iloc[0])
+    stock = _stock([[2027, lab, v, 10.0, 0.0, None, False, "on_market", None, None]])
+    _, summ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    row = summ[(summ.label == lab) & (summ.vintage == v)].iloc[0]
+    assert row.lifetime_p50 <= sold + 120 + 1e-6 and row.lifetime_p90 <= max(sold + 120, row.lifetime_p50) + 1e-6
+
+def test_stock_row_candidate_beyond_window():
+    # a vintage with months_sold >= 36 is normally not a candidate; a stock row makes it one with a flat tail
+    hist = make_bottle_history(seed=1, full_lifetime=True); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    old = vintages[vintages.months_sold >= 36].iloc[0]
+    stock = _stock([[2027, old.label, int(old.vintage), 40.0, 0.0, None, False, "on_market", None, None]])
+    fc, summ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    mine = fc[(fc.label == old.label) & (fc.vintage == old.vintage)]
+    h = hist[(hist.label == old.label) & (hist.vintage == old.vintage)
+             & (hist.month_start > pd.Timestamp("2025-10-01")) & (hist.month_start <= pd.Timestamp("2026-10-01"))]
+    trailing = float(h.bottles.sum())
+    assert trailing > 0 and len(mine) > 0 and mine.month_start.min() == pd.Timestamp("2026-11-01")
+    assert abs(mine.p50.sum() - min(trailing * 26 / 12, 480.0)) < 1e-6   # Nov 2026..Dec 2028 = 26 months, cap 40 cases x 12
+    assert set(mine.channel) <= set(BOTTLE_CHANNELS)
+    assert abs(summ[(summ.label == old.label) & (summ.vintage == old.vintage)].lifetime_p50.iloc[0]
+               - (float(old.sold_to_date) + min(trailing * 26 / 12, 480.0))) < 1e-6
+
+def test_stock_release_date_beats_label_plan():
+    hist = make_bottle_history(seed=1); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    lab = _a_label_with_profile(vintages)
+    nxt = int(vintages[vintages.label == lab].vintage.max()) + 1
+    plan = pd.DataFrame([{"plan_year": 2027, "label": lab, "status": "continue", "incoming_vintage": nxt,
+                          "release_month": pd.Timestamp("2027-03-01"), "override_outgoing": None, "override_incoming": None,
+                          "price": None, "varietal": None, "comparable_label": None}])
+    stock = _stock([[2027, lab, nxt, None, None, 900.0, False, "fall", pd.Timestamp("2027-09-08"), "continue"]])
+    fc, summ = forecast_vintages(prof, vintages, hist, plan, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    assert summ[(summ.label == lab) & (summ.vintage == nxt)].release_month.iloc[0] == pd.Timestamp("2027-09-01")
+    assert fc[(fc.label == lab) & (fc.vintage == nxt)].month_start.min() == pd.Timestamp("2027-09-01")
+    assert summ[(summ.label == lab) & (summ.vintage == nxt)].lifetime_p50.iloc[0] <= 900 * 12 + 1e-6
+
+def test_retired_and_tiny_stock_rows_are_not_candidates():
+    hist = make_bottle_history(seed=1, full_lifetime=True); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    old = vintages[vintages.months_sold >= 36].iloc[:2]
+    stock = _stock([[2027, old.iloc[0].label, int(old.iloc[0].vintage), 40.0, 0, None, False, "on_market", None, "retire"],
+                    [2027, old.iloc[1].label, int(old.iloc[1].vintage), 4.9, 0, None, False, "on_market", None, None]])
+    fc, _ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    assert not ((fc.label == old.iloc[0].label) & (fc.vintage == old.iloc[0].vintage)).any()
+    assert not ((fc.label == old.iloc[1].label) & (fc.vintage == old.iloc[1].vintage)).any()
+
+
+def _beyond_window_setup(hist=None):
+    hist = make_bottle_history(seed=1, full_lifetime=True) if hist is None else hist
+    origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    return hist, origin, vintages, bands, prof
+
+
+def test_stock_bottles_rule():
+    assert b.stock_bottles("Home Ranch Pinot Noir", 10.0, 2.0, 99.0, False) == 120.0
+    assert b.stock_bottles("Home Ranch Pinot Noir", 10.0, 2.0, 99.0, True) == 144.0
+    assert b.stock_bottles("Home Ranch Pinot Noir", 10.0, None, None, True) == 120.0
+    assert b.stock_bottles("Home Ranch Pinot Noir", None, 2.0, 7.5, True) == 90.0     # typed produced row
+    assert b.stock_bottles("Carneros Chardonnay 1.5L", 10.0, 0.0, None, False) == 60.0   # 6 magnums per 9L case
+    assert np.isnan(b.stock_bottles("Home Ranch Pinot Noir", None, None, None, False))
+
+
+def test_beyond_window_tail_truncates_at_stock(caplog):
+    hist, origin, vintages, bands, prof = _beyond_window_setup()
+    old = vintages[vintages.months_sold >= 36].iloc[0]
+    h = hist[(hist.label == old.label) & (hist.vintage == old.vintage)
+             & (hist.month_start >= pd.Timestamp("2025-11-01")) & (hist.month_start <= pd.Timestamp("2026-10-01"))]
+    trailing = float(h.bottles.sum())
+    per_ch = h.groupby("channel").bottles.sum() / 12.0
+    stock = _stock([[2027, old.label, int(old.vintage), 5.0, 0.0, None, False, "on_market", None, None]])   # 60 bottles
+    with caplog.at_level(logging.INFO, logger="forecast"):
+        fc, summ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands,
+                                     stock_plan=stock)
+    mine = fc[(fc.label == old.label) & (fc.vintage == old.vintage)]
+    k = int(np.floor(60.0 / (trailing / 12.0)))            # full months before the cap is crossed
+    assert trailing / 12.0 * k < 60.0 < trailing / 12.0 * (k + 1)
+    months = sorted(mine.month_start.unique())
+    assert len(months) == k + 1 and months[0] == pd.Timestamp("2026-11-01")
+    assert mine.p50.sum() == pytest.approx(60.0)
+    first = mine[mine.month_start == months[0]].set_index("channel").p50
+    assert first.to_dict() == pytest.approx(per_ch[per_ch > 0].to_dict())
+    last = mine[mine.month_start == months[-1]].p50.sum()
+    assert last == pytest.approx(60.0 - trailing / 12.0 * k)
+    lo, hi = np.exp(-b.Z90 * b.DEFAULT_LOG_DISPERSION), np.exp(b.Z90 * b.DEFAULT_LOG_DISPERSION)
+    assert np.allclose(mine.p10, mine.p50 * lo) and np.allclose(mine.p90, mine.p50 * hi)
+    s = summ[(summ.label == old.label) & (summ.vintage == old.vintage)].iloc[0]
+    sold = float(old.sold_to_date)
+    assert s.lifetime_p50 == pytest.approx(sold + 60.0)
+    assert s.lifetime_p10 == pytest.approx(sold + 60.0 * lo)
+    assert s.lifetime_p90 == pytest.approx(sold + 60.0)        # capped at sold + stock
+    assert caplog.text.count(f"bottles: {old.label} {int(old.vintage)} is past the 36-month curve") == 1
+
+
+def test_beyond_window_without_recent_sales_has_summary_only():
+    full = make_bottle_history(seed=1, full_lifetime=True)
+    lab, vin = "Carneros Chardonnay", 2021
+    quiet = full[~((full.label == lab) & (full.vintage == vin) & (full.month_start >= pd.Timestamp("2025-11-01")))]
+    hist, origin, vintages, bands, prof = _beyond_window_setup(quiet.reset_index(drop=True))
+    old = vintages[(vintages.label == lab) & (vintages.vintage == vin)].iloc[0]
+    assert int(old.months_sold) >= 36
+    stock = _stock([[2027, lab, vin, 40.0, 0.0, None, False, "on_market", None, None]])
+    fc, summ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    assert not ((fc.label == lab) & (fc.vintage == vin)).any()
+    s = summ[(summ.label == lab) & (summ.vintage == vin)].iloc[0]
+    assert s.lifetime_p50 == pytest.approx(float(old.sold_to_date)) == s.lifetime_p10 == s.lifetime_p90
+
+
+def test_stock_plan_none_or_empty_changes_nothing():
+    hist = make_bottle_history(seed=1); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    fc0, s0 = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands)
+    fc1, s1 = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands,
+                                stock_plan=fio._empty("stock_plan"))
+    pd.testing.assert_frame_equal(fc0, fc1)
+    pd.testing.assert_frame_equal(s0, s1)
+
+
+def test_stock_cap_for_unreleased_typed_row_and_other_plan_year_ignored():
+    hist = make_bottle_history(seed=1); origin = pd.Timestamp("2026-10-25")
+    vintages = vintage_table(hist, origin); bands = price_bands(hist)
+    prof = fit_profiles(hist, vintages, EngineParams(), dispersion=backtest_vintages(hist, vintages, EngineParams()))
+    lab = _a_label_with_profile(vintages)
+    nxt = int(vintages[vintages.label == lab].vintage.max()) + 1
+    fc0, s0 = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands)
+    base = s0[(s0.label == lab) & (s0.vintage == nxt)].iloc[0]
+    assert base.lifetime_p50 > 120.0
+    stock = _stock([[2027, lab, nxt, None, None, 10.0, False, "fall", None, None],
+                    [2026, lab, nxt - 1, 1.0, 0.0, None, False, "on_market", None, None]])
+    fc, summ = forecast_vintages(prof, vintages, hist, None, None, origin, 2027, EngineParams(), bands, stock_plan=stock)
+    s = summ[(summ.label == lab) & (summ.vintage == nxt)].iloc[0]
+    assert s.lifetime_p50 == pytest.approx(120.0) and s.lifetime_p90 == pytest.approx(120.0)
+    assert s.release_month == base.release_month                       # no stock date: the default release stands
+    assert 0 < fc[(fc.label == lab) & (fc.vintage == nxt)].p50.sum() <= 120.0 + 1e-6   # the window cuts the tail
+    # the 2026 row is another plan year's: the released vintage keeps its uncapped forecast
+    pd.testing.assert_frame_equal(summ[(summ.label == lab) & (summ.vintage == nxt - 1)].reset_index(drop=True),
+                                  s0[(s0.label == lab) & (s0.vintage == nxt - 1)].reset_index(drop=True))

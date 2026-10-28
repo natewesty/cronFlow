@@ -50,6 +50,18 @@ Default next-vintage candidates (forecast_vintages, labels with no deciding plan
                                            selling ... moved to");
       no plan row, no sales             -> rolled forward 12 months at a time until after origin
                                            ("default release ... rolled to").
+
+Stock rows (forecast_vintages(stock_plan=...), forecast.stock_plan for the plan year)
+  - stock_bottles = (usable_9l + (shiners_9l if count_shiners else 0)) x bpc when usable_9l is
+    known, else produced_9l x bpc; bpc = 6 for a large format, else 12 (bottles per 9L case).
+  - every row whose label_plan status is not 'retire' and with stock_bottles / bpc >= 5 cases
+    (STOCK_MIN_CASES) is a candidate, even past the 36-month curve.
+  - cap: sold_to_date + stock_bottles for a released vintage, stock_bottles for an unreleased one
+    (replaces cases_made x 12 for that vintage).
+  - release of an unreleased candidate: stock release_date (month start), else label_plan
+    release_month, else the default rule; a stock date is a planned date for the clamp.
+  - a released vintage past the curve (months_sold >= n) runs on at its trailing-12 pace per
+    channel until the stock runs out or the window ends.
 """
 from __future__ import annotations
 
@@ -60,7 +72,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from forecast.config import BOTTLE_CHANNELS, EngineParams
+from forecast.config import BOTTLE_CHANNELS, STOCK_MIN_CASES, EngineParams
 
 log = logging.getLogger("forecast")
 
@@ -550,10 +562,81 @@ def _own_tier_lifetime(label: str, vintages: pd.DataFrame, curve: np.ndarray, ti
     return tier_lifetime
 
 
+def _bottles_per_case(label: str) -> int:
+    """Bottles in a 9L case: 6 for a large format (1.5L), else 12 (750 ml)."""
+    return 6 if is_large_format(str(label)) else 12
+
+
+def _num(x) -> float:
+    try:
+        return float(x) if x is not None else np.nan
+    except (TypeError, ValueError):
+        return np.nan
+
+
+def stock_bottles(label: str, usable_9l, shiners_9l, produced_9l, count_shiners) -> float:
+    """Bottles a stock row stands for: (usable + shiners when counted) x bpc when usable is known,
+    else produced x bpc; NaN when neither is known."""
+    bpc = _bottles_per_case(label)
+    usable = _num(usable_9l)
+    if not np.isnan(usable):
+        shiners = _num(shiners_9l)
+        counted = count_shiners is not None and not pd.isna(count_shiners) and bool(count_shiners)
+        return (usable + (shiners if counted and not np.isnan(shiners) else 0.0)) * bpc
+    return _num(produced_9l) * bpc
+
+
+def _stock_rows(stock_plan: Optional[pd.DataFrame], plan_year: int) -> Dict[Tuple[str, int], dict]:
+    """(label, vintage) -> {bottles, release_date (month start or None), status} for the plan year's
+    stock rows with a known bottle count."""
+    if stock_plan is None or stock_plan.empty:
+        return {}
+    sp = stock_plan[pd.to_numeric(stock_plan["plan_year"], errors="coerce") == int(plan_year)]
+    out: Dict[Tuple[str, int], dict] = {}
+    for r in sp.itertuples(index=False):
+        n_bottles = stock_bottles(r.label, r.usable_9l, r.shiners_9l, r.produced_9l, r.count_shiners)
+        if np.isnan(n_bottles):
+            continue
+        rd = r.release_date
+        rd = None if rd is None or pd.isna(rd) else pd.Timestamp(rd).to_period("M").start_time
+        status = r.status if isinstance(r.status, str) else None
+        out[(r.label, int(r.vintage))] = {"bottles": n_bottles, "release_date": rd, "status": status}
+    return out
+
+
+def _stock_tail(label: str, vintage: int, hist: pd.DataFrame, origin_month: pd.Timestamp,
+                window_end: pd.Timestamp, stock: float) -> Tuple[List[dict], float, float]:
+    """Flat tail of a stocked vintage past its curve: each engine channel sells its trailing-12 bottles
+    (the 12 months ending origin's month) / 12 a month, from the month after origin to window_end,
+    until the cumulative total reaches `stock` (the crossing month is truncated, then it stops).
+    Returns (forecast rows, remaining = bottles emitted, trailing-12 total)."""
+    lo = origin_month - pd.DateOffset(months=11)
+    h = hist[(hist["label"] == label) & (hist["vintage"] == vintage) & (hist["month_start"] >= lo)
+             & (hist["month_start"] <= origin_month) & hist["channel"].isin(BOTTLE_CHANNELS)]
+    per = h.groupby("channel")["bottles"].sum()
+    rates = [(ch, float(per[ch]) / 12.0) for ch in BOTTLE_CHANNELS if ch in per.index and per[ch] > 0]
+    per_month = float(sum(r for _, r in rates))
+    trailing = per_month * 12.0
+    lo_k, hi_k = np.exp(-Z90 * DEFAULT_LOG_DISPERSION), np.exp(Z90 * DEFAULT_LOG_DISPERSION)
+    rows: List[dict] = []
+    cum = 0.0
+    month = origin_month + pd.DateOffset(months=1)
+    while per_month > 0 and month <= window_end and cum < stock:
+        scale = min(1.0, (stock - cum) / per_month)
+        for ch, rate in rates:
+            p50 = rate * scale
+            rows.append({"label": label, "vintage": vintage, "month_start": month, "channel": ch,
+                         "p50": p50, "p10": p50 * lo_k, "p90": p50 * hi_k})
+        cum = stock if scale < 1.0 else cum + per_month
+        month = month + pd.DateOffset(months=1)
+    return rows, cum, trailing
+
+
 def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.DataFrame,
                       label_plan: pd.DataFrame, vintage_plan: pd.DataFrame, origin: pd.Timestamp,
                       plan_year: int, params: EngineParams,
-                      bands: Dict[str, Tuple[float, float]]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+                      bands: Dict[str, Tuple[float, float]],
+                      stock_plan: Optional[pd.DataFrame] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Monthly p50/p10/p90 by label-vintage-channel, plus a per-vintage summary.
 
     Candidates: vintages with months_sold < n (unreleased vintages included), plus each
@@ -594,7 +677,18 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     Lifetime: p50 = sold + remaining; p10 = sold + remaining x exp(-Z90 x sigma); p90 = sold +
     remaining x exp(+Z90 x sigma), then capped at max(cases x 12, p50) when cases are known (never
     below sold). For a future vintage sold = 0 and remaining = lifetime; for an unreleased one
-    remaining = max(lifetime - sold, 0)."""
+    remaining = max(lifetime - sold, 0).
+    Stock rows (`stock_plan`, the plan year's rows only; stock_bottles per row, see the module
+    docstring): every row whose status is not 'retire' with stock_bottles / bpc >= STOCK_MIN_CASES
+    is a candidate, even with months_sold >= n. A vintage with a stock row is capped at cap =
+    sold_to_date + stock_bottles (released) or stock_bottles (unreleased) instead of cases x 12:
+    lifetime = min(lifetime, cap), lifetime p90 <= max(cap, p50). An unreleased candidate's release
+    is the stock release_date (month start) before label_plan.release_month; a stock date counts as
+    a planned release in the clamp (moved to origin + 1, never rolled). A released vintage with
+    months_sold >= n and a stock row needs no profile: _stock_tail (trailing-12 pace per channel,
+    stopped at the stock), remaining = bottles emitted, lifetime p50 = sold + remaining, p10/p90
+    with DEFAULT_LOG_DISPERSION, p90 capped as above, profile_key None; logged once per label.
+    Without a stock row nothing changes."""
     n = int(params.bottle_curve_months)
     origin_month = pd.Timestamp(origin).to_period("M").start_time
     window_end = pd.Timestamp(year=plan_year + 1, month=12, day=1)
@@ -613,6 +707,7 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     prices = _label_prices(hist)
     lab_varietal = {lab: (g["varietal"].dropna().iloc[0] if g["varietal"].notna().any() else None)
                     for lab, g in vintages.groupby("label")}
+    stock = _stock_rows(stock_plan, plan_year)
 
     cands: List[Tuple[str, int]] = [(r.label, int(r.vintage)) for r in vintages.itertuples(index=False)
                                     if r.months_sold < n]
@@ -645,6 +740,13 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         cands.append((label, nxt))
     cands = list(dict.fromkeys(cands))
     log.info("bottles: default next-vintage candidates added: %s", len(cands) - n_plan_cands)
+    if stock:
+        n_before = len(cands)
+        cands += [key for key, st in stock.items()
+                  if st["status"] != "retire" and st["bottles"] / _bottles_per_case(key[0]) >= STOCK_MIN_CASES]
+        cands = list(dict.fromkeys(cands))
+        log.info("bottles: stock-plan candidates added: %s", len(cands) - n_before)
+    tail_logged = set()
 
     fc_rows: List[dict] = []
     summ_rows: List[dict] = []
@@ -654,6 +756,27 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         v = vt.get((label, vintage))
         is_rel = v is not None and bool(getattr(v, "released", True))
         varietal = lab_varietal.get(label) or _plan_value(pr, "varietal") or varietal_from_title(label)
+        st = stock.get((label, vintage))
+        if st is not None and is_rel and int(v.months_sold) >= n:
+            # past the curve: the vintage's own recent pace, until the stock runs out
+            rows, remaining, trailing = _stock_tail(label, vintage, hist, origin_month, window_end, st["bottles"])
+            if label not in tail_logged:
+                tail_logged.add(label)
+                log.info("bottles: %s %s is past the %s-month curve with %s bottles in stock; flat tail at its "
+                         "trailing-12 pace (%s bottles)", label, vintage, n, int(round(st["bottles"])),
+                         int(round(trailing)))
+            fc_rows.extend(rows)
+            sold = float(v.sold_to_date)
+            cap = sold + st["bottles"]
+            life_p50 = sold + remaining
+            summ_rows.append({"label": label, "vintage": vintage, "varietal": varietal,
+                              "release_month": pd.Timestamp(v.release_month), "sold_to_date": sold,
+                              "cases_made": cases.get((label, vintage), np.nan), "lifetime_p50": life_p50,
+                              "lifetime_p10": sold + remaining * np.exp(-Z90 * DEFAULT_LOG_DISPERSION),
+                              "lifetime_p90": min(sold + remaining * np.exp(Z90 * DEFAULT_LOG_DISPERSION),
+                                                  max(cap, life_p50)),
+                              "profile_key": None})
+            continue
         price = _plan_value(pr, "price")
         price = prices.get(label) if price is None else float(price)
         comparable = _plan_value(pr, "comparable_label")
@@ -665,17 +788,23 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
             release = pd.Timestamp(v.release_month)
         else:
             rm = _plan_value(pr, "release_month")
-            release = (pd.Timestamp(rm).to_period("M").start_time if rm is not None
-                       else _default_release(label, vintage, vintages, plan_year))
+            stock_release = st["release_date"] if st is not None else None
+            planned = pr is not None or stock_release is not None
+            if stock_release is not None:
+                release = stock_release
+            elif rm is not None:
+                release = pd.Timestamp(rm).to_period("M").start_time
+            else:
+                release = _default_release(label, vintage, vintages, plan_year)
             sold_now = float(v.sold_to_date) if v is not None else 0.0
-            if release <= origin_month and pr is None and sold_now > 0:
+            if release <= origin_month and not planned and sold_now > 0:
                 # unreleased but already selling: it is trickling out now
                 clamped = origin_month + pd.DateOffset(months=1)
                 log.warning("bottles: %s %s default release %s is not after origin and it is already selling "
                             "(%s bottles); moved to %s", label, vintage, release.date(), int(round(sold_now)),
                             clamped.date())
                 release = clamped
-            elif release <= origin_month and pr is None:
+            elif release <= origin_month and not planned:
                 # default candidate with no sales: keep the label's release month, roll forward a year at a time
                 rolled = release
                 while rolled <= origin_month:
@@ -717,8 +846,12 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
                                       p_life * LARGE_FORMAT_FALLBACK_SHARE)
         else:
             life = p_life * p_trend ** gap
-        if pd.notna(c):
-            life = min(life, float(c) * 12.0)
+        if st is not None:
+            cap = sold + st["bottles"] if is_rel else st["bottles"]   # the physical count beats cases_made
+        else:
+            cap = float(c) * 12.0 if pd.notna(c) else np.nan
+        if pd.notna(cap):
+            life = min(life, cap)
         life = 0.0 if not np.isfinite(life) else max(life, 0.0)
 
         remaining = life - sold
@@ -751,8 +884,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         life_p50 = sold + remaining
         life_p10 = sold + remaining * np.exp(-Z90 * disp)
         life_p90 = sold + remaining * np.exp(Z90 * disp)
-        if pd.notna(c):
-            life_p90 = min(life_p90, max(float(c) * 12.0, life_p50))
+        if pd.notna(cap):
+            life_p90 = min(life_p90, max(cap, life_p50))
         summ_rows.append({"label": label, "vintage": vintage, "varietal": varietal, "release_month": release,
                           "sold_to_date": sold, "cases_made": c, "lifetime_p50": life_p50,
                           "lifetime_p10": life_p10, "lifetime_p90": life_p90,

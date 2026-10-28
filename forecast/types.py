@@ -82,4 +82,5 @@ class Context:
     tier_shares: Optional[pd.DataFrame] = None   # tier_id, tier_name, active, share
     label_plan: Optional[pd.DataFrame] = None    # plan_year, label, status, incoming_vintage, release_month, override_outgoing, override_incoming, price, varietal, comparable_label
     vintage_plan: Optional[pd.DataFrame] = None  # label, vintage, cases_made, assumed
+    stock_plan: Optional[pd.DataFrame] = None    # plan_year, label, vintage, usable_9l, shiners_9l, produced_9l, count_shiners, release, release_date, status
     champions: Dict[int, Champion] = field(default_factory=dict)
