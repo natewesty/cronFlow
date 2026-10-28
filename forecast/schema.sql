@@ -190,3 +190,49 @@ create table if not exists forecast.forecast_models (
 alter table forecast.forecast_backtest_periods add column if not exists calendar boolean not null default false;
 
 alter table forecast.forecast_accuracy_periods add column if not exists mae numeric;
+
+-- ===== Bottles v2: stock, allocation, history =====
+create table if not exists forecast.bottle_history (          -- rebuilt every run
+  label text not null, vintage int not null, varietal text, month_start date not null,
+  channel text not null,                                      -- Club | POS | Event | Web | Inbound
+  bottles numeric not null, revenue numeric not null,
+  primary key (label, vintage, month_start, channel)
+);
+create table if not exists forecast.stock_snapshot (
+  snapshot_id bigserial primary key,
+  pulled_on date not null, source text not null default 'groskopf',
+  file_name text, row_count int, uploaded_at timestamptz not null default now(), uploaded_by text
+);
+create table if not exists forecast.stock_snapshot_row (
+  snapshot_id bigint not null references forecast.stock_snapshot(snapshot_id) on delete cascade,
+  part_code text not null, description text, location text,
+  cases_on_hand numeric, bottles_on_hand numeric, units_per_case int, liters_per_unit numeric,
+  vintage int, wine_code text, format text, lot text, cases_9l numeric not null,
+  label text, match text,
+  primary key (snapshot_id, part_code, location)
+);
+create table if not exists forecast.wine_code_map (
+  wine_code text primary key, label text not null, varietal text,
+  updated_at timestamptz not null default now(), updated_by text
+);
+create table if not exists forecast.stock_plan (
+  plan_year int not null, label text not null, vintage int not null,
+  snapshot_id bigint references forecast.stock_snapshot(snapshot_id),
+  on_hand_9l numeric, usable_9l numeric, shiners_9l numeric,
+  produced_9l numeric,
+  release text, release_date date,
+  count_shiners boolean not null default false,
+  updated_at timestamptz not null default now(), updated_by text,
+  primary key (plan_year, label, vintage)
+);
+create table if not exists forecast.allocation_plan (
+  plan_year int not null, label text not null, vintage int not null, channel text not null,
+  cases_9l numeric not null, source text not null, model_cases_9l numeric,
+  updated_at timestamptz not null default now(), updated_by text,
+  primary key (plan_year, label, vintage, channel)
+);
+create table if not exists forecast.channel_share (
+  plan_year int not null, channel text not null, share numeric not null,
+  updated_at timestamptz not null default now(), updated_by text,
+  primary key (plan_year, channel)
+);

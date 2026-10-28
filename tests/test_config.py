@@ -37,7 +37,7 @@ def test_growth_family_covers_every_kpi():
 def test_kpi_families_v2():
     from forecast.config import FEE_KPIS, SEASONAL_KPIS, MODELED_KPIS, ENGINE_VERSION, season_of
     assert FEE_KPIS == [5] and 5 not in SEASONAL_KPIS and 5 in MODELED_KPIS
-    assert ENGINE_VERSION == "3.0.0"
+    assert ENGINE_VERSION == "3.1.0"
     assert season_of(pd.Timestamp("2026-02-25")) == "spring"
     assert season_of(pd.Timestamp("2026-09-02")) == "fall"
     assert season_of(pd.Timestamp("2026-11-18")) == "winter"
@@ -59,3 +59,10 @@ def test_selectable_kpis():
     assert config.SELECTABLE_KPIS == [1, 2, 4, 7, 8, 13, 15, 16, 18, 22, 28, 29, 30, 31]
     assert EngineParams.from_overrides({"champion_weights": [0, 1]}).champion_weights == [0.0, 1.0]
     assert isinstance(EngineParams().to_dict()["champion_weights"], list)
+
+
+def test_bottles_v2_config():
+    from forecast.config import BOTTLE_CHANNELS, STOCK_MIN_CASES, ENGINE_VERSION
+    assert BOTTLE_CHANNELS == ("Club", "POS", "Event", "Web", "Inbound")
+    assert STOCK_MIN_CASES == 5
+    assert ENGINE_VERSION == "3.1.0"

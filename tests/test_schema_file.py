@@ -53,3 +53,15 @@ def test_v3_schema_statements():
     assert "alter table forecast.forecast_accuracy_periods add column if not exists mae numeric" in sql
     from forecast import io as fio
     assert "forecast_models" in fio.DETAIL_TABLES
+
+
+V4_TABLES = ["bottle_history", "stock_snapshot", "stock_snapshot_row", "wine_code_map", "stock_plan",
+             "allocation_plan", "channel_share"]
+
+
+def test_schema_defines_bottles_v2_tables():
+    sql = SCHEMA.read_text().lower()
+    for t in V4_TABLES:
+        assert re.search(rf"create table if not exists forecast\.{t}\b", sql), t
+    assert "primary key (label, vintage, month_start, channel)" in sql
+    assert "release_date date" in sql

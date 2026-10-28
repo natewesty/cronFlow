@@ -9,10 +9,11 @@ import pandas as pd
 
 KPI_SCHEMA = os.getenv("KPI_SCHEMA", "public_nate_sandbox")
 FORECAST_SCHEMA = "forecast"
-ENGINE_VERSION = "3.0.0"
+ENGINE_VERSION = "3.1.0"
+STOCK_MIN_CASES = 5
 RELEASE_MATCH_WINDOW_DAYS = 30
 SEASONS = ("spring", "summer", "fall", "winter")
-BOTTLE_CHANNELS = ("Club", "POS", "Web", "Inbound")
+BOTTLE_CHANNELS = ("Club", "POS", "Event", "Web", "Inbound")
 
 # --- KPI model families (spec §4.2) ---------------------------------------
 SEASONAL_KPIS: List[int] = [1, 2, 7, 8, 15, 16, 18, 30, 31]

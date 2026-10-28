@@ -41,9 +41,30 @@ Each step logs its wall time (`step=load|select|daily|backtest|monthly|periods|b
 
 Timings (2026-10-27 production dry run, origin 2026-10-26): load 4.9 s, select 5.2 s (two selection backtests + grid + headline guard), daily 0.05 s, backtest 2.4 s (final, on champions), monthly 0.2 s, periods 0.5 s, bottles 0.4 s, clubs 4.3 s; total ≈ 18 s. Champions changed on 6 of 14 selectable KPIs (4, 22, 30 blends; 8 blend 0.25; 28 level; 7 calibrated swm); the headline guard reverted KPI 2's blend to protect Average Tasting Fee (20).
 
-Acceptance (2026-10-27): month ahead=1 WMAPE kpi 4 = 0.085, kpi 6 = 0.088 (target ≤ 0.15), kpi 14 = 0.114 (previous engine 0.185). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
+Acceptance (2026-10-27, current dry run with Bottles v2: run time 19 s, `bottle_rows` 15,365): month ahead=1 WMAPE kpi 4 = 0.080, kpi 6 = 0.083 (target ≤ 0.15), kpi 14 = 0.108 (previous engine 0.185; v2 run 7 gave 0.085, 0.088 and 0.114). Daily 8–28 WMAPE (previous → v2): kpi 4 0.316 → 0.148, kpi 6 0.348 → 0.165, kpi 13 0.92 → 0.53, kpi 14 0.413 → 0.332, kpi 5 1.82 → 1.18.
 
 Bottle release rule: a vintage releases in its first month with ≥ 50 bottles. A vintage that never reached 50 releases on its first sale when no vintage of its label ever did (small labels, magnums) or when it is older than the label's newest vintage that did (library tail); otherwise it is unreleased (stray pre-release bottles): no release month, forecast as an incoming vintage whose lifetime already includes the bottles sold, and the default next vintage counts from the newest released one.
+
+## Bottles v2: tables, channels, stock rules
+
+Tables (all in `forecast`; schema.sql creates them on `forecast schema` and every run):
+
+- `bottle_history` (label, vintage, varietal, month_start, channel, bottles, revenue): the engine's own bottle history, deleted and rewritten every non-dry run from the same frame the forecast uses (written by `io.write_bottle_history`, chunked). The app reads it for actuals and for channel shares.
+- `stock_snapshot` and `stock_snapshot_row`: one row per uploaded Groskopf inventory pull and its parts (cases and bottles on hand, 9L-case equivalents, matched label). Written by the app upload, never by the engine.
+- `wine_code_map` (wine code → label, varietal): app-maintained mapping used when matching snapshot rows to labels.
+- `stock_plan` (plan_year, label, vintage; `usable_9l`, `shiners_9l`, `produced_9l`, `count_shiners`, `release`, `release_date`): the per-vintage stock the plan year is built on. The engine only reads it (`io.load_stock_plan`, joined to the label's `label_plan` status). A missing table logs one warning and loads empty.
+- `allocation_plan` (plan_year, label, vintage, channel, `cases_9l`, `source`, `model_cases_9l`) and `channel_share` (plan_year, channel, share): app-written allocation of the stock across channels and the channel mix. The engine does not read them.
+
+Channels: five, `Club`, `POS`, `Event`, `Web`, `Inbound` (`BOTTLE_CHANNELS`). `Event` is split out of POS: a POS line whose `event_fee_or_wine` is `'Event Wine'` becomes `Event` in `bottle_history`; everything else on POS stays `POS`. Profiles (label, tier and global curves), the vintage forecast and `bottle_forecast` all carry the five channels; a label's curve still sums to 1 over channels and months. Production dry run (2026-10-27): 875 Event rows (11,671 bottles) in the history, and `bottle_rows` rose from 12,292 to 15,365.
+
+Stock rules (`forecast_vintages(stock_plan=…)`, the plan year's rows only; detail in the `bottles.py` docstring):
+
+- stock_bottles = (`usable_9l` + `shiners_9l` when `count_shiners`) × bpc when `usable_9l` is known (a warehouse count), else `produced_9l` × bpc (a typed row); bpc is 6 for a large format, else 12.
+- Candidates: every row whose label_plan status is not `retire` and with at least 5 cases (`STOCK_MIN_CASES`) is a candidate, including vintages past the 36-month curve.
+- Cap (replaces `cases_made` × 12 for that vintage): `sold_to_date` + stock_bottles for a released vintage or any warehouse-counted row (counted after any sales); stock_bottles alone for an unreleased typed row. Lifetime p50 is min(lifetime, cap), p90 ≤ max(cap, p50).
+- Release: an unreleased candidate releases on the stock `release_date` (month start), else the label_plan `release_month`, else the default rule. A stock date counts as a planned date for the "not after origin" clamp.
+- Beyond-window tail: a released vintage with a stock row and `months_sold` ≥ 36 sells on at its own trailing-12 pace per channel (from the month after origin) until the stock runs out; the crossing month is truncated, so the tail never exceeds the stock. It needs no profile and is logged once per label.
+- No stock row (or an empty `stock_plan`): nothing changes.
 
 ## v3 champion models
 
