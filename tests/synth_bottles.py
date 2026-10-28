@@ -25,6 +25,7 @@ PRICES = {"Home Ranch Pinot Noir": 62.0, "Three Hills Pinot Noir": 58.0, "Carner
 # Lifetime bottles for vintage 2021 = 4000 * scale; grows 5% per vintage.
 LIFETIME_SCALE = {"Home Ranch Pinot Noir": 1.0, "Three Hills Pinot Noir": 0.6, "Carneros Chardonnay": 0.8,
                   "Hypersonic Pinot Noir": 0.3, "Ten Oaks Pinot Noir": 0.3, "Mikado Tree Pinot Noir - 1.5L": 0.3}
+EVENT_SHARE_OF_POS = 0.08   # Event bottles are carved out of POS, so per-vintage totals are unchanged
 RELEASE_MONTH = {"Hypersonic Pinot Noir": 7}   # default 6 (June of vintage + 2)
 CHANNEL_MIX_RELEASE = {"Club": 0.45, "POS": 0.40, "Web": 0.08, "Inbound": 0.07}   # months 3-4 since release
 CHANNEL_MIX_OTHER = {"Club": 0.0, "POS": 0.40 / 0.55, "Web": 0.08 / 0.55, "Inbound": 0.07 / 0.55}
@@ -82,9 +83,16 @@ def make_bottle_history(seed: int = 0, end: str = "2026-10-25", full_lifetime: b
                     if b <= 0:
                         continue
                     price = PRICES[label]
-                    rows.append({"label": label, "vintage": vintage, "varietal": VARIETALS[label],
-                                 "month_start": month_start, "channel": ch, "bottles": b,
-                                 "revenue": float(b * price), "price": price})
+                    parts = [(ch, b)]
+                    if ch == "POS":
+                        n_event = int(round(b * EVENT_SHARE_OF_POS))
+                        parts = [("POS", b - n_event), ("Event", n_event)]
+                    for out_ch, n in parts:
+                        if n <= 0:
+                            continue
+                        rows.append({"label": label, "vintage": vintage, "varietal": VARIETALS[label],
+                                     "month_start": month_start, "channel": out_ch, "bottles": n,
+                                     "revenue": float(n * price), "price": price})
     cols = ["label", "vintage", "varietal", "month_start", "channel", "bottles", "revenue", "price"]
     return pd.DataFrame(rows, columns=cols)
 

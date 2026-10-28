@@ -299,3 +299,79 @@ def test_write_models_and_snapshot_loader_empty():
     df = fio.load_bookings_snapshots(
         Conn([("2026-01-02", "2026-01-10", "Tasting", 2, 5, 100.0)]), pd.Timestamp("2026-01-01"), pd.Timestamp("2026-02-01"))
     assert df.iloc[0]["snapshot_date"] == pd.Timestamp("2026-01-02") and df.iloc[0]["guests"] == 5.0
+
+
+def test_bottle_history_sql_splits_pos_event_wine():
+    from forecast.io import BOTTLE_HISTORY_SQL
+    s = " ".join(BOTTLE_HISTORY_SQL.split()).lower()
+    assert "case when i.channel = 'pos' and i.event_fee_or_wine = 'event wine' then 'event'" in s
+    assert "else coalesce(i.channel, 'pos') end as channel" in s
+
+
+def test_bottle_history_records_shape():
+    from forecast.io import bottle_history_records
+    df = pd.DataFrame([{"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": pd.Timestamp("2026-01-01"),
+                        "channel": "Event", "bottles": 12.0, "revenue": 1200.0, "price": 100.0}])
+    recs = bottle_history_records(df)
+    assert recs == [{"label": "A", "vintage": 2024, "varietal": "Pinot Noir", "month_start": "2026-01-01",
+                     "channel": "Event", "bottles": 12.0, "revenue": 1200.0}]
+
+
+def test_empty_stock_plan_columns():
+    from forecast.io import _empty
+    assert list(_empty("stock_plan").columns) == ["plan_year", "label", "vintage", "usable_9l", "shiners_9l", "produced_9l",
+                                                   "count_shiners", "release", "release_date", "status"]
+
+
+class _StockConn:
+    """Fake connection for load_stock_plan: returns rows, or raises `error` from execute."""
+    def __init__(self, rows=(), error=None):
+        self.rows, self.error, self.calls, self.savepoints = list(rows), error, [], 0
+
+    def begin_nested(self):
+        self.savepoints += 1
+        from contextlib import nullcontext
+        return nullcontext()
+
+    def execute(self, stmt, params=None):
+        self.calls.append((" ".join(str(stmt).split()), params))
+        if self.error is not None:
+            raise self.error
+        return self
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_load_stock_plan_parses_rows_and_joins_label_status():
+    conn = _StockConn([(2027, "Home Ranch Pinot Noir", 2024, "120.5", "3", None, True, "on_market", None, "continue"),
+                       (2027, "New Pinot Noir", 2025, None, None, "900", False, "fall", "2027-09-08", None)])
+    df = fio.load_stock_plan(conn, 2027)
+    sql, params = conn.calls[0]
+    assert params == {"y": 2027} and conn.savepoints == 1
+    assert "from forecast.stock_plan s left join forecast.label_plan l on l.plan_year = s.plan_year and l.label = s.label" in sql
+    assert "where s.plan_year = :y" in sql
+    assert list(df.columns) == list(fio.EMPTY["stock_plan"])
+    assert df.usable_9l.tolist()[0] == 120.5 and np.isnan(df.usable_9l.tolist()[1])
+    assert df.produced_9l.tolist()[1] == 900.0 and df.shiners_9l.tolist()[0] == 3.0
+    assert df.release_date.tolist()[1] == pd.Timestamp("2027-09-08") and pd.isna(df.release_date.tolist()[0])
+    assert df.status.tolist() == ["continue", None]
+
+
+def test_load_stock_plan_missing_table_is_empty_with_warning(caplog):
+    import logging
+    from sqlalchemy.exc import ProgrammingError
+
+    def pg_error(pgcode, message):
+        orig = type("PgError", (Exception,), {"pgcode": pgcode})(message)
+        return ProgrammingError("select", {}, orig)
+
+    missing = pg_error("42P01", 'relation "forecast.stock_plan" does not exist')
+    with caplog.at_level(logging.WARNING, logger="forecast"):
+        df = fio.load_stock_plan(_StockConn(error=missing), 2027)
+    assert df.empty and list(df.columns) == list(fio.EMPTY["stock_plan"])
+    assert caplog.text.count("forecast.stock_plan") == 1
+    # any other error (a missing column, a syntax error) still raises
+    for err in (pg_error("42703", 'column s.usable_9l does not exist'), pg_error("42601", "syntax error")):
+        with pytest.raises(ProgrammingError):
+            fio.load_stock_plan(_StockConn(error=err), 2027)
