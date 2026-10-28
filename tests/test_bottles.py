@@ -814,3 +814,37 @@ def test_stock_cap_for_unreleased_typed_row_and_other_plan_year_ignored():
     # the 2026 row is another plan year's: the released vintage keeps its uncapped forecast
     pd.testing.assert_frame_equal(summ[(summ.label == lab) & (summ.vintage == nxt - 1)].reset_index(drop=True),
                                   s0[(s0.label == lab) & (s0.vintage == nxt - 1)].reset_index(drop=True))
+
+
+def test_unreleased_selling_vintage_with_warehouse_count_caps_at_sold_plus_stock():
+    h = make_bottle_history()
+    stray = pd.DataFrame([_row("Home Ranch Pinot Noir", 2025, "2026-07-01", 6, price=60.0)], columns=h.columns)
+    hs = pd.concat([h, stray], ignore_index=True)
+    origin = ORIGIN
+    v = vintage_table(hs, origin); bands = price_bands(hs)
+    prof = fit_profiles(hs, v, P)
+    lab, vin = "Home Ranch Pinot Noir", 2025
+    assert not v[(v.label == lab) & (v.vintage == vin)].iloc[0].released
+
+    def life(row):
+        stock = _stock([row])
+        _, summ = forecast_vintages(prof, v, hs, None, None, origin, 2027, P, bands, stock_plan=stock)
+        return summ[(summ.label == lab) & (summ.vintage == vin)].iloc[0]
+
+    counted = life([2027, lab, vin, 10.0, 0.0, None, False, "fall", None, None])   # warehouse count: sold + stock
+    assert 120.0 < counted.lifetime_p50 <= 6 + 120.0 + 1e-6
+    typed = life([2027, lab, vin, None, None, 10.0, False, "fall", None, None])    # typed: produced x bpc only
+    assert typed.lifetime_p50 == pytest.approx(120.0)
+
+
+def test_stock_tail_exact_multiple_emits_no_phantom_month():
+    origin = pd.Timestamp("2026-10-01")
+    months = pd.date_range("2025-11-01", "2026-10-01", freq="MS")
+    hist = pd.DataFrame([_row("Tail", 2020, m, 10) for m in months], columns=fio.EMPTY["bottle_history"])
+    # trailing 120, per month 10 (0.1-style float sums), stock = 7 months exactly
+    rows, remaining, trailing = b._stock_tail("Tail", 2020, hist, origin, pd.Timestamp("2028-12-01"), 70.0)
+    assert len({r["month_start"] for r in rows}) == 7 and remaining == pytest.approx(70.0)
+    hist2 = pd.DataFrame([_row("Tail", 2020, m, 0.1 * 3) for m in months], columns=fio.EMPTY["bottle_history"])
+    per = 0.1 * 3 * 12 / 12
+    rows, remaining, _ = b._stock_tail("Tail", 2020, hist2, origin, pd.Timestamp("2028-12-01"), per * 10)
+    assert len({r["month_start"] for r in rows}) == 10

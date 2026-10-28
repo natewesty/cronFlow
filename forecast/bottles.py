@@ -56,8 +56,9 @@ Stock rows (forecast_vintages(stock_plan=...), forecast.stock_plan for the plan 
     known, else produced_9l x bpc; bpc = 6 for a large format, else 12 (bottles per 9L case).
   - every row whose label_plan status is not 'retire' and with stock_bottles / bpc >= 5 cases
     (STOCK_MIN_CASES) is a candidate, even past the 36-month curve.
-  - cap: sold_to_date + stock_bottles for a released vintage, stock_bottles for an unreleased one
-    (replaces cases_made x 12 for that vintage).
+  - cap (replaces cases_made x 12 for that vintage): sold_to_date + stock_bottles for a released
+    vintage or a warehouse-counted row (usable_9l known, counted after any sales); stock_bottles
+    alone for an unreleased typed row (usable_9l null, produced_9l x bpc).
   - release of an unreleased candidate: stock release_date (month start), else label_plan
     release_month, else the default rule; a stock date is a planned date for the clamp.
   - a released vintage past the curve (months_sold >= n) runs on at its trailing-12 pace per
@@ -600,7 +601,8 @@ def _stock_rows(stock_plan: Optional[pd.DataFrame], plan_year: int) -> Dict[Tupl
         rd = r.release_date
         rd = None if rd is None or pd.isna(rd) else pd.Timestamp(rd).to_period("M").start_time
         status = r.status if isinstance(r.status, str) else None
-        out[(r.label, int(r.vintage))] = {"bottles": n_bottles, "release_date": rd, "status": status}
+        out[(r.label, int(r.vintage))] = {"bottles": n_bottles, "release_date": rd, "status": status,
+                                          "counted": not np.isnan(_num(r.usable_9l))}
     return out
 
 
@@ -621,13 +623,13 @@ def _stock_tail(label: str, vintage: int, hist: pd.DataFrame, origin_month: pd.T
     rows: List[dict] = []
     cum = 0.0
     month = origin_month + pd.DateOffset(months=1)
-    while per_month > 0 and month <= window_end and cum < stock:
+    while per_month > 0 and month <= window_end and stock - cum > 1e-9:
         scale = min(1.0, (stock - cum) / per_month)
         for ch, rate in rates:
             p50 = rate * scale
             rows.append({"label": label, "vintage": vintage, "month_start": month, "channel": ch,
                          "p50": p50, "p10": p50 * lo_k, "p90": p50 * hi_k})
-        cum = stock if scale < 1.0 else cum + per_month
+        cum = min(cum + per_month, stock)
         month = month + pd.DateOffset(months=1)
     return rows, cum, trailing
 
@@ -681,7 +683,8 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
     Stock rows (`stock_plan`, the plan year's rows only; stock_bottles per row, see the module
     docstring): every row whose status is not 'retire' with stock_bottles / bpc >= STOCK_MIN_CASES
     is a candidate, even with months_sold >= n. A vintage with a stock row is capped at cap =
-    sold_to_date + stock_bottles (released) or stock_bottles (unreleased) instead of cases x 12:
+    sold_to_date + stock_bottles (released, or a row with usable_9l) or stock_bottles (unreleased typed
+    row) instead of cases x 12:
     lifetime = min(lifetime, cap), lifetime p90 <= max(cap, p50). An unreleased candidate's release
     is the stock release_date (month start) before label_plan.release_month; a stock date counts as
     a planned release in the clamp (moved to origin + 1, never rolled). A released vintage with
@@ -847,7 +850,9 @@ def forecast_vintages(profiles: pd.DataFrame, vintages: pd.DataFrame, hist: pd.D
         else:
             life = p_life * p_trend ** gap
         if st is not None:
-            cap = sold + st["bottles"] if is_rel else st["bottles"]   # the physical count beats cases_made
+            # the physical count beats cases_made; a warehouse count (usable known) is taken after any
+            # sales, so sold is added whether or not released; a typed produced count is the whole run
+            cap = sold + st["bottles"] if (is_rel or st["counted"]) else st["bottles"]
         else:
             cap = float(c) * 12.0 if pd.notna(c) else np.nan
         if pd.notna(cap):
