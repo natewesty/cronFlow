@@ -141,6 +141,25 @@ def create_database_engine():
     
     return engine
 
+
+# Extra indexes on raw tables, created idempotently right after the table.
+# raw_order.(data->>'customerId'): stg_excluded_order (dbt) looks orders up by
+# customer every run; without this each lookup is a ~16 s scan of the 2 GB table.
+RAW_TABLE_INDEXES = {
+    'order': [
+        "CREATE INDEX IF NOT EXISTS raw_order_customer_id_idx "
+        "ON raw_order ((data->>'customerId'))",
+    ],
+}
+
+
+def ensure_raw_indexes(conn, db_table):
+    """Create any extra indexes configured for raw_{db_table} (no-op once built)."""
+    for index_sql in RAW_TABLE_INDEXES.get(db_table, []):
+        conn.execute(text(index_sql))
+    conn.commit()
+
+
 def load_environment():
     # Log all relevant environment variables (masking sensitive data)
     env_vars = {
@@ -386,6 +405,7 @@ class TockAPIClient:
                 logger.debug(f"Executing CREATE TABLE SQL: {create_table_sql}")
                 conn.execute(text(create_table_sql))
                 conn.commit()
+                ensure_raw_indexes(conn, db_table)
                 logger.info(f"Table raw_{db_table} created/verified successfully")
                 
                 logger.debug(f"Executing query for watermark on table: raw_{db_table}")
@@ -573,6 +593,7 @@ class Commerce7Client:
                 """
                 conn.execute(text(create_table_sql))
                 conn.commit()
+                ensure_raw_indexes(conn, db_table)
                 
                 logger.debug(f"Executing query for watermark on table: raw_{db_table}")
                 result = conn.execute(text(
