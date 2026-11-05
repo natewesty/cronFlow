@@ -2,8 +2,13 @@
     materialized        = 'incremental',
     unique_key          = 'order_id',
     incremental_strategy= 'merge',
-    on_schema_change    = 'sync_all_columns'
+    on_schema_change    = 'sync_all_columns',
+    post_hook           = "delete from {{ this }} where order_id in (select order_id from {{ ref('stg_excluded_order') }})"
 ) }}
+
+-- Excluded orders (dim_excluded_customer seed, via stg_excluded_order) never
+-- enter this table, so no downstream model sees them. The post-hook removes
+-- any that were loaded before their seed row existed.
 
 with src as (
 
@@ -91,3 +96,7 @@ dedup as (
 
 select * from dedup
 where rn = 1
+  and not exists (
+      select 1 from {{ ref('stg_excluded_order') }} x
+      where x.order_id = dedup.order_id
+  )

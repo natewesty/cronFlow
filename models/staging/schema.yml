@@ -1,0 +1,50 @@
+version: 2
+
+seeds:
+  - name: dim_excluded_customer
+    description: >
+      Customers whose orders must be backed out of every revenue, order, item
+      and leaderboard figure. One row per customer and date window; leave
+      exclude_to blank for an open-ended exclusion. Orders are removed at the
+      staging gate (stg_order), so everything downstream - fct_order,
+      fct_order_item, agg_daily_revenue, the KPI tables, fin_ref exports, the
+      sales-associate leaderboard, the forecast engine - drops them without
+      per-model changes. The raw_order rows are untouched; see
+      stg_excluded_order for the audit list.
+    config:
+      schema: nate_sandbox
+      column_types:
+        customer_id: uuid
+        exclude_from: date
+        exclude_to: date
+        added_on: date
+    columns:
+      - name: customer_id
+        description: Commerce7 customer id (dim_customer.customer_id).
+        tests: [not_null, unique]
+      - name: customer_name
+        tests: [not_null]
+      - name: reason
+        description: Who asked for the exclusion, when, and why.
+        tests: [not_null]
+      - name: exclude_from
+        description: First order date (Pacific) that is excluded.
+        tests: [not_null]
+      - name: exclude_to
+        description: Last order date excluded; blank means open-ended.
+
+models:
+  - name: stg_excluded_order
+    description: >
+      Every raw_order placed by a dim_excluded_customer row inside its window.
+      Single definition of an excluded order; used by the stg_order filter and
+      by the post-hook deletes on stg_order, stg_order_item, fct_order and
+      fct_order_item.
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests:
+          - relationships:
+              to: ref('dim_excluded_customer')
+              field: customer_id

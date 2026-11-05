@@ -1,6 +1,10 @@
 {{ config(materialized='incremental',
           unique_key='order_item_id',
-          incremental_strategy='merge') }}
+          incremental_strategy='merge',
+          post_hook="delete from {{ this }} where order_id in (select order_id from {{ ref('stg_excluded_order') }})") }}
+
+-- New excluded orders never arrive here (stg_order filters them); the
+-- post-hook clears items of orders loaded before they were excluded.
 
 with base as (
   select 
