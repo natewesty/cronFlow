@@ -271,108 +271,52 @@ class TockAPIClient:
             logger.error(f"Failed to parse JSON from URL: {str(e)}")
             return []
     
-    def get_latest_guest_url(self, urls: List[str]) -> str:
-        """Get the URL with the highest guest-profile number."""
-        import re
-        
-        guest_urls_with_numbers = []
-        for url in urls:
-            # Extract the number from guest-profile-X.json
-            match = re.search(r'guest-profile-(\d+)\.json', url)
-            if match:
-                number = int(match.group(1))
-                guest_urls_with_numbers.append((number, url))
-        
-        if not guest_urls_with_numbers:
-            logger.warning("No guest-profile URLs found with expected naming pattern")
-            return urls[0] if urls else None
-        
-        # Sort by number and get the highest
-        guest_urls_with_numbers.sort(key=lambda x: x[0])
-        latest_number, latest_url = guest_urls_with_numbers[-1]
-        
-        logger.info(f"Latest guest data file: guest-profile-{latest_number}.json")
-        return latest_url
-    
-    def get_latest_reservation_url(self, urls: List[str]) -> str:
-        """Get the URL with the highest reservation number."""
-        import re
-        
-        reservation_urls_with_numbers = []
-        for url in urls:
-            # Extract the number from reservation-X.json
-            match = re.search(r'reservation-(\d+)\.json', url)
-            if match:
-                number = int(match.group(1))
-                reservation_urls_with_numbers.append((number, url))
-        
-        if not reservation_urls_with_numbers:
-            logger.warning("No reservation URLs found with expected naming pattern")
-            return urls[0] if urls else None
-        
-        # Sort by number and get the highest
-        reservation_urls_with_numbers.sort(key=lambda x: x[0])
-        latest_number, latest_url = reservation_urls_with_numbers[-1]
-        
-        logger.info(f"Latest reservation data file: reservation-{latest_number}.json")
-        return latest_url
-    
-    def fetch_all_guest_data(self, incremental: bool = False) -> List[Dict]:
-        """Fetch guest data from URLs. If incremental=True, only fetch the latest file."""
-        urls_data = self.get_data_urls()
-        all_guest_data = []
-        
-        if incremental:
-            # Only fetch the latest guest data file
-            latest_url = self.get_latest_guest_url(urls_data['guest_urls'])
-            if latest_url:
-                logger.info("Fetching latest guest data file only (incremental mode)")
-                guest_data = self.fetch_json_data(latest_url)
-                all_guest_data.extend(guest_data)
-                logger.debug(f"Added {len(guest_data)} guest records from latest file")
-            else:
-                logger.error("Could not determine latest guest data URL")
-                return []
-        else:
-            # Fetch all guest data files (initial load)
-            logger.info("Fetching all guest data files (initial load mode)")
-            for i, url in enumerate(urls_data['guest_urls']):
-                logger.info(f"Processing guest data file {i+1}/{len(urls_data['guest_urls'])}")
-                guest_data = self.fetch_json_data(url)
-                all_guest_data.extend(guest_data)
-                logger.debug(f"Added {len(guest_data)} guest records from file {i+1}")
-        
-        logger.info(f"Total guest records fetched: {len(all_guest_data)}")
-        return all_guest_data
-    
-    def fetch_all_reservation_data(self, incremental: bool = False) -> List[Dict]:
-        """Fetch reservation data from URLs. If incremental=True, only fetch the latest file."""
-        urls_data = self.get_data_urls()
-        all_reservation_data = []
-        
-        if incremental:
-            # Only fetch the latest reservation data file
-            latest_url = self.get_latest_reservation_url(urls_data['reservation_urls'])
-            if latest_url:
-                logger.info("Fetching latest reservation data file only (incremental mode)")
-                reservation_data = self.fetch_json_data(latest_url)
-                all_reservation_data.extend(reservation_data)
-                logger.debug(f"Added {len(reservation_data)} reservation records from latest file")
-            else:
-                logger.error("Could not determine latest reservation data URL")
-                return []
-        else:
-            # Fetch all reservation data files (initial load)
-            logger.info("Fetching all reservation data files (initial load mode)")
-            for i, url in enumerate(urls_data['reservation_urls']):
-                logger.info(f"Processing reservation data file {i+1}/{len(urls_data['reservation_urls'])}")
-                reservation_data = self.fetch_json_data(url)
-                all_reservation_data.extend(reservation_data)
-                logger.debug(f"Added {len(reservation_data)} reservation records from file {i+1}")
-        
-        logger.info(f"Total reservation records fetched: {len(all_reservation_data)}")
-        return all_reservation_data
-    
+    @retry_on_db_error(max_retries=3, base_delay=2.0)
+    def get_held_versions(self, table: str) -> Dict[str, int]:
+        """The export snapshot stamp (versionId) of every record already in raw_<table>, by id.
+        Records loaded before Tock stamped its exports count as 0."""
+        engine = create_database_engine()
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                f"SELECT id, COALESCE((data->>'versionId')::bigint, 0) FROM raw_{table}"
+            )).fetchall()
+        return {row[0]: row[1] for row in rows}
+
+    def sync_export(self, table: str, urls: List[str]) -> int:
+        """Load every file of Tock's nightly export into raw_<table>, one file at a time.
+        Returns the number of records written.
+
+        The export is a full snapshot split across numbered files (reservations in visit-date
+        order), not an append-only log: a new or changed record can sit in any file, so all of
+        them are read. Do not go back to reading only the highest-numbered file -- when a snapshot
+        needs fewer files than the one before, the old last file is left behind and never updated
+        again (reservation-10.json froze on 2026-09-21 while 1-9 kept changing).
+
+        Every record carries its snapshot's stamp in versionId, and that is the only reliable
+        change marker: payments, refunds and party state change without lastUpdatedTimestamp
+        moving. A copy is written only when its stamp is newer than the one already held, so a
+        left-behind file cannot overwrite current data whatever order the files arrive in, and a
+        second run on an unchanged snapshot writes nothing. Records without a stamp are always
+        written.
+        """
+        held = self.get_held_versions(table)
+        written = 0
+        for number, url in enumerate(urls, 1):
+            records = self.fetch_json_data(url)
+            newer = []
+            for record in records:
+                record_id = str(record.get('id', ''))
+                version = record.get('versionId') or 0
+                if version and version <= held.get(record_id, 0):
+                    continue
+                held[record_id] = version
+                newer.append(record)
+            logger.info(f"{table} export file {number}/{len(urls)}: {len(records)} records, {len(newer)} new or changed")
+            if newer:
+                self.upsert_data(table, newer)
+                written += len(newer)
+        return written
+
     @retry_on_db_error(max_retries=3, base_delay=2.0)
     def get_watermark(self, table: str) -> Optional[datetime]:
         """Get the last processed timestamp for a Tock table."""
@@ -923,61 +867,17 @@ def main(endpoint: str = None):
         if 'tock' in clients and (not endpoint or endpoint.startswith('tock-')):
             logger.info("✅ Starting Tock data processing...")
             
-            # Check if this is an incremental run (data already exists)
-            logger.info("🔍 Checking Tock watermarks...")
-            tock_guest_watermark = clients['tock'].get_watermark('tock_guest')
-            tock_reservation_watermark = clients['tock'].get_watermark('tock_reservation')
-            
-            logger.info(f"   - Guest watermark: {tock_guest_watermark}")
-            logger.info(f"   - Reservation watermark: {tock_reservation_watermark}")
-            
-            guest_incremental = tock_guest_watermark is not None
-            reservation_incremental = tock_reservation_watermark is not None
-            
-            logger.info(f"   - Guest incremental mode: {guest_incremental}")
-            logger.info(f"   - Reservation incremental mode: {reservation_incremental}")
-            
-            # Process guest data
-            logger.info(f"🔍 Checking if guest data should be processed (endpoint={endpoint})...")
-            if not endpoint or endpoint == 'tock-guest':
-                logger.info("✅ Processing guest data...")
-                if guest_incremental:
-                    logger.info("Fetching Tock guest data (incremental mode - latest file only)...")
-                else:
-                    logger.info("Fetching Tock guest data (initial load - all files)...")
-                
-                guest_data = clients['tock'].fetch_all_guest_data(incremental=guest_incremental)
-                logger.info(f"📊 Fetched {len(guest_data) if guest_data else 0} guest records")
-                
-                if guest_data:
-                    logger.info(f"Upserting {len(guest_data)} guest records")
-                    clients['tock'].upsert_data('tock_guest', guest_data)
-                    logger.info("✅ Guest data upsert completed")
-                else:
-                    logger.info("⚠️ No guest data to process")
-            else:
-                logger.info(f"⏭️ Skipping guest data (endpoint filter: {endpoint})")
-            
-            # Process reservation data
-            logger.info(f"🔍 Checking if reservation data should be processed (endpoint={endpoint})...")
-            if not endpoint or endpoint == 'tock-reservation':
-                logger.info("✅ Processing reservation data...")
-                if reservation_incremental:
-                    logger.info("Fetching Tock reservation data (incremental mode - latest file only)...")
-                else:
-                    logger.info("Fetching Tock reservation data (initial load - all files)...")
-                
-                reservation_data = clients['tock'].fetch_all_reservation_data(incremental=reservation_incremental)
-                logger.info(f"📊 Fetched {len(reservation_data) if reservation_data else 0} reservation records")
-                
-                if reservation_data:
-                    logger.info(f"Upserting {len(reservation_data)} reservation records")
-                    clients['tock'].upsert_data('tock_reservation', reservation_data)
-                    logger.info("✅ Reservation data upsert completed")
-                else:
-                    logger.info("⚠️ No reservation data to process")
-            else:
-                logger.info(f"⏭️ Skipping reservation data (endpoint filter: {endpoint})")
+            export_urls = clients['tock'].get_data_urls()
+            for tock_endpoint, tock_table, url_key in (
+                ('tock-guest', 'tock_guest', 'guest_urls'),
+                ('tock-reservation', 'tock_reservation', 'reservation_urls'),
+            ):
+                if endpoint and endpoint != tock_endpoint:
+                    logger.info(f"⏭️ Skipping {tock_table} (endpoint filter: {endpoint})")
+                    continue
+                clients['tock'].get_watermark(tock_table)  # creates raw_<table> and its indexes on a first run
+                written = clients['tock'].sync_export(tock_table, export_urls[url_key])
+                logger.info(f"✅ {tock_table}: {written} new or changed records written from {len(export_urls[url_key])} export files")
         else:
             logger.warning("⚠️ Tock data processing skipped - condition not met")
         
@@ -1235,13 +1135,13 @@ def test_tock_integration():
         
         logger.info(f"✅ Retrieved {len(guest_urls)} guest URLs and {len(reservation_urls)} reservation URLs")
         
-        # Test fetching data from latest URLs (incremental mode)
+        # Test fetching a small sample from one export file
         if guest_urls:
-            logger.info("🔍 Testing guest data fetch from latest URL...")
-            latest_guest_url = tock_client.get_latest_guest_url(guest_urls)
-            logger.info(f"Latest guest URL: {latest_guest_url[:100]}...")
+            logger.info("🔍 Testing guest data fetch from one export file...")
+            sample_guest_url = guest_urls[0]
+            logger.info(f"Sample guest URL: {sample_guest_url[:100]}...")
             
-            sample_guest_data = tock_client.fetch_json_data(latest_guest_url)
+            sample_guest_data = tock_client.fetch_json_data(sample_guest_url)
             logger.info(f"✅ Successfully fetched {len(sample_guest_data)} guest records from latest file")
             
             if sample_guest_data:
@@ -1251,11 +1151,11 @@ def test_tock_integration():
                 logger.info("✅ Guest data upsert test completed")
         
         if reservation_urls:
-            logger.info("🔍 Testing reservation data fetch from latest URL...")
-            latest_reservation_url = tock_client.get_latest_reservation_url(reservation_urls)
-            logger.info(f"Latest reservation URL: {latest_reservation_url[:100]}...")
+            logger.info("🔍 Testing reservation data fetch from one export file...")
+            sample_reservation_url = reservation_urls[0]
+            logger.info(f"Sample reservation URL: {sample_reservation_url[:100]}...")
             
-            sample_reservation_data = tock_client.fetch_json_data(latest_reservation_url)
+            sample_reservation_data = tock_client.fetch_json_data(sample_reservation_url)
             logger.info(f"✅ Successfully fetched {len(sample_reservation_data)} reservation records from latest file")
             
             if sample_reservation_data:
