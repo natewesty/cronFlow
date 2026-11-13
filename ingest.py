@@ -28,6 +28,11 @@ import numpy as np
 
 import pipeline_runlog
 
+try:
+    from metrics import publish as record_publish, walk as record_walk
+except Exception as _record_import_error:      # the Calculation Record must never stop the pipeline
+    record_publish = record_walk = None
+
 load_dotenv()
 
 # Configure logging with more detailed format
@@ -813,6 +818,8 @@ def main(endpoint: str = None):
         if endpoint is None:
             run_engine = _run_log_engine()
             run_id = pipeline_runlog.open_run(run_engine) if run_engine is not None else None
+            # Publish the Calculation Record before anything can fail, so it is present even if dbt is not.
+            pipeline_runlog.update_summary(run_engine, run_id, {"record_published": _publish_record(run_engine)})
         
         # Initialize clients based on available credentials
         clients = {}
@@ -895,6 +902,9 @@ def main(endpoint: str = None):
         logger.info("Starting dbt transformation pipeline...")
         dbt_ok = run_dbt()
         outcome = LAST_DBT_OUTCOME
+        if dbt_ok and endpoint is None:
+            # dbt tests do not run here, so check that the Tock walk still ends at the dashboard's value.
+            pipeline_runlog.update_summary(run_engine, run_id, {"walk_check": _check_walk(run_engine)})
         dbt_summary = {"failed_models": outcome["failed_models"], "kpi_stage_ran": outcome["kpi_stage_ran"]}
         if dbt_ok:
             logger.info("🎉 Complete pipeline (ingestion + dbt) finished successfully!")
@@ -914,6 +924,24 @@ def main(endpoint: str = None):
         logger.error(f"Error during data ingestion: {str(e)}", exc_info=True)  # Added exc_info for full traceback
         pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage="ingest", error=str(e))
         sys.exit(1)
+
+
+def _publish_record(engine) -> bool:
+    """Publish the Calculation Record; never raises."""
+    try:
+        return record_publish.publish(engine, record_publish.build_payload(), os.getenv("RENDER_GIT_COMMIT"))
+    except Exception as error:
+        logger.warning(f"Calculation record: could not publish ({error}); the run continues")
+        return False
+
+
+def _check_walk(engine):
+    """Whether the Tock walk ties to the dashboard, or None if that could not be checked; never raises."""
+    try:
+        return record_walk.check_walk(engine)
+    except Exception as error:
+        logger.warning(f"Tock walk check could not run ({error})")
+        return None
 
 
 def _run_log_engine():

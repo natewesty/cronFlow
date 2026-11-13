@@ -251,3 +251,48 @@ def test_single_endpoint_run_is_not_logged(main_env, monkeypatch):
     ingest.main("tock-guest")
     assert log.opened == 0
     assert [c["run_id"] for c in log.closed] == [None]      # close_run ignores a run that was never opened
+
+
+def test_main_publishes_the_record_and_checks_the_walk(main_env, monkeypatch):
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt())
+    monkeypatch.setattr(ingest.record_publish, "publish", lambda engine, payload, git_sha=None: True)
+    monkeypatch.setattr(ingest.record_walk, "check_walk",
+                        lambda engine: {"ok": True, "mismatched_days": 0, "first_mismatch": None})
+    ingest.main()
+    assert log.patches == [{"record_published": True},
+                           {"walk_check": {"ok": True, "mismatched_days": 0, "first_mismatch": None}}]
+    assert log.closed[0]["status"] == "succeeded"
+
+
+def test_main_survives_publish_failure(main_env, monkeypatch):
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt())
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("entries unreadable")
+    monkeypatch.setattr(ingest.record_publish, "build_payload", boom)
+    monkeypatch.setattr(ingest.record_walk, "check_walk", boom)
+    ingest.main()                                  # no exception, no exit
+    assert {"record_published": False} in log.patches
+    assert {"walk_check": None} in log.patches
+    assert log.closed[0]["status"] == "succeeded"
+
+
+def test_single_endpoint_run_publishes_nothing(main_env, monkeypatch):
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt())
+    ingest.main("tock-guest")
+    assert log.patches == []
+
+
+def test_main_runs_when_the_record_modules_could_not_be_imported(main_env, monkeypatch):
+    # ingest.py guards its import of the metrics package: if that import fails on a deploy, the two
+    # names are None and the pipeline must still run.
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt())
+    monkeypatch.setattr(ingest, "record_publish", None)
+    monkeypatch.setattr(ingest, "record_walk", None)
+    ingest.main()
+    assert log.patches == [{"record_published": False}, {"walk_check": None}]
+    assert log.closed[0]["status"] == "succeeded"
