@@ -1,1 +1,623 @@
-{}
+{
+  "average-order-value": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "avg-party-size": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "avg-tasting-fee-per-guest": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "club-conversion-per-taster-pct": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "club-population-net-gain-loss": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "ecomm-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "event-fees-orders-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "event-fees-reservations-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "event-fees-total-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "event-guests": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "event-wine-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "existing-member-attrition": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "new-member-acquisition": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "phone-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "shipping-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-bottles-sold": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-fees-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-guests": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-orders": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-orders-per-guest-pct": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-total-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "tasting-room-wine-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-9l-sold": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-active-club-membership": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_club_membership_active_daily.sql": "2609ac8cd9fb6dfa55deb225f997975b3fd45fcb1533a1a6f7a0f4d9dd3ac011",
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-daily-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-orders": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-reservations": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "total-visitors": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "wine-club-fees-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "wine-club-orders-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  },
+  "wine-club-total-revenue": {
+    "date": "2026-11-13",
+    "files": {
+      "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
+      "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
+      "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
+      "models/marts/dim_experience.sql": "6967b686404c512733ddd91b6504a957e35daff8e96bc9d20487b9a92c76180c",
+      "models/marts/dim_product_variant.sql": "0c19cc87e1c932a0a628d744040c197290659d480455b02423cb50255e45d447",
+      "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
+      "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
+      "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
+      "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
+      "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
+      "models/staging/stg_order_item.sql": "83428ab9f8f6612223fa40bac99251884e89b6514a0d560dabd0e0f219961764",
+      "models/staging/stg_product.sql": "c6f823ff9147ee1af22b7b80877f3363dd4d5e90bd7aa668d1a3e560b1f78fa6",
+      "models/staging/stg_product_variant.sql": "2822e96f957a6acb204b75cbeccfab52c5bdcf75a0cb5d4ea6cfd6cfc016868d",
+      "models/staging/stg_tock_reservation.sql": "55269759a7ad0da6e651b76dd315a1a29808df06d141220c14eda8d240757fe6"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+id: total-daily-revenue
+name: Total Daily Revenue
+kpi_id: 14
+group: Shipping and Total
+shown_on: Sales Metrics & Tracking dashboard, "Total Revenue" card
+summary: The sum of the ten revenue lines the pipeline tracks.
+calculation:
+- 'Add, for the same day: Tasting Room Wine, Tasting Room Fees, Wine Club Orders, Wine Club Fees, eCommerce, Phone,
+  Event Fees Orders, Event Fees Reservations, Event Wine and Shipping.'
+includes:
+- Whatever each of the ten lines includes
+excludes:
+- Whatever each of the ten lines leaves out
+- Wholesale, which is not in the pipeline (see On screen)
+counted_on: Each line keeps its own day.
+sources:
+- metric:tasting-room-wine-revenue
+- metric:tasting-room-fees-revenue
+- metric:wine-club-orders-revenue
+- metric:wine-club-fees-revenue
+- metric:ecomm-revenue
+- metric:phone-revenue
+- metric:event-fees-orders-revenue
+- metric:event-fees-reservations-revenue
+- metric:event-wine-revenue
+- metric:shipping-revenue
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

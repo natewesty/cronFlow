@@ -17,8 +17,9 @@ GROUPS = ("Tasting Room", "Wine Club", "Channels", "Events", "Shipping and Total
           "Wine Sales", "Membership", "Orders", "Reservations")
 DIRECTIONS = ("higher", "lower", "differs")
 WALK_BUCKETS = ("Tasting Room", "Club", "Event")
-# An entry with nothing left out says so; every other list field must have content.
-MAY_BE_EMPTY = ("includes", "excludes")
+# A simple count may leave nothing out, and most entries have no history of their own (pipeline-wide
+# events are merged in when the record is published). Every other field must have content.
+MAY_BE_EMPTY = ("includes", "excludes", "history")
 
 _ID = re.compile(r"^[a-z0-9-]+$")
 _REF = re.compile(r"""ref\(\s*['"]([A-Za-z0-9_]+)['"]\s*\)""")

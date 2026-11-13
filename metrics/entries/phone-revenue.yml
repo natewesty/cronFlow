@@ -1,0 +1,31 @@
+id: phone-revenue
+name: Phone Revenue
+kpi_id: 8
+group: Channels
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Phone Orders"
+summary: Sales on Commerce7 orders taken by phone.
+calculation:
+- Take every Commerce7 order that has been paid.
+- Keep orders in the Inbound channel.
+- 'The amount is the order subtotal as Commerce7 reports it: the products on the order, before sales tax, shipping
+  and tips.'
+- Add them up by day.
+includes:
+- Everything on the order, not only wine
+- 'Refunds: a refund is its own order with a negative amount, counted on the day the refund was paid'
+excludes:
+- Sales tax, shipping and tips
+- Orders from customers on the pipeline's excluded-customer list
+counted_on: The day the order was paid, in Pacific time.
+sources:
+- Commerce7
+will_not_match:
+- figure: Commerce7 order totals
+  direction: higher
+  reason: An order's total includes sales tax and shipping; the dashboard counts the subtotal only.
+- figure: Commerce7 reports by order submitted date
+  direction: differs
+  reason: The dashboard counts an order on the day it was paid.
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

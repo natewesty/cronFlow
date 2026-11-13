@@ -1,0 +1,20 @@
+id: club-population-net-gain-loss
+name: Club Net Gain/Loss
+kpi_id: 26
+group: Membership
+shown_on: Sales Metrics & Tracking dashboard, Membership table, "Club Population Net Gain/Loss", and the net gain/loss
+  card
+summary: New memberships minus cancelled memberships.
+calculation:
+- Subtract Member Attrition from New Member Acquisition for the same day.
+includes:
+- Whatever its two parts include
+excludes:
+- Whatever its two parts leave out
+counted_on: Signups on their signup date; cancellations on their cancel date.
+sources:
+- metric:new-member-acquisition
+- metric:existing-member-attrition
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

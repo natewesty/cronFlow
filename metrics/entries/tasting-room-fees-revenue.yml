@@ -1,0 +1,51 @@
+id: tasting-room-fees-revenue
+name: Tasting Room Fees Revenue
+kpi_id: 2
+group: Tasting Room
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Tasting Room Fees"
+summary: What guests paid through Tock for tasting-room experiences, after refunds and after Tock's and the card
+  processor's fees.
+calculation:
+- Take every Tock reservation that was not cancelled.
+- Keep those whose experience is assigned to Tasting Room in Plan Inputs (Experience Attribution).
+- For each one, take the net amount paid (payments minus refunds) and subtract the Tock fee and the card processor
+  fee charged on its first payment.
+- Count it on the day of the visit.
+includes:
+- Sales tax
+- Service charge
+- Order fees charged to the guest
+- The effect of comps and discounts, because the calculation starts from what was actually paid
+excludes:
+- Cancelled reservations, including any money kept on them
+- Experiences with no assignment in Plan Inputs, and experiences assigned to No Pay
+- Prepaid future visits, until the day of the visit
+counted_on: The day of the visit (the reservation date), not the day it was booked or paid.
+sources:
+- Tock
+- Plan Inputs
+will_not_match:
+- figure: Tock sales reports
+  direction: lower
+  reason: They leave out sales tax and service charge, which the dashboard includes.
+- figure: Tock payment reports
+  direction: higher
+  reason: They do not subtract Tock's and the card processor's fees, which the dashboard does.
+- figure: Tock reports run by purchase date
+  direction: differs
+  reason: The dashboard counts revenue on the visit date, so months differ when guests prepay.
+history:
+- date: '2026-07-07'
+  change: The assignment of each experience is read from Plan Inputs (Experience Attribution).
+  effect: Changing an experience's assignment there moves its revenue between tiles.
+- date: '2025-10-08'
+  change: Cancelled reservations excluded.
+  effect: 'Lower: cancelled reservations no longer count.'
+- date: '2025-10-07'
+  change: Changed from the list subtotal plus fees to the net amount paid minus fees.
+  effect: 'Lower: comps, discounts and refunds are reflected, and fees are subtracted.'
+walk:
+  kind: tock_revenue
+  bucket: Tasting Room
+models:
+- models/marts/agg_daily_revenue.sql

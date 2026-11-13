@@ -1,0 +1,23 @@
+id: total-9l-sold
+name: Total 9L Sold
+kpi_id: 22
+group: Wine Sales
+shown_on: Sales Metrics & Tracking dashboard, Tasting Room table, "Total 9L Sold"
+summary: Wine items sold on Commerce7 orders, expressed in 12-bottle cases.
+calculation:
+- Take every item of type Wine on Commerce7 orders, from every channel.
+- Add up the quantities by the day the item was paid for.
+- Divide by 12.
+includes:
+- Every channel
+- Every wine item counts as one bottle, whatever its size
+- 'Refunds: refunded items carry negative quantities'
+excludes:
+- Items that are not of type Wine (merchandise, tastings, bundles, gift cards, rebates)
+- Orders from customers on the pipeline's excluded-customer list
+counted_on: The day the item was paid for, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

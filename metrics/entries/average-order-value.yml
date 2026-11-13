@@ -1,0 +1,25 @@
+id: average-order-value
+name: Average Order Value
+kpi_id: 29
+group: Orders
+shown_on: Sales Metrics & Tracking dashboard, average order value card
+summary: The average subtotal of the orders counted in Total Orders.
+calculation:
+- Take every Commerce7 order that has been paid, from every channel.
+- Keep orders that did not come from an outside system such as Tock, and whose subtotal is above zero.
+- Keep only orders on which the Tasting Lounge, Event Fee or Wine and Event-Specific Sale tags are all blank.
+- For each day, average the subtotal of those orders (before sales tax, shipping and tips).
+includes:
+- Every channel
+excludes:
+- Orders that came from Tock
+- Refund orders and zero-value orders
+- Orders with a value in the Tasting Lounge, Event Fee or Wine, or Event-Specific Sale tag
+- Sales tax, shipping and tips
+- Orders from customers on the pipeline's excluded-customer list
+counted_on: The day the order was paid, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

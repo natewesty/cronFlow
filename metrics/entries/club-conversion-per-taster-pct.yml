@@ -1,0 +1,21 @@
+id: club-conversion-per-taster-pct
+name: Club Conversion Per Taster %
+kpi_id: 27
+group: Membership
+shown_on: Sales Metrics & Tracking dashboard, Membership table, "Club Conversion Per Taster"
+summary: New club memberships as a share of tasting room guests.
+calculation:
+- 'Uses two other numbers: New Member Acquisition and Tasting Room Guests.'
+- The dashboard divides new memberships by guests over the period shown (see On screen).
+includes:
+- Whatever New Member Acquisition and Tasting Room Guests include
+- Every new membership, wherever the member signed up
+excludes:
+- Whatever New Member Acquisition and Tasting Room Guests leave out
+counted_on: Signups on their signup date; guests on the day of their visit.
+sources:
+- metric:new-member-acquisition
+- metric:tasting-room-guests
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

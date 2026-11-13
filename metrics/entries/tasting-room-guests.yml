@@ -1,0 +1,23 @@
+id: tasting-room-guests
+name: Tasting Room Guests
+kpi_id: 18
+group: Traffic and Guests
+shown_on: Not shown on its own; it is the guest count that Taster Conversion, Bottles Sold Per Guest and Club Conversion
+  Per Taster divide by.
+summary: The number of guests on Tock reservations for tasting-room experiences.
+calculation:
+- Take every Tock reservation that was not cancelled.
+- Keep those whose experience is assigned to Tasting Room in Plan Inputs (Experience Attribution).
+- Add up the party size of each, by day of visit.
+includes:
+- Reservations marked as a no-show
+excludes:
+- Cancelled reservations
+- Experiences not assigned to Tasting Room
+counted_on: The day of the visit (the reservation date).
+sources:
+- Tock
+- Plan Inputs
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

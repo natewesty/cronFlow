@@ -1,0 +1,38 @@
+id: event-wine-revenue
+name: Event Wine Revenue
+kpi_id: 12
+group: Events
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Event Wine"
+summary: Wine sold for events, as tagged on Commerce7 orders.
+calculation:
+- Take every Commerce7 order that has been paid.
+- Keep orders, from any channel, whose Event Fee or Wine tag is "Event Wine" and that are marked as an event-specific
+  sale.
+- 'The amount is the order subtotal as Commerce7 reports it: the products on the order, before sales tax, shipping
+  and tips.'
+- Add them up by day.
+includes:
+- Everything on the order, not only wine
+- 'Refunds: a refund is its own order with a negative amount, counted on the day the refund was paid'
+excludes:
+- Sales tax, shipping and tips
+- Orders from customers on the pipeline's excluded-customer list
+- Orders tagged Event Wine that are not marked as an event-specific sale
+counted_on: The order's event revenue realization date when it has one; otherwise the day the order was paid, in
+  Pacific time.
+sources:
+- Commerce7
+will_not_match:
+- figure: Commerce7 order totals
+  direction: higher
+  reason: An order's total includes sales tax and shipping; the dashboard counts the subtotal only.
+- figure: Commerce7 reports by order submitted date
+  direction: differs
+  reason: The dashboard counts an order on the day it was paid.
+- figure: Commerce7 reports by order date
+  direction: differs
+  reason: An event order with a realization date is counted on that date, which can be in a different month from
+    the order.
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

@@ -1,0 +1,20 @@
+id: total-visitors
+name: Total Visitors
+kpi_id: 16
+group: Traffic and Guests
+shown_on: Sales Metrics & Tracking dashboard, Tasting Room table, "Traffic", and the visitor chart
+summary: The number of guests on Tock reservations that were not cancelled.
+calculation:
+- Take every Tock reservation that was not cancelled, of every experience.
+- Add up the party size of each, by day of visit.
+includes:
+- Every experience, whatever its assignment in Plan Inputs
+- Reservations marked as a no-show
+excludes:
+- Cancelled reservations
+counted_on: The day of the visit (the reservation date).
+sources:
+- Tock
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

@@ -1,0 +1,28 @@
+id: tasting-room-bottles-sold
+name: Tasting Room Bottles Sold
+kpi_id: 31
+group: Tasting Room
+shown_on: Sales Metrics & Tracking dashboard, Tasting Room table, "Bottles Sold Per Guest" (as its numerator)
+summary: Wine items sold on tasting room orders.
+calculation:
+- Take every item of type Wine on Commerce7 orders that have been paid.
+- Keep items on orders made at the point of sale (channel POS) that did not come from Tock, whose Tasting Lounge
+  tag is not set to true, and that have no Event Fee or Wine tag.
+- Also keep items on any order, from any channel, whose Event Fee or Wine tag is set to "false" and that has no
+  Event-Specific Sale tag. As of 2026-11-13 no order carries that tag value.
+- Add up the quantities by the day the order was paid.
+includes:
+- Every wine item counts as one bottle, whatever its size
+- 'Refunds: refunded items carry negative quantities'
+excludes:
+- Items that are not of type Wine
+- Orders that came from Tock
+- Orders whose Tasting Lounge tag is set to true
+- Orders with an Event Fee or Wine tag
+- Orders from customers on the pipeline's excluded-customer list
+counted_on: The day the order was paid, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

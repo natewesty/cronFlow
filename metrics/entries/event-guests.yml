@@ -1,0 +1,22 @@
+id: event-guests
+name: Event Guests
+kpi_id: 19
+group: Traffic and Guests
+shown_on: Not shown on its own on the dashboard.
+summary: The number of guests on Tock reservations for experiences assigned to Events.
+calculation:
+- Take every Tock reservation that was not cancelled.
+- Keep those whose experience is assigned to Events in Plan Inputs (Experience Attribution).
+- Add up the party size of each, by day of visit.
+includes:
+- Reservations marked as a no-show
+excludes:
+- Cancelled reservations
+- Experiences not assigned to Events
+counted_on: The day of the visit (the reservation date).
+sources:
+- Tock
+- Plan Inputs
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

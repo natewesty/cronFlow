@@ -107,6 +107,12 @@ def test_validate_checks_will_not_match_and_walk(repo):
     assert record.validate_entry(good, repo) == []
 
 
+def test_history_and_the_include_exclude_lists_may_be_empty(repo):
+    # Most entries have no history of their own (pipeline-wide events are merged in when published),
+    # and a simple count may leave nothing out.
+    assert record.validate_entry({**ENTRY, "history": [], "includes": [], "excludes": []}, repo) == []
+
+
 def test_validate_checks_history_dates(repo):
     bad = {**ENTRY, "history": [{"date": "last week", "change": "x", "effect": "y"}]}
     assert any("history" in p for p in record.validate_entry(bad, repo))

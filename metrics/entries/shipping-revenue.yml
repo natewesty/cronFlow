@@ -1,0 +1,20 @@
+id: shipping-revenue
+name: Shipping Revenue
+kpi_id: 13
+group: Shipping and Total
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Shipping"
+summary: Shipping charged on Commerce7 orders.
+calculation:
+- Take every Commerce7 order that has been paid, from every channel.
+- Add up the shipping charged on each, by day.
+includes:
+- Shipping on every channel's orders
+- 'Refunds: a refund is its own order with a negative amount, counted on the day the refund was paid'
+excludes:
+- Orders from customers on the pipeline's excluded-customer list
+counted_on: The day the order was paid, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

@@ -1,0 +1,32 @@
+id: total-active-club-membership
+name: Total Active Club Membership
+kpi_id: 23
+group: Membership
+shown_on: Sales Metrics & Tracking dashboard, "Active Club Members" card
+summary: The number of club memberships that were active on a given day.
+calculation:
+- Take every club membership in Commerce7.
+- For a given day, count those that had signed up on or before that day and had not been cancelled by that day (no
+  cancel date, or a cancel date after that day).
+- Leave out memberships whose status is Cancelled but that have no cancel date.
+includes:
+- Memberships on hold
+- 'Counts memberships, not people: a customer with two memberships counts twice.'
+- Memberships with a cancel date in the future, until that date
+excludes:
+- Memberships cancelled on or before the day
+- Cancelled memberships with no cancel date
+counted_on: A point-in-time count for each day, using signup and cancel dates in Pacific time.
+sources:
+- Commerce7
+will_not_match:
+- figure: Commerce7's current active member count, compared with a past date
+  direction: differs
+  reason: The dashboard rebuilds each past day from signup and cancel dates; Commerce7 shows today's status.
+history:
+- date: '2026-07-07'
+  change: Changed to a point-in-time count from signup and cancel dates.
+  effect: Past days stay correct after later cancellations; before, a member who cancelled disappeared from history.
+models:
+- models/marts/agg_daily_revenue.sql
+- models/marts/agg_club_membership_active_daily.sql

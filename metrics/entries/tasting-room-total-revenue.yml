@@ -1,0 +1,19 @@
+id: tasting-room-total-revenue
+name: Tasting Room Total Revenue
+kpi_id: 3
+group: Tasting Room
+shown_on: Not shown on its own; its two parts are shown separately in the Sales Revenue table.
+summary: Tasting room wine revenue plus tasting room fees revenue.
+calculation:
+- Add Tasting Room Wine Revenue and Tasting Room Fees Revenue for the same day.
+includes:
+- Whatever its two parts include
+excludes:
+- Whatever its two parts leave out
+counted_on: 'Each part keeps its own day: the paid date for wine, the visit date for fees.'
+sources:
+- metric:tasting-room-wine-revenue
+- metric:tasting-room-fees-revenue
+history: []
+models:
+- models/marts/agg_daily_revenue.sql

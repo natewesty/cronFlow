@@ -1,0 +1,20 @@
+id: total-reservations
+name: Total Reservations
+kpi_id: 15
+group: Traffic and Guests
+shown_on: Not shown on its own on the dashboard.
+summary: The number of Tock reservations that were not cancelled.
+calculation:
+- Take every Tock reservation that was not cancelled, of every experience.
+- Count them by day of visit.
+includes:
+- Every experience, whatever its assignment in Plan Inputs
+- Reservations marked as a no-show
+excludes:
+- Cancelled reservations
+counted_on: The day of the visit (the reservation date).
+sources:
+- Tock
+history: []
+models:
+- models/marts/agg_daily_revenue.sql
