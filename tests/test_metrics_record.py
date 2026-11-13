@@ -81,6 +81,19 @@ def test_fingerprint_covers_macros(repo):
     assert state["changed_files"] == ["macros/fiscal.sql"]
 
 
+def test_fingerprint_covers_seeds_and_project_config(repo):
+    # Adding a customer to the excluded-customer seed, or moving a dbt var such as the history start,
+    # changes what the dashboard shows without touching a model. Those files are part of every entry.
+    (repo / "models" / "seeds").mkdir()
+    (repo / "models" / "seeds" / "dim_excluded_customer.csv").write_text("customer_id\n1\n")
+    (repo / "dbt_project.yml").write_text("vars:\n  kpi_history_start: '2023-07-01'\n")
+    record.confirm(["tasting-fees"], "2026-11-13", repo)
+    (repo / "models" / "seeds" / "dim_excluded_customer.csv").write_text("customer_id\n1\n2\n")
+    (repo / "dbt_project.yml").write_text("vars:\n  kpi_history_start: '2024-01-01'\n")
+    state = record.staleness(record.load_entries(repo)[0], record.load_lock(repo), repo)
+    assert state["changed_files"] == ["dbt_project.yml", "models/seeds/dim_excluded_customer.csv"]
+
+
 # ---- what a valid entry is ----
 
 def test_a_complete_entry_is_valid(repo):
@@ -191,6 +204,18 @@ def test_kpi_columns_reads_all_31():
 def test_every_kpi_has_exactly_one_entry():
     ids = [e["kpi_id"] for e in record.load_entries(REPO) if e.get("kpi_id") is not None]
     assert sorted(ids) == sorted(record.kpi_columns(REPO)), "every dashboard metric needs one entry in metrics/entries"
+
+
+def test_entries_match_the_dim_kpi_seed():
+    # dim_kpi names the dashboard's metrics; an entry carries the same id and the same name.
+    import csv
+    with open(REPO / "models" / "seeds" / "dim_kpi.csv", newline="") as handle:
+        seed = {int(row["kpi_id"]): row for row in csv.DictReader(handle)}
+    entries = {e["kpi_id"]: e for e in record.load_entries(REPO) if e.get("kpi_id") is not None}
+    assert sorted(entries) == sorted(seed)
+    for kpi_id, row in seed.items():
+        assert entries[kpi_id]["id"] == row["kpi_code"].replace("_", "-"), kpi_id
+        assert entries[kpi_id]["name"] == row["kpi_name"], kpi_id
 
 
 def test_every_entry_is_valid():

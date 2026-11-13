@@ -132,11 +132,18 @@ def _macro_files(root: Path) -> List[str]:
     return sorted(path.relative_to(root).as_posix() for path in (root / "macros").rglob("*.sql"))
 
 
+def _config_files(root: Path) -> List[str]:
+    """Seeds and project config: data and settings that change what the dashboard shows without a model
+    changing (the excluded-customer list, the history start, the fiscal fallback)."""
+    files = sorted(path.relative_to(root).as_posix() for path in (root / "models" / "seeds").glob("*.csv"))
+    return files + (["dbt_project.yml"] if (root / "dbt_project.yml").is_file() else [])
+
+
 def file_hashes(models: List[str], root=None) -> Dict[str, str]:
-    """Hash of every file an entry's value depends on: its models, everything they ref, and every
-    macro (the fiscal and period logic lives there, and a change to it moves every period total)."""
+    """Hash of every file an entry's value depends on: its models, everything they ref, every macro
+    (the fiscal and period logic lives there), and the seeds and project config."""
     root = _root(root)
-    files = model_closure(models, root) + _macro_files(root)
+    files = model_closure(models, root) + _macro_files(root) + _config_files(root)
     return {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest() for rel in sorted(set(files))}
 
 

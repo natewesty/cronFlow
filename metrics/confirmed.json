@@ -2,6 +2,7 @@
   "average-order-value": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -15,6 +16,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -27,6 +33,7 @@
   "avg-party-size": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -40,6 +47,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -52,6 +64,7 @@
   "avg-tasting-fee-per-guest": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -65,6 +78,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -77,6 +95,7 @@
   "club-conversion-per-taster-pct": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -90,6 +109,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -102,6 +126,7 @@
   "club-population-net-gain-loss": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -115,6 +140,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -127,6 +157,7 @@
   "ecomm-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -140,6 +171,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -152,6 +188,7 @@
   "event-fees-orders-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -165,6 +202,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -177,6 +219,7 @@
   "event-fees-reservations-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -190,6 +233,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -202,6 +250,7 @@
   "event-fees-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -215,6 +264,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -227,6 +281,7 @@
   "event-guests": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -240,6 +295,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -252,6 +312,7 @@
   "event-wine-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -265,6 +326,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -277,6 +343,7 @@
   "existing-member-attrition": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -290,6 +357,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -302,6 +374,7 @@
   "new-member-acquisition": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -315,6 +388,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -327,6 +405,7 @@
   "phone-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -340,6 +419,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -352,6 +436,7 @@
   "shipping-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -365,6 +450,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -377,6 +467,7 @@
   "tasting-room-bottles-sold": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -390,6 +481,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -402,6 +498,7 @@
   "tasting-room-fees-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -415,6 +512,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -427,6 +529,7 @@
   "tasting-room-guests": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -440,6 +543,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -452,6 +560,7 @@
   "tasting-room-orders": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -465,6 +574,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -477,6 +591,7 @@
   "tasting-room-orders-per-guest-pct": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -490,6 +605,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -502,6 +622,7 @@
   "tasting-room-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -515,6 +636,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -527,6 +653,7 @@
   "tasting-room-wine-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -540,6 +667,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -552,6 +684,7 @@
   "total-9l-sold": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -565,6 +698,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -577,6 +715,7 @@
   "total-active-club-membership": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -591,6 +730,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -603,6 +747,7 @@
   "total-daily-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -616,6 +761,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -628,6 +778,7 @@
   "total-orders": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -641,6 +792,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -653,6 +809,7 @@
   "total-reservations": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -666,6 +823,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -678,6 +840,7 @@
   "total-visitors": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -691,6 +854,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -703,6 +871,7 @@
   "wine-club-fees-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -716,6 +885,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -728,6 +902,7 @@
   "wine-club-orders-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -741,6 +916,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
@@ -753,6 +933,7 @@
   "wine-club-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "dbt_project.yml": "aeb58d76e629ffb2ca0677c30a49e80467cbe338364aac76180f2727db555022",
       "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
       "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
       "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
@@ -766,6 +947,11 @@
       "models/marts/fct_order.sql": "fa74310daf50e1c88e563501230431a7414783ac06259c76800f2fae41f75daa",
       "models/marts/fct_order_item.sql": "aaeb17300d419fa1adf05c35d32735444b316ae56ced2b4136e93571f6b3b7d5",
       "models/marts/fct_tock_reservation.sql": "ae78d9dc9d44af2e0088952dd7a9b5127b269f5e81d7d1f567f04f03c54393e8",
+      "models/seeds/dim_case_size.csv": "e308ec6a9c1393cd6c390685ce92830ff5ce65d0d2cdb61ca2312ad247dca502",
+      "models/seeds/dim_entity.csv": "ae4fb810f33091dfe0e5d38269a37acc64c9cc285a92a1ef66ee9f823fb13cb2",
+      "models/seeds/dim_excluded_customer.csv": "5b35b821949c9309d793082b56e4583daa8e8ccb9bae29c6b979a4a3d7d9590f",
+      "models/seeds/dim_kpi.csv": "28589a9750a072ad1159aaa1028c03c69558388a603c76fd92325555839db84b",
+      "models/seeds/dim_ruca.csv": "9184b0819f56ca62115527202ec538110b3810c0430534670b3970543fc5e745",
       "models/staging/stg_club_membership.sql": "2460b7b15b4009d210d4fe1b7fcf17c7f7c38a785c651ad66e11ed298687d132",
       "models/staging/stg_excluded_order.sql": "897e3b5eb6d5fd632988323ef947119b1f8436c2553761c3f19579feaf851429",
       "models/staging/stg_order.sql": "d955c6bc6edfb0f18975d42fd25da0c3d4f325780abd5f4e6051aebcb068d352",
