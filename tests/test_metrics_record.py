@@ -64,6 +64,23 @@ def test_closure_ignores_source(repo):
     assert "models/c.sql" not in record.model_closure(["models/b.sql"], repo)
 
 
+def test_closure_follows_refs_made_inside_macros(repo):
+    # agg_kpi_dashboard reaches kpi_dim_date only through a macro; the tile's periods depend on it.
+    (repo / "macros").mkdir()
+    (repo / "macros" / "dates.sql").write_text("{% macro bounds() %} select * from {{ ref('c') }} {% endmacro %}\n")
+    assert record.model_closure(["models/b.sql"], repo) == ["models/b.sql", "models/c.sql"]
+
+
+def test_fingerprint_covers_macros(repo):
+    (repo / "macros").mkdir()
+    (repo / "macros" / "fiscal.sql").write_text("{% macro start() %}7{% endmacro %}\n")
+    record.confirm(["tasting-fees"], "2026-11-13", repo)
+    (repo / "macros" / "fiscal.sql").write_text("{% macro start() %}1{% endmacro %}\n")
+    state = record.staleness(record.load_entries(repo)[0], record.load_lock(repo), repo)
+    assert state["fingerprint_ok"] is False
+    assert state["changed_files"] == ["macros/fiscal.sql"]
+
+
 # ---- what a valid entry is ----
 
 def test_a_complete_entry_is_valid(repo):
@@ -201,3 +218,53 @@ def test_events_name_real_entries():
         assert set(event) == {"date", "change", "effect", "metrics"}
         if event["metrics"] != "all":
             assert set(event["metrics"]) <= ids, event
+
+
+def _texts(entry):
+    """Every sentence a reader of the entry sees."""
+    out = [entry["summary"], entry["counted_on"], entry["shown_on"]]
+    for field in ("calculation", "includes", "excludes"):
+        out += entry.get(field) or []
+    for item in entry.get("will_not_match") or []:
+        out += [item["figure"], item["reason"]]
+    for item in entry.get("history") or []:
+        out += [item["change"], item["effect"]]
+    return out
+
+
+def test_every_kpi_entry_is_tied_to_the_roll_up_the_tiles_read():
+    # The number on screen is agg_kpi_dashboard's period roll-up of the daily value, so a change to the
+    # roll-up, the KPI-to-column mapping, the date dimension or the fiscal macros must flag the entry.
+    needed = {"models/kpi/agg_kpi_dashboard.sql", "models/kpi/fact_kpi_daily.sql", "models/kpi/kpi_dim_date.sql",
+              "models/marts/agg_daily_revenue.sql", "macros/fiscal.sql", "macros/kpi_date_utils.sql"}
+    for entry in record.load_entries(REPO):
+        if entry.get("kpi_id") is not None:
+            missing = needed - set(record.file_hashes(entry["models"], REPO))
+            assert not missing, (entry["id"], sorted(missing))
+
+
+def test_entries_make_no_dated_claims_about_data():
+    # "As of <date> no order carries ..." is a statement about data that nothing re-checks. An entry
+    # describes what the code does; what the data happened to contain on one day does not belong in it.
+    import re
+    dated = re.compile(r"\bas of \d{4}-\d{2}-\d{2}\b", re.IGNORECASE)
+    offenders = {e["id"]: [t for t in _texts(e) if dated.search(t)] for e in record.load_entries(REPO)}
+    assert {k: v for k, v in offenders.items() if v} == {}
+
+
+def test_daily_averages_are_described_as_daily():
+    # These two are computed per day; the dashboard then averages the days. A summary that reads as a
+    # per-order or per-guest average over the whole period would describe a different number.
+    entries = {e["id"]: e for e in record.load_entries(REPO)}
+    for entry_id in ("average-order-value", "avg-tasting-fee-per-guest"):
+        assert "each day" in entries[entry_id]["summary"].lower(), entry_id
+
+
+def test_history_records_the_changes_that_moved_values():
+    events = {e["date"]: e for e in record.load_events(REPO)}
+    excluded = events["2026-11-04"]                      # excluded customers' orders removed from reporting
+    assert {"tasting-room-wine-revenue", "total-orders", "total-daily-revenue"} <= set(excluded["metrics"])
+    tock = events["2026-11-10"]                          # the per-guest tile's guest count moved too
+    assert "tasting-room-bottles-sold" in tock["metrics"]
+    wine = {e["id"]: e for e in record.load_entries(REPO)}["tasting-room-wine-revenue"]
+    assert "2025-10-20" in [item["date"] for item in wine["history"]]

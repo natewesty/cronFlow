@@ -3,7 +3,7 @@ name: Average Order Value
 kpi_id: 29
 group: Orders
 shown_on: Sales Metrics & Tracking dashboard, average order value card
-summary: The average subtotal of the orders counted in Total Orders.
+summary: For each day, the average subtotal of the orders counted in Total Orders.
 calculation:
 - Take every Commerce7 order that has been paid, from every channel.
 - Keep orders that did not come from an outside system such as Tock, and whose subtotal is above zero.
@@ -22,4 +22,4 @@ sources:
 - Commerce7
 history: []
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql

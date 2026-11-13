@@ -902,10 +902,12 @@ def main(endpoint: str = None):
         logger.info("Starting dbt transformation pipeline...")
         dbt_ok = run_dbt()
         outcome = LAST_DBT_OUTCOME
+        dbt_summary = {"failed_models": outcome["failed_models"], "kpi_stage_ran": outcome["kpi_stage_ran"]}
+        if dbt_ok:
+            dbt_summary["record_models_built"] = build_record_models()
         if dbt_ok and endpoint is None:
             # dbt tests do not run here, so check that the Tock walk still ends at the dashboard's value.
             pipeline_runlog.update_summary(run_engine, run_id, {"walk_check": _check_walk(run_engine)})
-        dbt_summary = {"failed_models": outcome["failed_models"], "kpi_stage_ran": outcome["kpi_stage_ran"]}
         if dbt_ok:
             logger.info("🎉 Complete pipeline (ingestion + dbt) finished successfully!")
             if outcome["partial"]:
@@ -924,6 +926,23 @@ def main(endpoint: str = None):
         logger.error(f"Error during data ingestion: {str(e)}", exc_info=True)  # Added exc_info for full traceback
         pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage="ingest", error=str(e))
         sys.exit(1)
+
+
+def build_record_models() -> bool:
+    """Build the Calculation Record's own dbt models, after the tiles. Best effort: never raises, and
+    its outcome changes nothing about the run except one line in the run log."""
+    try:
+        dir_args = ['--profiles-dir', '.', '--project-dir', '.'] if os.getenv('RENDER') == 'true' else []
+        command = ['dbt', 'run'] + dir_args + ['--select', RECORD_MODELS]
+        logger.info(f"🔄 Building Calculation Record models: {' '.join(command)}")
+        subprocess.run(command, capture_output=True, text=True, check=True, env=os.environ.copy())
+        return True
+    except subprocess.CalledProcessError as error:
+        logger.warning(f"Calculation Record models did not build (dbt exited {error.returncode}): {error.stdout}")
+        return False
+    except Exception as error:
+        logger.warning(f"Calculation Record models did not build ({error})")
+        return False
 
 
 def _publish_record(engine) -> bool:
@@ -951,6 +970,9 @@ def _run_log_engine():
     except Exception as error:
         logger.warning(f"Run log: no database engine ({error}); the run continues unlogged")
         return None
+
+# dbt selector for the models that exist only for the Calculation Record page (see build_record_models).
+RECORD_MODELS = 'tag:calculation_record'
 
 # How the last run_dbt() call ended, for the run log. run_dbt()'s return value is unchanged: it still
 # reports a partly failed dbt run as success; `partial` is how main() tells the two apart.
@@ -1050,7 +1072,9 @@ def run_dbt():
         # Run dbt in stages to ensure proper build order
         logger.info("🔄 Step 2: Building staging and marts models...")
         base_command = ['dbt', 'run'] + base_dir_args + full_refresh_args
-        stage1_command = base_command + ['--exclude', 'kpi.*']
+        # The Calculation Record's own models are built after the tiles, by build_record_models():
+        # a model that errors here would stop the kpi stage from running at all.
+        stage1_command = base_command + ['--exclude', 'kpi.*', RECORD_MODELS]
         logger.info(f"🔄 Executing command: {' '.join(stage1_command)}")
         
         result1 = subprocess.run(

@@ -2,6 +2,11 @@
   "average-order-value": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -22,6 +27,11 @@
   "avg-party-size": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -42,6 +52,11 @@
   "avg-tasting-fee-per-guest": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -62,6 +77,11 @@
   "club-conversion-per-taster-pct": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -82,6 +102,11 @@
   "club-population-net-gain-loss": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -102,6 +127,11 @@
   "ecomm-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -122,6 +152,11 @@
   "event-fees-orders-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -142,6 +177,11 @@
   "event-fees-reservations-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -162,6 +202,11 @@
   "event-fees-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -182,6 +227,11 @@
   "event-guests": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -202,6 +252,11 @@
   "event-wine-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -222,6 +277,11 @@
   "existing-member-attrition": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -242,6 +302,11 @@
   "new-member-acquisition": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -262,6 +327,11 @@
   "phone-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -282,6 +352,11 @@
   "shipping-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -302,6 +377,11 @@
   "tasting-room-bottles-sold": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -322,6 +402,11 @@
   "tasting-room-fees-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -342,6 +427,11 @@
   "tasting-room-guests": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -362,6 +452,11 @@
   "tasting-room-orders": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -382,6 +477,11 @@
   "tasting-room-orders-per-guest-pct": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -402,6 +502,11 @@
   "tasting-room-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -422,6 +527,11 @@
   "tasting-room-wine-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -442,6 +552,11 @@
   "total-9l-sold": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -462,6 +577,11 @@
   "total-active-club-membership": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_club_membership_active_daily.sql": "2609ac8cd9fb6dfa55deb225f997975b3fd45fcb1533a1a6f7a0f4d9dd3ac011",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
@@ -483,6 +603,11 @@
   "total-daily-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -503,6 +628,11 @@
   "total-orders": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -523,6 +653,11 @@
   "total-reservations": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -543,6 +678,11 @@
   "total-visitors": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -563,6 +703,11 @@
   "wine-club-fees-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -583,6 +728,11 @@
   "wine-club-orders-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",
@@ -603,6 +753,11 @@
   "wine-club-total-revenue": {
     "date": "2026-11-13",
     "files": {
+      "macros/fiscal.sql": "2a8233c7095f8ed7a758279069542a48d11feae19e0bd37705fcf5fddf976de9",
+      "macros/kpi_date_utils.sql": "311827a56adad29a5c33a3203d2ed171e945ff3a8ddeae8698f975b3c960dd23",
+      "models/kpi/agg_kpi_dashboard.sql": "b2ff0e3afce8a5a8980b77b59ae884e8e678bbd78f7857ebd9c686cc03535b01",
+      "models/kpi/fact_kpi_daily.sql": "189e5b30dbbd9e95ad59233fc9b3bdbd2ed1fdbfa49e460d7201c54741b2a823",
+      "models/kpi/kpi_dim_date.sql": "20a59f204150fca1ce37daa62ba788bf1b89b26e02738eea5f1001728df7b59c",
       "models/marts/agg_daily_revenue.sql": "3ebb30197e221dd3192100336e802c71d32e3a51af32cc59ec9066335a2620fa",
       "models/marts/dim_club_membership.sql": "776843fc0f2c2b3eca22b143644734fdba4dcae4fd10188bce308d6b6b6c1b2c",
       "models/marts/dim_date.sql": "8a7956e71f7fbd9bfb386cc2597884463a375189d07e6c9cc998aae562e0cc59",

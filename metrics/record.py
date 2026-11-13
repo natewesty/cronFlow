@@ -113,6 +113,10 @@ def model_closure(models: List[str], root=None) -> List[str]:
     root = _root(root)
     by_name = {path.stem: path.relative_to(root).as_posix() for path in sorted((root / "models").rglob("*.sql"))}
     seen, queue = set(), [str(m) for m in models]
+    # A model can reach another only through a macro (agg_kpi_dashboard reaches kpi_dim_date that way),
+    # and macros are not tied to one model, so whatever any macro refs belongs to every closure.
+    for macro in _macro_files(root):
+        queue += [by_name[name] for name in _REF.findall((root / macro).read_text()) if name in by_name]
     while queue:
         rel = queue.pop()
         if rel in seen or not (root / rel).is_file():
@@ -124,9 +128,16 @@ def model_closure(models: List[str], root=None) -> List[str]:
     return sorted(seen)
 
 
+def _macro_files(root: Path) -> List[str]:
+    return sorted(path.relative_to(root).as_posix() for path in (root / "macros").rglob("*.sql"))
+
+
 def file_hashes(models: List[str], root=None) -> Dict[str, str]:
+    """Hash of every file an entry's value depends on: its models, everything they ref, and every
+    macro (the fiscal and period logic lives there, and a change to it moves every period total)."""
     root = _root(root)
-    return {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest() for rel in model_closure(models, root)}
+    files = model_closure(models, root) + _macro_files(root)
+    return {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest() for rel in sorted(set(files))}
 
 
 def load_lock(root=None) -> dict:

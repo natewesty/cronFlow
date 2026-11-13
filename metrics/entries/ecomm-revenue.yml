@@ -28,4 +28,4 @@ will_not_match:
   reason: The dashboard counts an order on the day it was paid.
 history: []
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql

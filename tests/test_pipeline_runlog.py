@@ -120,12 +120,17 @@ def ingest(tmp_path, monkeypatch):
     return module
 
 
-def fake_dbt(fail_on=None, stdout=""):
-    """subprocess.run stand-in: `fail_on` is the dbt run stage that raises ('marts' or 'kpi')."""
+def fake_dbt(fail_on=None, stdout="", seen=None):
+    """subprocess.run stand-in: `fail_on` is the dbt run stage that raises ('marts', 'kpi' or 'record').
+    `seen`, when given, collects the name of each dbt run stage in the order it was started."""
     def run(command, **kwargs):
-        is_kpi = "--select" in command
         is_marts = "--exclude" in command
-        if (fail_on == "marts" and is_marts) or (fail_on == "kpi" and is_kpi):
+        is_kpi = "--select" in command and "kpi.*" in command
+        is_record = "--select" in command and "tag:calculation_record" in command
+        stage = "marts" if is_marts else "kpi" if is_kpi else "record" if is_record else None
+        if seen is not None and stage:
+            seen.append((stage, list(command)))
+        if stage and stage == fail_on:
             raise subprocess.CalledProcessError(1, command, output=stdout, stderr="")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
     return run
@@ -296,3 +301,39 @@ def test_main_runs_when_the_record_modules_could_not_be_imported(main_env, monke
     ingest.main()
     assert log.patches == [{"record_published": False}, {"walk_check": None}]
     assert log.closed[0]["status"] == "succeeded"
+
+
+# ---- the record's own dbt model must not be able to hold back the tiles ----
+# rec_tock_revenue_daily evaluates casts nothing else does. If it built in the marts stage, one
+# malformed Tock value would make dbt exit 1, run_dbt would call that a partial success, and the kpi
+# stage (the tiles) would be skipped on every run. So it is built on its own, after the tiles.
+
+def test_marts_stage_does_not_build_the_record_models(ingest, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(seen=seen))
+    assert ingest.run_dbt() is True
+    stage, command = seen[0]
+    assert stage == "marts"
+    excluded = command[command.index("--exclude") + 1:]
+    assert "kpi.*" in excluded and "tag:calculation_record" in excluded
+    assert [name for name, _ in seen] == ["marts", "kpi"]      # run_dbt itself never builds them
+
+
+def test_record_models_are_built_after_the_tiles(main_env, monkeypatch):
+    ingest, log = main_env
+    seen = []
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(seen=seen))
+    ingest.main()
+    assert [name for name, _ in seen] == ["marts", "kpi", "record"]
+    assert log.closed[0]["status"] == "succeeded"
+    assert log.closed[0]["summary"]["record_models_built"] is True
+
+
+def test_a_failing_record_model_leaves_the_run_succeeded(main_env, monkeypatch):
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(fail_on="record", stdout=DBT_PARTIAL))
+    ingest.main()                                  # no exit, no exception
+    assert log.closed[0]["status"] == "succeeded"
+    assert log.closed[0]["summary"]["kpi_stage_ran"] is True
+    assert log.closed[0]["summary"]["record_models_built"] is False
+    assert log.closed[0]["summary"]["failed_models"] == []     # the tiles' models did not fail

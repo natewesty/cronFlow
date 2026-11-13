@@ -33,6 +33,10 @@ will_not_match:
 - figure: Commerce7 reports by order submitted date
   direction: differs
   reason: The dashboard counts an order on the day it was paid.
-history: []
+history:
+- date: '2025-10-20'
+  change: 'The event rules changed: an order whose Event-Specific Sale tag is "false" or "0" now counts as a tasting
+    room sale, and an order with an event revenue realization date no longer does.'
+  effect: Moved orders in both directions, depending on how each was tagged.
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql

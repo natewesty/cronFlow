@@ -28,5 +28,5 @@ history:
   change: Changed to a point-in-time count from signup and cancel dates.
   effect: Past days stay correct after later cancellations; before, a member who cancelled disappeared from history.
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql
 - models/marts/agg_club_membership_active_daily.sql

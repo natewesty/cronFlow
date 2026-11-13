@@ -1,8 +1,13 @@
 {{
   config(
-    materialized='table'
+    materialized='table',
+    tags=['calculation_record']
   )
 }}
+
+-- Tagged calculation_record: ingest.py keeps this model out of the marts stage and builds it on its
+-- own after the kpi stage. It evaluates casts no other model does, and a model that errors in the
+-- marts stage stops the kpi stage (the tiles) from running at all.
 
 -- The walk from Tock's own figures to the dashboard's Tock revenue, one row per visit date and
 -- attribution bucket. The Calculation Record page sums these rows over a period to show, line by line,

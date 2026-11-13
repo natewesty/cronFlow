@@ -10,7 +10,7 @@ calculation:
 - Keep orders made at the point of sale (channel POS) that did not come from Tock, whose Tasting Lounge tag is not
   set to true, and that have no Event Fee or Wine tag.
 - Also keep any order, from any channel, whose Event Fee or Wine tag is set to "false" and that has no Event-Specific
-  Sale tag. As of 2026-11-13 no order carries that tag value.
+  Sale tag.
 - Count them by day.
 includes:
 - 'Refund orders and zero-value orders: each counts as an order'
@@ -24,4 +24,4 @@ sources:
 - Commerce7
 history: []
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql

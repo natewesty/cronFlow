@@ -9,7 +9,7 @@ calculation:
 - Keep items on orders made at the point of sale (channel POS) that did not come from Tock, whose Tasting Lounge
   tag is not set to true, and that have no Event Fee or Wine tag.
 - Also keep items on any order, from any channel, whose Event Fee or Wine tag is set to "false" and that has no
-  Event-Specific Sale tag. As of 2026-11-13 no order carries that tag value.
+  Event-Specific Sale tag.
 - Add up the quantities by the day the order was paid.
 includes:
 - Every wine item counts as one bottle, whatever its size
@@ -25,4 +25,4 @@ sources:
 - Commerce7
 history: []
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql

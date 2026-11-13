@@ -49,4 +49,4 @@ walk:
   kind: tock_revenue
   bucket: Event
 models:
-- models/marts/agg_daily_revenue.sql
+- models/kpi/agg_kpi_dashboard.sql
