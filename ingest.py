@@ -26,6 +26,8 @@ from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.pool import QueuePool
 import numpy as np
 
+import pipeline_runlog
+
 load_dotenv()
 
 # Configure logging with more detailed format
@@ -802,9 +804,15 @@ def test_database_connection():
 
 def main(endpoint: str = None):
     """Main ingestion function."""
+    # Run log: full runs only. Every call below swallows its own errors, so the log can never fail a run.
+    run_engine, run_id = None, None
     try:
         # Load and validate environment variables
         load_environment()
+
+        if endpoint is None:
+            run_engine = _run_log_engine()
+            run_id = pipeline_runlog.open_run(run_engine) if run_engine is not None else None
         
         # Initialize clients based on available credentials
         clients = {}
@@ -885,18 +893,50 @@ def main(endpoint: str = None):
         
         # Run dbt models after successful data ingestion
         logger.info("Starting dbt transformation pipeline...")
-        if run_dbt():
+        dbt_ok = run_dbt()
+        outcome = LAST_DBT_OUTCOME
+        dbt_summary = {"failed_models": outcome["failed_models"], "kpi_stage_ran": outcome["kpi_stage_ran"]}
+        if dbt_ok:
             logger.info("🎉 Complete pipeline (ingestion + dbt) finished successfully!")
+            if outcome["partial"]:
+                pipeline_runlog.close_run(run_engine, run_id, "finished_with_errors",
+                                          failed_stage=outcome["failed_stage"], error=outcome["error"],
+                                          summary=dbt_summary)
+            else:
+                pipeline_runlog.close_run(run_engine, run_id, "succeeded", summary=dbt_summary)
         else:
             logger.error("❌ dbt run failed, but data ingestion was successful")
+            pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage=outcome["failed_stage"] or "dbt",
+                                      error=outcome["error"], summary=dbt_summary)
             sys.exit(1)
         
     except Exception as e:
         logger.error(f"Error during data ingestion: {str(e)}", exc_info=True)  # Added exc_info for full traceback
+        pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage="ingest", error=str(e))
         sys.exit(1)
+
+
+def _run_log_engine():
+    """An engine for the run log, or None if one cannot be made; never raises."""
+    try:
+        return create_database_engine()
+    except Exception as error:
+        logger.warning(f"Run log: no database engine ({error}); the run continues unlogged")
+        return None
+
+# How the last run_dbt() call ended, for the run log. run_dbt()'s return value is unchanged: it still
+# reports a partly failed dbt run as success; `partial` is how main() tells the two apart.
+LAST_DBT_OUTCOME = {"ok": False, "partial": False, "failed_stage": None, "failed_models": [],
+                    "kpi_stage_ran": False, "error": None}
+
 
 def run_dbt():
     """Run dbt models after successful data ingestion."""
+    global LAST_DBT_OUTCOME
+    outcome = {"ok": False, "partial": False, "failed_stage": None, "failed_models": [],
+               "kpi_stage_ran": False, "error": None}
+    LAST_DBT_OUTCOME = outcome
+    stage = 'dbt'
     try:
         logger.info("🔄 Starting dbt run...")
         
@@ -914,11 +954,13 @@ def run_dbt():
         logger.info(f"Checking dbt project file: {dbt_project_path}")
         if not dbt_project_path.exists():
             logger.error(f"❌ dbt_project.yml not found at {dbt_project_path}")
+            outcome.update(failed_stage=stage, error="dbt_project.yml not found")
             return False
             
         logger.info(f"Checking profiles file: {profiles_path}")
         if not profiles_path.exists():
             logger.error(f"❌ profiles.yml not found at {profiles_path}")
+            outcome.update(failed_stage=stage, error="profiles.yml not found")
             return False
         
         # List directory contents for debugging
@@ -1001,6 +1043,8 @@ def run_dbt():
         logger.info("🔄 Step 3: Building KPI models...")
         stage2_command = base_command + ['--select', 'kpi.*']
         logger.info(f"🔄 Executing command: {' '.join(stage2_command)}")
+        stage = 'dbt-kpi'
+        outcome["kpi_stage_ran"] = True
         
         result2 = subprocess.run(
             stage2_command,
@@ -1016,12 +1060,15 @@ def run_dbt():
         if result2.stderr:
             logger.warning(f"dbt stderr: {result2.stderr}")
         
+        outcome["ok"] = True
         return True
         
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ dbt run failed with exit code {e.returncode}")
         logger.error(f"dbt stdout: {e.stdout}")
         logger.error(f"dbt stderr: {e.stderr}")
+        outcome.update(failed_stage=stage, error=f"dbt exited {e.returncode}",
+                       failed_models=pipeline_runlog.parse_dbt_outcome(e.stdout)["failed_models"])
         
         # Provide specific guidance for different error types
         if is_render and "profiles-dir" in str(e.stderr):
@@ -1045,16 +1092,19 @@ def run_dbt():
             logger.warning("⚠️ dbt completed with some errors but partial success")
             logger.warning("   This is often acceptable for incremental models with data issues")
             logger.warning("   Consider this a successful run unless critical models failed")
+            outcome.update(ok=True, partial=True)
             return True  # Treat partial success as success
         
         return False
     except FileNotFoundError:
         logger.error("❌ dbt command not found. Please ensure dbt is installed and available in PATH")
+        outcome.update(failed_stage=stage, error="dbt command not found")
         if is_render:
             logger.error("💡 In Render, make sure dbt is listed in your requirements.txt or build script")
         return False
     except Exception as e:
         logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
+        outcome.update(failed_stage=stage, error=str(e))
         return False
 
 def cleanup_duplicate_records(table_name: str):
