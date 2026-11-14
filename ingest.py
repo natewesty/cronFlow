@@ -928,6 +928,11 @@ def main(endpoint: str = None):
         sys.exit(1)
 
 
+def _is_partial_dbt_failure(stdout) -> bool:
+    """dbt ran, and some models failed while others passed (its summary line carries both)."""
+    return "ERROR" in str(stdout) and "PASS=" in str(stdout)
+
+
 def build_record_models() -> bool:
     """Build the Calculation Record's own dbt models, after the tiles. Best effort: never raises, and
     its outcome changes nothing about the run except one line in the run log."""
@@ -1077,19 +1082,32 @@ def run_dbt():
         stage1_command = base_command + ['--exclude', 'kpi.*', RECORD_MODELS]
         logger.info(f"🔄 Executing command: {' '.join(stage1_command)}")
         
-        result1 = subprocess.run(
-            stage1_command,
-            capture_output=True,
-            text=True,
-            check=True,
-            env=os.environ.copy()
-        )
-        
-        logger.info("✅ Step 2 completed - marts built successfully")
-        logger.debug(f"dbt output: {result1.stdout}")
-        
-        if result1.stderr:
-            logger.warning(f"dbt stderr: {result1.stderr}")
+        marts_failures = []
+        try:
+            result1 = subprocess.run(
+                stage1_command,
+                capture_output=True,
+                text=True,
+                check=True,
+                env=os.environ.copy()
+            )
+            logger.info("✅ Step 2 completed - marts built successfully")
+            logger.debug(f"dbt output: {result1.stdout}")
+            if result1.stderr:
+                logger.warning(f"dbt stderr: {result1.stderr}")
+        except subprocess.CalledProcessError as marts_error:
+            # Guard: one failed model must not hold back the tiles. When some marts models failed and
+            # others passed, carry on to the kpi stage (the failed model's table keeps its last good
+            # contents, so the tiles rebuild from that). Before, the run ended here, reported success,
+            # and the kpi stage never ran. Any other failure is handled below exactly as before.
+            if not _is_partial_dbt_failure(marts_error.stdout):
+                raise
+            marts_failures = pipeline_runlog.parse_dbt_outcome(marts_error.stdout)["failed_models"]
+            logger.warning(f"⚠️ dbt marts stage finished with errors in: {', '.join(marts_failures) or 'unknown models'}")
+            logger.warning("   Continuing to the KPI stage so the dashboard tiles still rebuild")
+            logger.error(f"dbt stdout: {marts_error.stdout}")
+            outcome.update(partial=True, failed_stage=stage, failed_models=marts_failures,
+                           error=f"dbt exited {marts_error.returncode}")
         
         # Run KPI models after marts are built
         logger.info("🔄 Step 3: Building KPI models...")
@@ -1120,7 +1138,8 @@ def run_dbt():
         logger.error(f"dbt stdout: {e.stdout}")
         logger.error(f"dbt stderr: {e.stderr}")
         outcome.update(failed_stage=stage, error=f"dbt exited {e.returncode}",
-                       failed_models=pipeline_runlog.parse_dbt_outcome(e.stdout)["failed_models"])
+                       failed_models=outcome["failed_models"]
+                       + pipeline_runlog.parse_dbt_outcome(e.stdout)["failed_models"])
         
         # Provide specific guidance for different error types
         if is_render and "profiles-dir" in str(e.stderr):
@@ -1139,7 +1158,7 @@ def run_dbt():
             logger.error("   2. Incorrect unique_key configuration in dbt models")
             logger.error("   3. Need to update model unique_key to handle multiple rows")
             logger.error("   Check the failing models and update their unique_key configuration")
-        elif "ERROR" in str(e.stdout) and "PASS=" in str(e.stdout):
+        elif _is_partial_dbt_failure(e.stdout):
             # Partial success - some models failed but others succeeded
             logger.warning("⚠️ dbt completed with some errors but partial success")
             logger.warning("   This is often acceptable for incremental models with data issues")

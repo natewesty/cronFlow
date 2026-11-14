@@ -5,8 +5,9 @@ whether that run succeeded. Writing the log must never fail or block a run, so e
 catches everything, logs it, and returns.
 
 Statuses: running, succeeded, finished_with_errors, failed.
-  finished_with_errors is the run that exits 0 although dbt reported failed models (ingest.run_dbt
-  treats "some models failed, some passed" as success) or never reached the kpi stage.
+  finished_with_errors is the run that exits 0 although dbt reported failed models: ingest.run_dbt
+  treats "some models failed, some passed" as success. After such a failure in the marts stage it
+  still runs the kpi stage, so the tiles rebuild; summary.kpi_stage_ran says whether it did.
 Stages (failed_stage): ingest, dbt, dbt-kpi.
 """
 import json

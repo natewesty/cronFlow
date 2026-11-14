@@ -121,7 +121,8 @@ def ingest(tmp_path, monkeypatch):
 
 
 def fake_dbt(fail_on=None, stdout="", seen=None):
-    """subprocess.run stand-in: `fail_on` is the dbt run stage that raises ('marts', 'kpi' or 'record').
+    """subprocess.run stand-in: `fail_on` is the dbt run stage that raises ('marts', 'kpi' or 'record'),
+    or a dict of stage -> the stdout it fails with.
     `seen`, when given, collects the name of each dbt run stage in the order it was started."""
     def run(command, **kwargs):
         is_marts = "--exclude" in command
@@ -130,8 +131,9 @@ def fake_dbt(fail_on=None, stdout="", seen=None):
         stage = "marts" if is_marts else "kpi" if is_kpi else "record" if is_record else None
         if seen is not None and stage:
             seen.append((stage, list(command)))
-        if stage and stage == fail_on:
-            raise subprocess.CalledProcessError(1, command, output=stdout, stderr="")
+        failing = fail_on if isinstance(fail_on, dict) else {fail_on: stdout}
+        if stage and stage in failing:
+            raise subprocess.CalledProcessError(1, command, output=failing[stage], stderr="")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
     return run
 
@@ -150,7 +152,7 @@ def test_run_dbt_partial_failure_is_recorded_but_still_returns_true(ingest, monk
     assert outcome["ok"] is True and outcome["partial"] is True
     assert outcome["failed_stage"] == "dbt"
     assert outcome["failed_models"] == ["public.agg_x"]
-    assert outcome["kpi_stage_ran"] is False     # stage 1 raised, so the kpi stage never started
+    assert outcome["kpi_stage_ran"] is True      # the guard: the tiles still rebuild (see the tests below)
 
 
 def test_run_dbt_partial_failure_in_the_kpi_stage(ingest, monkeypatch):
@@ -222,7 +224,7 @@ def test_main_closes_run_as_finished_with_errors_on_partial_dbt_failure(main_env
     assert log.closed[0]["status"] == "finished_with_errors"
     assert log.closed[0]["failed_stage"] == "dbt"
     assert log.closed[0]["summary"]["failed_models"] == ["public.agg_x"]
-    assert log.closed[0]["summary"]["kpi_stage_ran"] is False
+    assert log.closed[0]["summary"]["kpi_stage_ran"] is True
 
 
 def test_main_closes_run_as_failed_when_dbt_fails(main_env, monkeypatch):
@@ -337,3 +339,49 @@ def test_a_failing_record_model_leaves_the_run_succeeded(main_env, monkeypatch):
     assert log.closed[0]["summary"]["kpi_stage_ran"] is True
     assert log.closed[0]["summary"]["record_models_built"] is False
     assert log.closed[0]["summary"]["failed_models"] == []     # the tiles' models did not fail
+
+
+# ---- guard: one failed model must not hold back the tiles ----
+# Before this guard, a model that errored in the marts stage ended run_dbt there: dbt exits 1, the
+# "some failed, some passed" branch returned True, and the kpi stage never ran, so the tiles stopped
+# refreshing while every run reported success. Now the kpi stage still runs after a partial marts
+# failure. Nothing about what any model calculates changes; a hard failure still stops the run.
+
+def test_partial_marts_failure_still_rebuilds_the_tiles(ingest, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(fail_on="marts", stdout=DBT_PARTIAL, seen=seen))
+    assert ingest.run_dbt() is True
+    assert [name for name, _ in seen] == ["marts", "kpi"]
+    outcome = ingest.LAST_DBT_OUTCOME
+    assert outcome["ok"] is True and outcome["partial"] is True
+    assert outcome["failed_stage"] == "dbt"
+    assert outcome["failed_models"] == ["public.agg_x"]
+    assert outcome["kpi_stage_ran"] is True
+
+
+def test_hard_marts_failure_still_stops_before_the_tiles(ingest, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(fail_on="marts", stdout="Compilation Error", seen=seen))
+    assert ingest.run_dbt() is False
+    assert [name for name, _ in seen] == ["marts"]
+    assert ingest.LAST_DBT_OUTCOME["kpi_stage_ran"] is False
+
+
+def test_kpi_failure_after_a_partial_marts_failure_fails_the_run(ingest, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ingest.subprocess, "run",
+                        fake_dbt(fail_on={"marts": DBT_PARTIAL, "kpi": "Database Error"}, seen=seen))
+    assert ingest.run_dbt() is False                 # the tiles did not rebuild: that is a failed run
+    outcome = ingest.LAST_DBT_OUTCOME
+    assert outcome["ok"] is False
+    assert outcome["failed_stage"] == "dbt-kpi"
+    assert outcome["failed_models"] == ["public.agg_x"]     # the marts failure is still on record
+
+
+def test_main_reports_a_partial_marts_failure_with_the_tiles_rebuilt(main_env, monkeypatch):
+    ingest, log = main_env
+    monkeypatch.setattr(ingest.subprocess, "run", fake_dbt(fail_on="marts", stdout=DBT_PARTIAL))
+    ingest.main()
+    assert log.closed[0]["status"] == "finished_with_errors"
+    assert log.closed[0]["summary"]["failed_models"] == ["public.agg_x"]
+    assert log.closed[0]["summary"]["kpi_stage_ran"] is True
