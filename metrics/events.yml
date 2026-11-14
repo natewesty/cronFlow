@@ -1,0 +1,49 @@
+- date: '2026-11-10'
+  change: Tock loading fixed to read every file of Tock's nightly export. Since 2026-09-21 it had been re-reading
+    one file that Tock no longer updated.
+  effect: 1,911 missing reservations restored. October 2026 Tock revenue rose from $152,162 to $233,378; guest and
+    reservation counts for the same period rose with it.
+  metrics:
+  - tasting-room-fees-revenue
+  - wine-club-fees-revenue
+  - event-fees-reservations-revenue
+  - tasting-room-total-revenue
+  - wine-club-total-revenue
+  - event-fees-total-revenue
+  - total-daily-revenue
+  - total-reservations
+  - total-visitors
+  - avg-party-size
+  - tasting-room-guests
+  - event-guests
+  - avg-tasting-fee-per-guest
+  - tasting-room-orders-per-guest-pct
+  - club-conversion-per-taster-pct
+  - tasting-room-bottles-sold
+- date: '2026-11-04'
+  change: Orders from customers on an excluded-customer list are removed from every order-based number. The list
+    was added, at Sales' request, for one customer's weekly payments rung through the point of sale from 2026-11-02.
+  effect: Lower by those payments ($5,000 a week when the change was made). Nothing else moved.
+  metrics:
+  - tasting-room-wine-revenue
+  - tasting-room-total-revenue
+  - wine-club-orders-revenue
+  - wine-club-total-revenue
+  - ecomm-revenue
+  - phone-revenue
+  - event-fees-orders-revenue
+  - event-fees-total-revenue
+  - event-wine-revenue
+  - shipping-revenue
+  - total-daily-revenue
+  - total-9l-sold
+  - total-orders
+  - average-order-value
+  - tasting-room-orders
+  - tasting-room-bottles-sold
+  - tasting-room-orders-per-guest-pct
+- date: '2026-07-01'
+  change: Fiscal year changed to start in January (it had started in July).
+  effect: Quarter-to-date, year-to-date and prior-year totals moved to the new boundaries. Daily values did not
+    change.
+  metrics: all

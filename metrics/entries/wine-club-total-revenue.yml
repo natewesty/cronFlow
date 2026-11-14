@@ -1,0 +1,19 @@
+id: wine-club-total-revenue
+name: Wine Club Total Revenue
+kpi_id: 6
+group: Wine Club
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Wine Club"
+summary: Club channel orders plus Tock revenue from experiences assigned to the Club.
+calculation:
+- Add Wine Club Orders Revenue and Wine Club Fees Revenue for the same day.
+includes:
+- Whatever its two parts include
+excludes:
+- Whatever its two parts leave out
+counted_on: 'Each part keeps its own day: the paid date for orders, the visit date for Tock experiences.'
+sources:
+- metric:wine-club-orders-revenue
+- metric:wine-club-fees-revenue
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql

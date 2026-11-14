@@ -1,0 +1,20 @@
+id: tasting-room-orders-per-guest-pct
+name: Tasting Room Orders Per Guest %
+kpi_id: 21
+group: Tasting Room
+shown_on: Sales Metrics & Tracking dashboard, Tasting Room table, "Taster Conversion"
+summary: Tasting room orders as a share of tasting room guests.
+calculation:
+- 'Uses two other numbers: Tasting Room Orders and Tasting Room Guests.'
+- The dashboard divides orders by guests over the period shown (see On screen).
+includes:
+- Whatever Tasting Room Orders and Tasting Room Guests include
+excludes:
+- Whatever Tasting Room Orders and Tasting Room Guests leave out
+counted_on: Orders on the day they were paid; guests on the day of their visit.
+sources:
+- metric:tasting-room-orders
+- metric:tasting-room-guests
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql

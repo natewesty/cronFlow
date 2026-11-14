@@ -1,0 +1,19 @@
+id: new-member-acquisition
+name: New Member Acquisition
+kpi_id: 24
+group: Membership
+shown_on: Sales Metrics & Tracking dashboard, Membership table, "New Members Acquired"
+summary: Club memberships by the day they signed up.
+calculation:
+- Take every club membership in Commerce7.
+- Count them by signup date.
+includes:
+- 'Counts memberships, not people: a customer with two memberships counts twice.'
+- Memberships that have since been cancelled
+excludes: []
+counted_on: The signup date, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql

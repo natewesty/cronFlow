@@ -1,0 +1,42 @@
+id: tasting-room-wine-revenue
+name: Tasting Room Wine Revenue
+kpi_id: 1
+group: Tasting Room
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Tasting Room Wine"
+summary: Sales rung up at the tasting room's point of sale, other than Tock orders, tasting lounge sales and event
+  sales.
+calculation:
+- Take every Commerce7 order that has been paid.
+- Keep orders made at the point of sale (channel POS).
+- Leave out orders that came from Tock.
+- Leave out orders whose Tasting Lounge tag is set to true.
+- Leave out orders that carry an Event Fee or Wine tag, are marked as an event-specific sale, or have an event revenue
+  realization date.
+- 'The amount is the order subtotal as Commerce7 reports it: the products on the order, before sales tax, shipping
+  and tips.'
+- Add them up by day.
+includes:
+- Everything on the order, not only wine
+- 'Refunds: a refund is its own order with a negative amount, counted on the day the refund was paid'
+excludes:
+- Sales tax, shipping and tips
+- Orders from customers on the pipeline's excluded-customer list
+- Orders that came from Tock (tasting fees are counted from Tock's own data)
+- Tasting lounge sales and event sales, as tagged on the order
+counted_on: The day the order was paid, in Pacific time.
+sources:
+- Commerce7
+will_not_match:
+- figure: Commerce7 order totals
+  direction: higher
+  reason: An order's total includes sales tax and shipping; the dashboard counts the subtotal only.
+- figure: Commerce7 reports by order submitted date
+  direction: differs
+  reason: The dashboard counts an order on the day it was paid.
+history:
+- date: '2025-10-20'
+  change: 'The event rules changed: an order whose Event-Specific Sale tag is "false" or "0" now counts as a tasting
+    room sale, and an order with an event revenue realization date no longer does.'
+  effect: Moved orders in both directions, depending on how each was tagged.
+models:
+- models/kpi/agg_kpi_dashboard.sql

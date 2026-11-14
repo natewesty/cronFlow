@@ -26,6 +26,13 @@ from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from sqlalchemy.pool import QueuePool
 import numpy as np
 
+import pipeline_runlog
+
+try:
+    from metrics import publish as record_publish, walk as record_walk
+except Exception as _record_import_error:      # the Calculation Record must never stop the pipeline
+    record_publish = record_walk = None
+
 load_dotenv()
 
 # Configure logging with more detailed format
@@ -802,9 +809,17 @@ def test_database_connection():
 
 def main(endpoint: str = None):
     """Main ingestion function."""
+    # Run log: full runs only. Every call below swallows its own errors, so the log can never fail a run.
+    run_engine, run_id = None, None
     try:
         # Load and validate environment variables
         load_environment()
+
+        if endpoint is None:
+            run_engine = _run_log_engine()
+            run_id = pipeline_runlog.open_run(run_engine) if run_engine is not None else None
+            # Publish the Calculation Record before anything can fail, so it is present even if dbt is not.
+            pipeline_runlog.update_summary(run_engine, run_id, {"record_published": _publish_record(run_engine)})
         
         # Initialize clients based on available credentials
         clients = {}
@@ -885,18 +900,98 @@ def main(endpoint: str = None):
         
         # Run dbt models after successful data ingestion
         logger.info("Starting dbt transformation pipeline...")
-        if run_dbt():
+        dbt_ok = run_dbt()
+        outcome = LAST_DBT_OUTCOME
+        dbt_summary = {"failed_models": outcome["failed_models"], "kpi_stage_ran": outcome["kpi_stage_ran"]}
+        if dbt_ok:
+            dbt_summary["record_models_built"] = build_record_models()
+        if dbt_ok and endpoint is None:
+            # dbt tests do not run here, so check that the Tock walk still ends at the dashboard's value.
+            pipeline_runlog.update_summary(run_engine, run_id, {"walk_check": _check_walk(run_engine)})
+        if dbt_ok:
             logger.info("🎉 Complete pipeline (ingestion + dbt) finished successfully!")
+            if outcome["partial"]:
+                pipeline_runlog.close_run(run_engine, run_id, "finished_with_errors",
+                                          failed_stage=outcome["failed_stage"], error=outcome["error"],
+                                          summary=dbt_summary)
+            else:
+                pipeline_runlog.close_run(run_engine, run_id, "succeeded", summary=dbt_summary)
         else:
             logger.error("❌ dbt run failed, but data ingestion was successful")
+            pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage=outcome["failed_stage"] or "dbt",
+                                      error=outcome["error"], summary=dbt_summary)
             sys.exit(1)
         
     except Exception as e:
         logger.error(f"Error during data ingestion: {str(e)}", exc_info=True)  # Added exc_info for full traceback
+        pipeline_runlog.close_run(run_engine, run_id, "failed", failed_stage="ingest", error=str(e))
         sys.exit(1)
+
+
+def _is_partial_dbt_failure(stdout) -> bool:
+    """dbt ran, and some models failed while others passed (its summary line carries both)."""
+    return "ERROR" in str(stdout) and "PASS=" in str(stdout)
+
+
+def build_record_models() -> bool:
+    """Build the Calculation Record's own dbt models, after the tiles. Best effort: never raises, and
+    its outcome changes nothing about the run except one line in the run log."""
+    try:
+        dir_args = ['--profiles-dir', '.', '--project-dir', '.'] if os.getenv('RENDER') == 'true' else []
+        command = ['dbt', 'run'] + dir_args + ['--select', RECORD_MODELS]
+        logger.info(f"🔄 Building Calculation Record models: {' '.join(command)}")
+        subprocess.run(command, capture_output=True, text=True, check=True, env=os.environ.copy())
+        return True
+    except subprocess.CalledProcessError as error:
+        logger.warning(f"Calculation Record models did not build (dbt exited {error.returncode}): {error.stdout}")
+        return False
+    except Exception as error:
+        logger.warning(f"Calculation Record models did not build ({error})")
+        return False
+
+
+def _publish_record(engine) -> bool:
+    """Publish the Calculation Record; never raises."""
+    try:
+        return record_publish.publish(engine, record_publish.build_payload(), os.getenv("RENDER_GIT_COMMIT"))
+    except Exception as error:
+        logger.warning(f"Calculation record: could not publish ({error}); the run continues")
+        return False
+
+
+def _check_walk(engine):
+    """Whether the Tock walk ties to the dashboard, or None if that could not be checked; never raises."""
+    try:
+        return record_walk.check_walk(engine)
+    except Exception as error:
+        logger.warning(f"Tock walk check could not run ({error})")
+        return None
+
+
+def _run_log_engine():
+    """An engine for the run log, or None if one cannot be made; never raises."""
+    try:
+        return create_database_engine()
+    except Exception as error:
+        logger.warning(f"Run log: no database engine ({error}); the run continues unlogged")
+        return None
+
+# dbt selector for the models that exist only for the Calculation Record page (see build_record_models).
+RECORD_MODELS = 'tag:calculation_record'
+
+# How the last run_dbt() call ended, for the run log. run_dbt()'s return value is unchanged: it still
+# reports a partly failed dbt run as success; `partial` is how main() tells the two apart.
+LAST_DBT_OUTCOME = {"ok": False, "partial": False, "failed_stage": None, "failed_models": [],
+                    "kpi_stage_ran": False, "error": None}
+
 
 def run_dbt():
     """Run dbt models after successful data ingestion."""
+    global LAST_DBT_OUTCOME
+    outcome = {"ok": False, "partial": False, "failed_stage": None, "failed_models": [],
+               "kpi_stage_ran": False, "error": None}
+    LAST_DBT_OUTCOME = outcome
+    stage = 'dbt'
     try:
         logger.info("🔄 Starting dbt run...")
         
@@ -914,11 +1009,13 @@ def run_dbt():
         logger.info(f"Checking dbt project file: {dbt_project_path}")
         if not dbt_project_path.exists():
             logger.error(f"❌ dbt_project.yml not found at {dbt_project_path}")
+            outcome.update(failed_stage=stage, error="dbt_project.yml not found")
             return False
             
         logger.info(f"Checking profiles file: {profiles_path}")
         if not profiles_path.exists():
             logger.error(f"❌ profiles.yml not found at {profiles_path}")
+            outcome.update(failed_stage=stage, error="profiles.yml not found")
             return False
         
         # List directory contents for debugging
@@ -980,27 +1077,44 @@ def run_dbt():
         # Run dbt in stages to ensure proper build order
         logger.info("🔄 Step 2: Building staging and marts models...")
         base_command = ['dbt', 'run'] + base_dir_args + full_refresh_args
-        stage1_command = base_command + ['--exclude', 'kpi.*']
+        # The Calculation Record's own models are built after the tiles, by build_record_models():
+        # a model that errors here would stop the kpi stage from running at all.
+        stage1_command = base_command + ['--exclude', 'kpi.*', RECORD_MODELS]
         logger.info(f"🔄 Executing command: {' '.join(stage1_command)}")
         
-        result1 = subprocess.run(
-            stage1_command,
-            capture_output=True,
-            text=True,
-            check=True,
-            env=os.environ.copy()
-        )
-        
-        logger.info("✅ Step 2 completed - marts built successfully")
-        logger.debug(f"dbt output: {result1.stdout}")
-        
-        if result1.stderr:
-            logger.warning(f"dbt stderr: {result1.stderr}")
+        marts_failures = []
+        try:
+            result1 = subprocess.run(
+                stage1_command,
+                capture_output=True,
+                text=True,
+                check=True,
+                env=os.environ.copy()
+            )
+            logger.info("✅ Step 2 completed - marts built successfully")
+            logger.debug(f"dbt output: {result1.stdout}")
+            if result1.stderr:
+                logger.warning(f"dbt stderr: {result1.stderr}")
+        except subprocess.CalledProcessError as marts_error:
+            # Guard: one failed model must not hold back the tiles. When some marts models failed and
+            # others passed, carry on to the kpi stage (the failed model's table keeps its last good
+            # contents, so the tiles rebuild from that). Before, the run ended here, reported success,
+            # and the kpi stage never ran. Any other failure is handled below exactly as before.
+            if not _is_partial_dbt_failure(marts_error.stdout):
+                raise
+            marts_failures = pipeline_runlog.parse_dbt_outcome(marts_error.stdout)["failed_models"]
+            logger.warning(f"⚠️ dbt marts stage finished with errors in: {', '.join(marts_failures) or 'unknown models'}")
+            logger.warning("   Continuing to the KPI stage so the dashboard tiles still rebuild")
+            logger.error(f"dbt stdout: {marts_error.stdout}")
+            outcome.update(partial=True, failed_stage=stage, failed_models=marts_failures,
+                           error=f"dbt exited {marts_error.returncode}")
         
         # Run KPI models after marts are built
         logger.info("🔄 Step 3: Building KPI models...")
         stage2_command = base_command + ['--select', 'kpi.*']
         logger.info(f"🔄 Executing command: {' '.join(stage2_command)}")
+        stage = 'dbt-kpi'
+        outcome["kpi_stage_ran"] = True
         
         result2 = subprocess.run(
             stage2_command,
@@ -1016,12 +1130,16 @@ def run_dbt():
         if result2.stderr:
             logger.warning(f"dbt stderr: {result2.stderr}")
         
+        outcome["ok"] = True
         return True
         
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ dbt run failed with exit code {e.returncode}")
         logger.error(f"dbt stdout: {e.stdout}")
         logger.error(f"dbt stderr: {e.stderr}")
+        outcome.update(failed_stage=stage, error=f"dbt exited {e.returncode}",
+                       failed_models=outcome["failed_models"]
+                       + pipeline_runlog.parse_dbt_outcome(e.stdout)["failed_models"])
         
         # Provide specific guidance for different error types
         if is_render and "profiles-dir" in str(e.stderr):
@@ -1040,21 +1158,24 @@ def run_dbt():
             logger.error("   2. Incorrect unique_key configuration in dbt models")
             logger.error("   3. Need to update model unique_key to handle multiple rows")
             logger.error("   Check the failing models and update their unique_key configuration")
-        elif "ERROR" in str(e.stdout) and "PASS=" in str(e.stdout):
+        elif _is_partial_dbt_failure(e.stdout):
             # Partial success - some models failed but others succeeded
             logger.warning("⚠️ dbt completed with some errors but partial success")
             logger.warning("   This is often acceptable for incremental models with data issues")
             logger.warning("   Consider this a successful run unless critical models failed")
+            outcome.update(ok=True, partial=True)
             return True  # Treat partial success as success
         
         return False
     except FileNotFoundError:
         logger.error("❌ dbt command not found. Please ensure dbt is installed and available in PATH")
+        outcome.update(failed_stage=stage, error="dbt command not found")
         if is_render:
             logger.error("💡 In Render, make sure dbt is listed in your requirements.txt or build script")
         return False
     except Exception as e:
         logger.error(f"❌ Unexpected error during dbt run: {str(e)}")
+        outcome.update(failed_stage=stage, error=str(e))
         return False
 
 def cleanup_duplicate_records(table_name: str):

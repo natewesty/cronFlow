@@ -1,0 +1,22 @@
+id: avg-tasting-fee-per-guest
+name: Avg Tasting Fee Per Guest
+kpi_id: 20
+group: Tasting Room
+shown_on: Sales Metrics & Tracking dashboard, Tasting Room table, "Average Tasting Fee"
+summary: For each day, Tock revenue divided by Tock guests.
+calculation:
+- Take every Tock reservation that was not cancelled, of every experience.
+- For each day of visit, add up the revenue (net amount paid minus the Tock and card processor fees on the first
+  payment) and add up the party sizes.
+- Divide the day's revenue by the day's guests.
+includes:
+- Every experience, whatever its assignment in Plan Inputs, in both the revenue and the guest count
+- Sales tax, service charge and order fees, as in the Tock revenue tiles
+excludes:
+- Cancelled reservations
+counted_on: The day of the visit (the reservation date).
+sources:
+- Tock
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql

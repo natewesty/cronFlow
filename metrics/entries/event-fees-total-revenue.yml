@@ -1,0 +1,19 @@
+id: event-fees-total-revenue
+name: Event Fees Total Revenue
+kpi_id: 11
+group: Events
+shown_on: Sales Metrics & Tracking dashboard, Sales Revenue table, "Event Fees"
+summary: Event fees from Commerce7 orders plus Tock revenue from experiences assigned to Events.
+calculation:
+- Add Event Fees Orders Revenue and Event Fees Reservations Revenue for the same day.
+includes:
+- Whatever its two parts include
+excludes:
+- Whatever its two parts leave out
+counted_on: 'Each part keeps its own day: the realization or paid date for orders, the visit date for Tock experiences.'
+sources:
+- metric:event-fees-orders-revenue
+- metric:event-fees-reservations-revenue
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql

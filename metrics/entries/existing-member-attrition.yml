@@ -1,0 +1,19 @@
+id: existing-member-attrition
+name: Member Attrition
+kpi_id: 25
+group: Membership
+shown_on: Sales Metrics & Tracking dashboard, Membership table, "Existing Member Attrition"
+summary: Club memberships by the day they were cancelled.
+calculation:
+- Take every club membership in Commerce7 that has a cancel date.
+- Count them by cancel date.
+includes:
+- 'Counts memberships, not people: a customer with two memberships counts twice.'
+excludes:
+- Cancelled memberships with no cancel date
+counted_on: The cancel date, in Pacific time.
+sources:
+- Commerce7
+history: []
+models:
+- models/kpi/agg_kpi_dashboard.sql
